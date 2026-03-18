@@ -95,7 +95,7 @@ ALMA runs on free infrastructure. You can deploy your own instance in under 30 m
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/alma.git
+git clone https://github.com/mauriciompj/alma.git
 cd alma
 
 # 2. Install dependencies
@@ -228,6 +228,6 @@ ALMA gives you the tools to make sure they're never lost.
 ---
 
 <p align="center">
-  Built with love by <a href="https://github.com/YOUR_USERNAME">Maurício Maciel Pereira Júnior</a><br>
+  Built with love by <a href="https://github.com/mauriciompj">Maurício Maciel Pereira Júnior</a><br>
   Police Chief. Father of three. Patch that fixed the broken code.
 </p>

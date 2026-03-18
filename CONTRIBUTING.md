@@ -35,7 +35,7 @@ Open an issue tagged `feature-request`. Describe the use case — the *why* matt
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/alma.git
+git clone https://github.com/mauriciompj/alma.git
 cd alma
 
 # Install dependencies
