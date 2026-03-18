@@ -26,7 +26,7 @@ It's not a chatbot. It's not a memorial page. It's a living archive of who you a
 
 ALMA was built by a father.
 
-Maurício grew up with an alcoholic, absent father in Brazil. He broke the cycle. Became a police chief. Raised three sons — Noah, Nathan, and Isaac — with the kind of presence he never received.
+Maurício grew up with absent father in Brazil. He broke the cycle. Became a police chief. Raised three sons — Noah, Nathan, and Isaac — with the kind of presence he never received.
 
 But presence has an expiration date. So he started writing. Over 16 months, he produced 74 documents — more than 100,000 words — documenting everything: his values, his mistakes, his faith, his fears, what he learned about love, about pain, about being a man. Raw. Unfiltered. Real.
 
