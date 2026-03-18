@@ -95,7 +95,7 @@ O ALMA roda em infraestrutura gratuita. Você pode deployar sua instância em me
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/SEU_USUARIO/alma.git
+git clone https://github.com/mauriciompj/alma.git
 cd alma
 
 # 2. Instale as dependências
@@ -228,6 +228,6 @@ O ALMA te dá as ferramentas pra garantir que eles nunca se percam.
 ---
 
 <p align="center">
-  Feito com amor por <a href="https://github.com/SEU_USUARIO">Maurício Maciel Pereira Júnior</a><br>
+  Feito com amor por <a href="https://github.com/mauriciompj">Maurício Maciel Pereira Júnior</a><br>
   Delegado de Polícia. Pai de três. O patch que corrigiu o código quebrado.
 </p>
