@@ -26,3 +26,6 @@ npm-debug.log*
 
 # Sensitive files
 SENHAS_USUARIOS.txt
+
+# Personal data (reports, private documents)
+data/*.txt
