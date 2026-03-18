@@ -26,7 +26,7 @@ Não é um chatbot. Não é uma página memorial. É um arquivo vivo de quem voc
 
 O ALMA foi construído por um pai.
 
-Maurício cresceu com um pai alcoólatra e ausente no Brasil. Quebrou o ciclo. Virou delegado de polícia. Criou três filhos — Noah, Nathan e Isaac — com a presença que ele nunca recebeu.
+Maurício cresceu com um pai ausente. Quebrou o ciclo. Virou delegado de polícia. Criou três filhos — Noah, Nathan e Isaac — com a presença que ele nunca recebeu.
 
 Mas presença tem prazo de validade. Então ele começou a escrever. Em 16 meses, produziu 74 documentos — mais de 100 mil palavras — registrando tudo: seus valores, seus erros, sua fé, seus medos, o que aprendeu sobre amor, sobre dor, sobre ser homem. Cru. Sem filtro. Real.
 
