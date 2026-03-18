@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "code": "en",
+    "name": "English",
+    "direction": "ltr"
+  },
+
+  "app": {
+    "title": "ALMA",
+    "subtitle": "Your father's voice, preserved in time",
+    "description": "Emotional legacy archive"
+  },
+
+  "login": {
+    "pageTitle": "ALMA — Sign In",
+    "nameLabel": "Your name",
+    "namePlaceholder": "Enter your name",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "submitButton": "Sign In",
+    "submitting": "Signing in...",
+    "hint": "Each person has their own private access to ALMA.",
+    "errorConnection": "Connection error. Please try again.",
+    "errorGeneric": "Login failed"
+  },
+
+  "chat": {
+    "placeholderChild": "Ask your father something...",
+    "placeholderOther": "Ask {authorName} something...",
+    "placeholderCustom": {
+      "brother": "Ask your brother...",
+      "mother": "Ask your son..."
+    },
+    "memoriesConsulted": "{count} memories consulted",
+    "connectionError": "Couldn't respond right now. Please try again.",
+    "charCount": "{current}/{max}",
+    "suggestions": {
+      "values": "What do you value most in life?",
+      "hardTimes": "How do you deal with hard times?",
+      "love": "What do you think about love and relationships?",
+      "whyAlma": "Why did you create ALMA?"
+    }
+  },
+
+  "welcome": {
+    "child": "Hey, {name}. I know you might be reading this years from now, and maybe I'm not around to answer in person anymore. That's why I built this — so you can ask me anything you want. About life, about who I was, about what I thought was right or wrong, about what to do when things get hard. I'm here. What do you want to know?",
+    "other": "Hey, {name}. This is ALMA — {authorName}'s emotional legacy archive. Here are the words, values, and memories he wanted to leave behind. Feel free to ask anything."
+  },
+
+  "correction": {
+    "title": "Correct / New directive",
+    "originalLabel": "Original response:",
+    "inputLabel": "What's wrong? Or what directive do you want to add?",
+    "inputPlaceholder": "E.g.: Don't compare Noah with his brothers. Or: That response was too cold, speak with more warmth...",
+    "analyzeButton": "Analyze",
+    "analyzing": "Analyzing...",
+    "analyzingAI": "Analyzing with AI...",
+    "saveButton": "Save",
+    "saving": "Saving...",
+    "cancelButton": "Cancel",
+    "correctButton": "Correct",
+    "classifyFailed": "Couldn't classify. Choose manually:",
+    "networkError": "Network error. Choose manually:",
+    "savedCorrection": "Correction saved! Future responses will take this into account.",
+    "savedDirective": "Directive ({scope}) saved! ALMA will follow it from now on.",
+    "saveError": "Connection error. Please try again.",
+    "types": {
+      "correction": "Correction",
+      "directiveIndividual": "Individual directive",
+      "directiveGlobal": "Global directive"
+    },
+    "refinedText": "Refined text:"
+  },
+
+  "directives": {
+    "panelTitle": "Directives for {name}",
+    "loading": "Loading...",
+    "empty": "No directives yet.",
+    "loadError": "Failed to load",
+    "removeConfirm": "Remove this directive?",
+    "addPlaceholder": "New directive...",
+    "addButton": "Add",
+    "global": "Global"
+  },
+
+  "labels": {
+    "father": "Dad",
+    "authorName": "Maurício"
+  }
+}

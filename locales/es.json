@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "code": "es",
+    "name": "Español",
+    "direction": "ltr"
+  },
+
+  "app": {
+    "title": "ALMA",
+    "subtitle": "La voz de tu padre, guardada en el tiempo",
+    "description": "Archivo de legado emocional"
+  },
+
+  "login": {
+    "pageTitle": "ALMA — Iniciar sesión",
+    "nameLabel": "Tu nombre",
+    "namePlaceholder": "Escribe tu nombre",
+    "passwordLabel": "Contraseña",
+    "passwordPlaceholder": "Escribe tu contraseña",
+    "submitButton": "Entrar",
+    "submitting": "Entrando...",
+    "hint": "Cada persona tiene su propio acceso privado a ALMA.",
+    "errorConnection": "Error de conexión. Intenta de nuevo.",
+    "errorGeneric": "Error al iniciar sesión"
+  },
+
+  "chat": {
+    "placeholderChild": "Pregúntale algo a tu padre...",
+    "placeholderOther": "Pregúntale algo a {authorName}...",
+    "placeholderCustom": {
+      "brother": "Pregúntale a tu hermano...",
+      "mother": "Pregúntale a tu hijo..."
+    },
+    "memoriesConsulted": "{count} memorias consultadas",
+    "connectionError": "No pude responder ahora. Intenta de nuevo.",
+    "charCount": "{current}/{max}",
+    "suggestions": {
+      "values": "¿Qué es lo que más valoras en la vida?",
+      "hardTimes": "¿Cómo lidias con los momentos difíciles?",
+      "love": "¿Qué piensas sobre el amor y las relaciones?",
+      "whyAlma": "¿Por qué creaste ALMA?"
+    }
+  },
+
+  "welcome": {
+    "child": "Hola, {name}. Sé que tal vez estés leyendo esto dentro de unos años, quizás yo ya no esté para responderte en persona. Por eso creé esto — para que puedas preguntarme lo que quieras. Sobre la vida, sobre quién fui, sobre lo que consideré correcto o incorrecto, sobre qué hacer cuando las cosas se pongan difíciles. Estoy aquí. ¿Qué quieres saber?",
+    "other": "Hola, {name}. Este es ALMA — el archivo de legado emocional de {authorName}. Aquí están las palabras, los valores y las memorias que quiso dejar registradas. Pregunta lo que quieras."
+  },
+
+  "correction": {
+    "title": "Corregir / Nueva directriz",
+    "originalLabel": "Respuesta original:",
+    "inputLabel": "¿Qué está mal? ¿O qué directriz quieres agregar?",
+    "inputPlaceholder": "Ej: No compares a Noah con sus hermanos. O: Esa respuesta fue muy fría, habla con más calidez...",
+    "analyzeButton": "Analizar",
+    "analyzing": "Analizando...",
+    "analyzingAI": "Analizando con IA...",
+    "saveButton": "Guardar",
+    "saving": "Guardando...",
+    "cancelButton": "Cancelar",
+    "correctButton": "Corregir",
+    "classifyFailed": "No pude clasificar. Elige manualmente:",
+    "networkError": "Error de red. Elige manualmente:",
+    "savedCorrection": "¡Corrección guardada! Las próximas respuestas lo tendrán en cuenta.",
+    "savedDirective": "¡Directriz {scope} guardada! ALMA la seguirá a partir de ahora.",
+    "saveError": "Error de conexión. Intenta de nuevo.",
+    "types": {
+      "correction": "Corrección",
+      "directiveIndividual": "Directriz individual",
+      "directiveGlobal": "Directriz global"
+    },
+    "refinedText": "Texto refinado:"
+  },
+
+  "directives": {
+    "panelTitle": "Directrices para {name}",
+    "loading": "Cargando...",
+    "empty": "Ninguna directriz todavía.",
+    "loadError": "Error al cargar",
+    "removeConfirm": "¿Eliminar esta directriz?",
+    "addPlaceholder": "Nueva directriz...",
+    "addButton": "Agregar",
+    "global": "Global"
+  },
+
+  "labels": {
+    "father": "Papá",
+    "authorName": "Maurício"
+  }
+}

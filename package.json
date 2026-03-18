@@ -1,0 +1,17 @@
+{
+  "name": "alma-app",
+  "version": "3.0.0",
+  "description": "ALMA — A Voz do Pai. Sistema de legado emocional paternal com RAG + Neon DB.",
+  "private": true,
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Static site — no build step needed'",
+    "seed": "node db/run-seed.mjs"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

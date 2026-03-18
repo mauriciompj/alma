@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0D0D0D">
+  <meta name="description" content="ALMA — A voz do seu pai, guardada no tempo">
+  <title>ALMA — Entrar</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕊</text></svg>">
+</head>
+<body>
+  <main class="page-login">
+    <div class="login-container">
+
+      <!-- Header -->
+      <div class="alma-title">
+        <h1 class="alma-logo">ALMA</h1>
+        <div class="alma-divider"></div>
+        <div class="alma-author">Maurício Maciel Pereira Júnior</div>
+        <p class="alma-subtitle">A voz do seu pai, guardada no tempo</p>
+      </div>
+
+      <!-- Login Form -->
+      <form class="login-form" id="loginForm" autocomplete="off">
+        <div class="login-field">
+          <label for="loginUser">Seu nome</label>
+          <input type="text" id="loginUser" name="username" placeholder="Digite seu nome" autocomplete="off" required>
+        </div>
+        <div class="login-field">
+          <label for="loginPass">Senha</label>
+          <input type="password" id="loginPass" name="password" placeholder="Digite sua senha" autocomplete="off" required>
+        </div>
+        <div class="login-error" id="loginError"></div>
+        <button type="submit" class="login-btn" id="loginBtn">Entrar</button>
+      </form>
+
+      <p class="login-hint">Cada pessoa tem seu acesso privado ao ALMA.</p>
+    </div>
+  </main>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // Check if already logged in
+      var token = localStorage.getItem('alma_token');
+      if (token) {
+        verifyToken(token);
+      }
+
+      var form = document.getElementById('loginForm');
+      var errorEl = document.getElementById('loginError');
+      var btn = document.getElementById('loginBtn');
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        errorEl.textContent = '';
+        btn.disabled = true;
+        btn.textContent = 'Entrando...';
+
+        var username = document.getElementById('loginUser').value.trim();
+        var password = document.getElementById('loginPass').value;
+
+        fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', username: username, password: password })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            // Store session
+            localStorage.setItem('alma_token', data.token);
+            localStorage.setItem('alma_user', data.name);
+            localStorage.setItem('alma_type', data.type);
+            localStorage.setItem('alma_admin', data.admin ? '1' : '0');
+
+            // Also set sessionStorage for chat.html compatibility
+            sessionStorage.setItem('alma_filho', data.name);
+            sessionStorage.setItem('alma_tipo', data.type);
+
+            // Admin goes to dashboard, users go to chat
+            window.location.href = data.admin ? 'index.html' : 'chat.html';
+          } else {
+            errorEl.textContent = data.error || 'Erro ao entrar';
+            btn.disabled = false;
+            btn.textContent = 'Entrar';
+          }
+        })
+        .catch(function() {
+          errorEl.textContent = 'Erro de conexão. Tente novamente.';
+          btn.disabled = false;
+          btn.textContent = 'Entrar';
+        });
+      });
+
+      function verifyToken(tk) {
+        fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'verify', token: tk })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.valid) {
+            localStorage.setItem('alma_admin', data.admin ? '1' : '0');
+            sessionStorage.setItem('alma_filho', data.name);
+            sessionStorage.setItem('alma_tipo', data.type);
+            window.location.href = data.admin ? 'index.html' : 'chat.html';
+          } else {
+            // Token invalid/expired, clear and stay on login
+            localStorage.removeItem('alma_token');
+            localStorage.removeItem('alma_user');
+            localStorage.removeItem('alma_type');
+          }
+        })
+        .catch(function() {});
+      }
+    })();
+  </script>
+</body>
+</html>

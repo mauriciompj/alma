@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0D0D0D">
+  <meta name="description" content="ALMA — A voz do seu pai, guardada no tempo">
+  <title>ALMA — A Voz do Pai</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕊</text></svg>">
+</head>
+<body>
+  <main class="page-index" style="display:none" id="pageIndex">
+
+    <!-- Title + Admin Photo -->
+    <div class="alma-title">
+      <div class="alma-photo-wrapper" style="position:relative;display:inline-block;margin-bottom:12px;">
+        <div class="alma-admin-photo" id="photo-Alma" style="width:80px;height:80px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto;border:2px solid var(--accent);cursor:pointer;" title="Clique para trocar a foto do ALMA">
+          <span class="person-initial" style="font-family:var(--font-title);font-size:1.8rem;color:var(--accent);font-weight:700;">M</span>
+        </div>
+        <label class="photo-upload-btn" style="position:absolute;bottom:-2px;right:calc(50% - 52px);" title="Trocar foto do ALMA">
+          <input type="file" accept="image/*" id="almaPhotoInput" hidden>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </label>
+      </div>
+      <h1 class="alma-logo">ALMA</h1>
+      <div class="alma-divider"></div>
+      <div class="alma-author">Maurício Maciel Pereira Júnior</div>
+      <p class="alma-subtitle">A voz do seu pai, guardada no tempo</p>
+      <div class="alma-stats" id="almaStats"></div>
+    </div>
+
+    <!-- Section: Filhos -->
+    <div class="section-label">Filhos</div>
+    <div class="persons-grid" id="filhosGrid">
+
+      <!-- Noah -->
+      <div class="person-card" data-name="Noah" data-type="filho" role="button" tabindex="0">
+        <div class="person-photo-wrapper">
+          <div class="person-photo noah" id="photo-Noah">
+            <span class="person-initial">Noah</span>
+          </div>
+          <label class="photo-upload-btn" title="Trocar foto">
+            <input type="file" accept="image/*" class="photo-input" data-person="Noah" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </label>
+        </div>
+        <div class="person-info">
+          <h3>NOAH</h3>
+          <p>O primogenito, o desbravador</p>
+        </div>
+      </div>
+
+      <!-- Nathan -->
+      <div class="person-card" data-name="Nathan" data-type="filho" role="button" tabindex="0">
+        <div class="person-photo-wrapper">
+          <div class="person-photo nathan" id="photo-Nathan">
+            <span class="person-initial">Nathan</span>
+          </div>
+          <label class="photo-upload-btn" title="Trocar foto">
+            <input type="file" accept="image/*" class="photo-input" data-person="Nathan" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </label>
+        </div>
+        <div class="person-info">
+          <h3>NATHAN</h3>
+          <p>O escudo, a intensidade</p>
+        </div>
+      </div>
+
+      <!-- Isaac -->
+      <div class="person-card" data-name="Isaac" data-type="filho" role="button" tabindex="0">
+        <div class="person-photo-wrapper">
+          <div class="person-photo isaac" id="photo-Isaac">
+            <span class="person-initial">Isaac</span>
+          </div>
+          <label class="photo-upload-btn" title="Trocar foto">
+            <input type="file" accept="image/*" class="photo-input" data-person="Isaac" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </label>
+        </div>
+        <div class="person-info">
+          <h3>ISAAC</h3>
+          <p>A chama, o coracao</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Outros -->
+    <div class="section-label">Outros</div>
+    <div class="persons-grid" id="outrosGrid">
+
+      <!-- Chris -->
+      <div class="person-card" data-name="Chris" data-type="outro" role="button" tabindex="0">
+        <div class="person-photo-wrapper">
+          <div class="person-photo chris" id="photo-Chris">
+            <span class="person-initial">Chris</span>
+          </div>
+          <label class="photo-upload-btn" title="Trocar foto">
+            <input type="file" accept="image/*" class="photo-input" data-person="Chris" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </label>
+        </div>
+        <div class="person-info">
+          <h3>CHRIS</h3>
+          <p>Mae dos meninos</p>
+        </div>
+      </div>
+
+      <!-- Leslen -->
+      <div class="person-card" data-name="Leslen" data-type="outro" role="button" tabindex="0">
+        <div class="person-photo-wrapper">
+          <div class="person-photo leslen" id="photo-Leslen">
+            <span class="person-initial">Leslen</span>
+          </div>
+          <label class="photo-upload-btn" title="Trocar foto">
+            <input type="file" accept="image/*" class="photo-input" data-person="Leslen" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </label>
+        </div>
+        <div class="person-info">
+          <h3>LESLEN</h3>
+          <p>A mulher que me mostrou que eu ainda posso amar</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Família -->
+    <div class="section-label">Família</div>
+    <div class="persons-grid" id="familiaGrid">
+
+      <!-- Mãe - Nivalda -->
+      <div class="person-card" data-name="Nivalda" data-type="outro" role="button" tabindex="0">
+        <div class="person-photo-wrapper">
+          <div class="person-photo nivalda" id="photo-Nivalda">
+            <span class="person-initial">Nivalda</span>
+          </div>
+          <label class="photo-upload-btn" title="Trocar foto">
+            <input type="file" accept="image/*" class="photo-input" data-person="Nivalda" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </label>
+        </div>
+        <div class="person-info">
+          <h3>MÃEZINHA</h3>
+          <p>Nivalda — a base de tudo que sou</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="page-footer">
+      <p>Painel do Admin — escolha um usuario para conversar como ele</p>
+      <div class="nav-links">
+        <a href="admin.html">Banco de Dados</a>
+        <a href="sobre.html">Sobre</a>
+        <a href="#" id="btnLogoutIndex">Sair</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // Admin-only page
+      var token = localStorage.getItem('alma_token');
+      var isAdmin = localStorage.getItem('alma_admin') === '1';
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+      if (!isAdmin) {
+        // Normal users go straight to chat
+        window.location.href = 'chat.html';
+        return;
+      }
+      // Admin OK — show page
+      document.getElementById('pageIndex').style.display = '';
+
+      // --- Load DB stats ---
+      fetch('/.netlify/functions/memories?action=stats')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var el = document.getElementById('almaStats');
+          if (el && data.documents) {
+            var text = '<span>' + data.documents + ' documentos</span> · <span>' + data.chunks + ' memorias</span>';
+            if (data.corrections > 0) text += ' · <span>' + data.corrections + ' correcoes</span>';
+            el.innerHTML = text;
+          }
+        })
+        .catch(function() {});
+
+      // --- Load ALMA admin photo ---
+      fetch('/.netlify/functions/memories?action=get_config&key=photo_alma')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.value) {
+            setPhotoPreview('Alma', data.value);
+          }
+        })
+        .catch(function() {});
+
+      // --- ALMA photo upload ---
+      var almaPhotoInput = document.getElementById('almaPhotoInput');
+      if (almaPhotoInput) {
+        almaPhotoInput.addEventListener('change', function(e) {
+          var file = e.target.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function(ev) {
+            var img = new Image();
+            img.onload = function() {
+              var canvas = document.createElement('canvas');
+              var size = 150;
+              canvas.width = size;
+              canvas.height = size;
+              var ctx = canvas.getContext('2d');
+              var min = Math.min(img.width, img.height);
+              var sx = (img.width - min) / 2;
+              var sy = (img.height - min) / 2;
+              ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+              var base64 = canvas.toDataURL('image/jpeg', 0.7);
+              setPhotoPreview('Alma', base64);
+              fetch('/.netlify/functions/memories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_config', key: 'photo_alma', value: base64 })
+              });
+            };
+            img.src = ev.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+        almaPhotoInput.closest('.photo-upload-btn').addEventListener('click', function(e) {
+          e.stopPropagation();
+        });
+        // Also allow clicking the photo itself to trigger upload
+        document.getElementById('photo-Alma').addEventListener('click', function() {
+          almaPhotoInput.click();
+        });
+      }
+
+      // --- Load photos ---
+      ['Noah', 'Nathan', 'Isaac', 'Chris', 'Leslen', 'Nivalda'].forEach(function(name) {
+        fetch('/.netlify/functions/memories?action=get_config&key=photo_' + name)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.value) {
+              setPhotoPreview(name, data.value);
+            }
+          })
+          .catch(function() {});
+      });
+
+      // --- Photo upload ---
+      document.querySelectorAll('.photo-input').forEach(function(input) {
+        input.addEventListener('change', function(e) {
+          var file = e.target.files[0];
+          if (!file) return;
+          var person = input.getAttribute('data-person');
+
+          // Resize and convert to base64
+          var reader = new FileReader();
+          reader.onload = function(ev) {
+            var img = new Image();
+            img.onload = function() {
+              var canvas = document.createElement('canvas');
+              var size = 150;
+              canvas.width = size;
+              canvas.height = size;
+              var ctx = canvas.getContext('2d');
+
+              // Crop to square center
+              var min = Math.min(img.width, img.height);
+              var sx = (img.width - min) / 2;
+              var sy = (img.height - min) / 2;
+              ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+
+              var base64 = canvas.toDataURL('image/jpeg', 0.7);
+              setPhotoPreview(person, base64);
+
+              // Save to DB
+              fetch('/.netlify/functions/memories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_config', key: 'photo_' + person, value: base64 })
+              });
+            };
+            img.src = ev.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+
+        // Prevent card click when clicking upload button
+        input.closest('.photo-upload-btn').addEventListener('click', function(e) {
+          e.stopPropagation();
+        });
+      });
+
+      function setPhotoPreview(name, base64) {
+        var el = document.getElementById('photo-' + name);
+        if (el) {
+          el.style.backgroundImage = 'url(' + base64 + ')';
+          el.style.backgroundSize = 'cover';
+          el.style.backgroundPosition = 'center';
+          var initial = el.querySelector('.person-initial');
+          if (initial) initial.style.display = 'none';
+        }
+      }
+
+      // --- Person card click handlers ---
+      document.querySelectorAll('.person-card').forEach(function(card) {
+        function selectPerson() {
+          var name = card.getAttribute('data-name');
+          var type = card.getAttribute('data-type');
+          sessionStorage.setItem('alma_filho', name);
+          sessionStorage.setItem('alma_tipo', type);
+          sessionStorage.setItem('alma_admin_view', '1'); // admin impersonating
+          window.location.href = 'chat.html';
+        }
+
+        card.addEventListener('click', selectPerson);
+        card.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectPerson();
+          }
+        });
+      });
+
+      // --- Logout ---
+      document.getElementById('btnLogoutIndex').addEventListener('click', function(e) {
+        e.preventDefault();
+        localStorage.removeItem('alma_token');
+        localStorage.removeItem('alma_user');
+        localStorage.removeItem('alma_type');
+        localStorage.removeItem('alma_admin');
+        sessionStorage.clear();
+        window.location.href = 'login.html';
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALMA — Admin</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="admin-page">
+
+    <!-- Header -->
+    <header class="admin-header">
+      <a href="index.html" class="admin-back">&larr; ALMA</a>
+      <h1>Painel Admin</h1>
+      <div class="admin-stats" id="adminStats"></div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="admin-tabs">
+      <button class="tab active" data-tab="conhecimentos">Conhecimentos</button>
+      <button class="tab" data-tab="correcoes">Correcoes</button>
+      <button class="tab" data-tab="importar">Importar</button>
+      <button class="tab" data-tab="diretrizes">Diretrizes</button>
+      <button class="tab" data-tab="exportar">Exportar</button>
+    </nav>
+
+    <!-- Tab: Conhecimentos -->
+    <div class="tab-panel active" id="tab-conhecimentos">
+      <div class="admin-toolbar">
+        <div class="search-bar">
+          <input type="text" id="chunkSearch" placeholder="Buscar nos conhecimentos..." class="admin-input">
+          <select id="chunkCategory" class="admin-select">
+            <option value="">Todas categorias</option>
+          </select>
+          <button class="admin-btn" id="chunkSearchBtn">Buscar</button>
+        </div>
+        <button class="admin-btn admin-btn-accent" id="newChunkBtn">+ Novo conhecimento</button>
+      </div>
+
+      <div class="chunks-list" id="chunksList"></div>
+      <div class="pagination" id="chunksPagination"></div>
+    </div>
+
+    <!-- Tab: Correcoes -->
+    <div class="tab-panel" id="tab-correcoes">
+      <!-- Tone config -->
+      <div class="admin-tone-config">
+        <h3 class="admin-section-title">Tom e conteudo das respostas</h3>
+        <p class="admin-section-desc">Defina como o ALMA deve responder. Essas instrucoes tem prioridade alta no sistema.</p>
+        <textarea id="adminToneInput" class="admin-textarea" rows="4" maxlength="2000" placeholder="Ex: Fale com amor, sem vitimismo. O ALMA existe por legado, nao por medo. Eu amo ser pai..."></textarea>
+        <div class="admin-tone-footer">
+          <button class="admin-btn admin-btn-accent" id="adminToneSaveBtn">Salvar tom</button>
+          <span class="admin-tone-status" id="adminToneStatus"></span>
+        </div>
+      </div>
+
+      <h3 class="admin-section-title" style="margin-top:28px">Historico de correcoes</h3>
+      <div class="corrections-list" id="correctionsList"></div>
+    </div>
+
+    <!-- Tab: Importar -->
+    <div class="tab-panel" id="tab-importar">
+      <div class="import-section">
+        <h3 class="import-title">Importar novo conhecimento</h3>
+        <p class="import-desc">Cole texto diretamente ou envie um arquivo .docx/.pdf. O conteudo sera minerado, dividido em pedacos e salvo no banco.</p>
+
+        <div class="import-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nome/Titulo do documento</label>
+              <input type="text" id="importTitle" class="admin-input" placeholder="Ex: Carta para Noah, Reflexao sobre fe...">
+            </div>
+            <div class="form-group">
+              <label>Categoria</label>
+              <select id="importCategory" class="admin-select">
+                <option value="legado_alma">legado_alma</option>
+                <option value="paternidade">paternidade</option>
+                <option value="valores">valores</option>
+                <option value="fe_espiritualidade">fe_espiritualidade</option>
+                <option value="amor">amor</option>
+                <option value="policia">policia</option>
+                <option value="patch">patch</option>
+                <option value="noah">noah</option>
+                <option value="nathan">nathan</option>
+                <option value="isaac">isaac</option>
+                <option value="chris">chris</option>
+                <option value="trauma">trauma</option>
+                <option value="suicidio">suicidio</option>
+                <option value="manual">manual</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Tags (separadas por virgula)</label>
+            <input type="text" id="importTags" class="admin-input" placeholder="Ex: paternidade, noah, legado">
+          </div>
+
+          <!-- File upload -->
+          <div class="import-file-area" id="importDropZone">
+            <div class="drop-icon">📄</div>
+            <p>Arraste um arquivo .docx ou .pdf aqui, ou clique para selecionar</p>
+            <input type="file" id="importFile" accept=".docx,.pdf,.txt,.md" hidden>
+            <div class="import-file-name" id="importFileName"></div>
+          </div>
+
+          <!-- Or text -->
+          <div class="import-divider">ou cole o texto abaixo</div>
+
+          <div class="form-group">
+            <label>Conteudo (texto completo)</label>
+            <textarea id="importContent" class="admin-textarea" rows="12" placeholder="Cole aqui o texto que deseja importar como conhecimento..."></textarea>
+          </div>
+
+          <div class="import-preview" id="importPreview" style="display:none">
+            <h4>Pre-visualizacao</h4>
+            <div class="import-preview-stats" id="importPreviewStats"></div>
+            <div class="import-preview-chunks" id="importPreviewChunks"></div>
+          </div>
+
+          <div class="import-actions">
+            <button class="admin-btn" id="importPreviewBtn">Pre-visualizar chunks</button>
+            <button class="admin-btn admin-btn-accent" id="importSaveBtn" disabled>Salvar no banco</button>
+          </div>
+
+          <div class="import-status" id="importStatus"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Diretrizes -->
+    <div class="tab-panel" id="tab-diretrizes">
+      <div class="directives-section">
+        <h3 class="admin-section-title">Diretrizes individuais</h3>
+        <p class="admin-section-desc">Cada diretriz e uma instrucao especifica de como o ALMA deve se comportar. Podem ser globais (todas as pessoas) ou individuais.</p>
+
+        <div class="directives-person-tabs" id="directivesTabs">
+          <button class="dir-tab active" data-person="_all">Todas</button>
+          <button class="dir-tab" data-person="_global">Global</button>
+          <button class="dir-tab" data-person="Noah">Noah</button>
+          <button class="dir-tab" data-person="Nathan">Nathan</button>
+          <button class="dir-tab" data-person="Isaac">Isaac</button>
+          <button class="dir-tab" data-person="Chris">Chris</button>
+          <button class="dir-tab" data-person="Leslen">Leslen</button>
+          <button class="dir-tab" data-person="Nivalda">Nivalda</button>
+        </div>
+
+        <!-- Add new directive form -->
+        <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:16px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+            <select id="newDirPerson" class="admin-select" style="min-width:120px;">
+              <option value="_global">Global</option>
+              <option value="Noah">Noah</option>
+              <option value="Nathan">Nathan</option>
+              <option value="Isaac">Isaac</option>
+              <option value="Chris">Chris</option>
+              <option value="Leslen">Leslen</option>
+              <option value="Nivalda">Nivalda</option>
+            </select>
+            <input type="text" id="newDirText" class="admin-input" style="flex:1;min-width:200px;" placeholder="Nova diretriz... Ex: Nunca compare Noah com os irmaos">
+            <button class="admin-btn admin-btn-accent" id="addDirBtn" style="white-space:nowrap;">+ Adicionar</button>
+          </div>
+        </div>
+
+        <!-- Directives list -->
+        <div id="directivesList" style="margin-top:16px;display:flex;flex-direction:column;gap:10px;"></div>
+
+        <!-- Migration button (one-time) -->
+        <div style="margin-top:24px;text-align:center;">
+          <button class="admin-btn" id="migrateDirBtn" style="font-size:0.75rem;opacity:0.6;">Migrar diretrizes antigas (texto unico - individuais)</button>
+          <span id="migrateStatus" style="font-size:0.75rem;color:var(--text-soft);margin-left:8px;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Exportar -->
+    <div class="tab-panel" id="tab-exportar">
+      <div class="import-section">
+        <h3 class="import-title">Exportar banco de dados</h3>
+        <p class="import-desc">Faca backup completo do seu banco ALMA. O arquivo JSON contera todos os conhecimentos, correcoes e configuracoes.</p>
+
+        <div class="export-cards" style="display:flex; flex-direction:column; gap:16px; margin-top:20px;">
+          <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px;">
+            <h4 style="color:var(--accent); margin:0 0 8px 0; font-size:1rem;">Backup completo (JSON)</h4>
+            <p style="color:var(--text-soft); font-size:0.85rem; margin:0 0 16px 0;">Exporta todos os chunks, correcoes e config em um unico arquivo JSON que pode ser re-importado.</p>
+            <button class="admin-btn admin-btn-accent" id="exportFullBtn" style="min-width:200px;">Exportar tudo</button>
+            <span id="exportStatus" style="color:var(--text-soft); font-size:0.8rem; margin-left:12px;"></span>
+          </div>
+
+          <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px;">
+            <h4 style="color:var(--accent); margin:0 0 8px 0; font-size:1rem;">Apenas conhecimentos (JSON)</h4>
+            <p style="color:var(--text-soft); font-size:0.85rem; margin:0 0 16px 0;">Exporta somente os chunks de conhecimento, sem correcoes ou config.</p>
+            <button class="admin-btn" id="exportChunksBtn" style="min-width:200px;">Exportar conhecimentos</button>
+            <span id="exportChunksStatus" style="color:var(--text-soft); font-size:0.8rem; margin-left:12px;"></span>
+          </div>
+        </div>
+
+        <div id="exportLog" style="margin-top:20px; font-size:0.8rem; color:var(--text-soft);"></div>
+      </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="admin-overlay" id="editOverlay">
+      <div class="admin-modal">
+        <div class="modal-header">
+          <h3 id="modalTitle">Editar conhecimento</h3>
+          <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Titulo</label>
+            <input type="text" id="editTitle" class="admin-input">
+          </div>
+          <div class="form-group">
+            <label>Categoria</label>
+            <input type="text" id="editCategory" class="admin-input">
+          </div>
+          <div class="form-group">
+            <label>Tags (separadas por virgula)</label>
+            <input type="text" id="editTags" class="admin-input">
+          </div>
+          <div class="form-group">
+            <label>Conteudo</label>
+            <textarea id="editContent" class="admin-textarea" rows="10"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="admin-btn" id="modalCancel">Cancelar</button>
+          <button class="admin-btn admin-btn-danger" id="modalDelete">Excluir</button>
+          <button class="admin-btn admin-btn-accent" id="modalSave">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF.js + Mammoth for client-side file extraction -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script>
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+
+  <script>
+  (function() {
+    'use strict';
+
+    const API = '/.netlify/functions/memories';
+    let currentChunkId = null;
+    let isNewChunk = false;
+
+    // --- Tabs ---
+    document.querySelectorAll('.admin-tabs .tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+        if (tab.dataset.tab === 'correcoes') { loadCorrections(); loadAdminTone(); }
+        if (tab.dataset.tab === 'importar') loadImportCategories();
+      });
+    });
+
+    // --- Load stats ---
+    fetch(API + '?action=stats').then(r => r.json()).then(function(data) {
+      document.getElementById('adminStats').textContent =
+        data.chunks + ' chunks · ' + data.documents + ' docs · ' + data.corrections + ' correcoes';
+    });
+
+    // --- Load categories ---
+    fetch(API + '?action=categories').then(r => r.json()).then(function(data) {
+      var sel = document.getElementById('chunkCategory');
+      data.categories.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.category;
+        opt.textContent = c.category + ' (' + c.chunks + ')';
+        sel.appendChild(opt);
+      });
+    });
+
+    // --- Chunks ---
+    var currentPage = 1;
+    function loadChunks(page) {
+      currentPage = page || 1;
+      var q = document.getElementById('chunkSearch').value.trim();
+      var cat = document.getElementById('chunkCategory').value;
+      var url = API + '?action=admin_chunks&page=' + currentPage + '&per_page=15';
+      if (q) url += '&q=' + encodeURIComponent(q);
+      if (cat) url += '&category=' + encodeURIComponent(cat);
+
+      document.getElementById('chunksList').innerHTML = '<div class="loading">Carregando...</div>';
+
+      fetch(url).then(r => r.json()).then(function(data) {
+        renderChunks(data.chunks, data.total);
+        renderPagination(data.page, data.totalPages);
+      }).catch(function() {
+        document.getElementById('chunksList').innerHTML = '<div class="loading">Erro ao carregar</div>';
+      });
+    }
+
+    function renderChunks(chunks, total) {
+      var el = document.getElementById('chunksList');
+      if (!chunks || chunks.length === 0) {
+        el.innerHTML = '<div class="loading">Nenhum resultado</div>';
+        return;
+      }
+
+      var html = '<div class="results-count">' + total + ' resultados</div>';
+      chunks.forEach(function(chunk) {
+        var preview = chunk.content.length > 200 ? chunk.content.substring(0, 200) + '...' : chunk.content;
+        var tags = chunk.tags ? chunk.tags.join(', ') : '';
+        html += '<div class="chunk-card" data-id="' + chunk.id + '">' +
+          '<div class="chunk-header">' +
+            '<span class="chunk-category">' + chunk.category + '</span>' +
+            '<span class="chunk-title">' + chunk.title + '</span>' +
+            '<span class="chunk-chars">' + chunk.char_count + ' chars</span>' +
+          '</div>' +
+          '<div class="chunk-preview">' + escapeHtml(preview) + '</div>' +
+          (tags ? '<div class="chunk-tags">' + escapeHtml(tags) + '</div>' : '') +
+          '<div class="chunk-actions">' +
+            '<button class="admin-btn-sm" onclick="editChunk(' + chunk.id + ')">Editar</button>' +
+          '</div>' +
+        '</div>';
+      });
+      el.innerHTML = html;
+    }
+
+    function renderPagination(page, totalPages) {
+      var el = document.getElementById('chunksPagination');
+      if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+      var html = '';
+      if (page > 1) html += '<button class="page-btn" onclick="loadChunks(' + (page-1) + ')">&laquo; Anterior</button>';
+      html += '<span class="page-info">Pagina ' + page + ' de ' + totalPages + '</span>';
+      if (page < totalPages) html += '<button class="page-btn" onclick="loadChunks(' + (page+1) + ')">Proxima &raquo;</button>';
+      el.innerHTML = html;
+    }
+
+    // Search
+    document.getElementById('chunkSearchBtn').addEventListener('click', function() { loadChunks(1); });
+    document.getElementById('chunkSearch').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') loadChunks(1);
+    });
+    document.getElementById('chunkCategory').addEventListener('change', function() { loadChunks(1); });
+
+    // --- Edit chunk ---
+    window.editChunk = function(id) {
+      isNewChunk = false;
+      currentChunkId = id;
+      document.getElementById('modalTitle').textContent = 'Editar conhecimento #' + id;
+      document.getElementById('modalDelete').style.display = '';
+
+      // Fetch chunk content
+      fetch(API + '?action=admin_chunks&q=&page=1&per_page=1').then(r => r.json()); // dummy
+      // Actually find the chunk in the current list
+      fetch(API + '?action=admin_chunks&page=1&per_page=1&q=').then(function() {
+        // Just get from DOM or re-fetch
+        var cards = document.querySelectorAll('.chunk-card');
+        // Better: fetch single chunk by searching
+      });
+
+      // Use search by ID approach - fetch all then find
+      var q = document.getElementById('chunkSearch').value.trim();
+      var cat = document.getElementById('chunkCategory').value;
+      var url = API + '?action=admin_chunks&page=' + currentPage + '&per_page=15';
+      if (q) url += '&q=' + encodeURIComponent(q);
+      if (cat) url += '&category=' + encodeURIComponent(cat);
+
+      fetch(url).then(r => r.json()).then(function(data) {
+        var chunk = data.chunks.find(function(c) { return c.id === id; });
+        if (chunk) {
+          document.getElementById('editTitle').value = chunk.title || '';
+          document.getElementById('editCategory').value = chunk.category || '';
+          document.getElementById('editTags').value = (chunk.tags || []).join(', ');
+          document.getElementById('editContent').value = chunk.content || '';
+          openModal();
+        }
+      });
+    };
+
+    // --- New chunk ---
+    document.getElementById('newChunkBtn').addEventListener('click', function() {
+      isNewChunk = true;
+      currentChunkId = null;
+      document.getElementById('modalTitle').textContent = 'Novo conhecimento';
+      document.getElementById('editTitle').value = '';
+      document.getElementById('editCategory').value = 'correcao';
+      document.getElementById('editTags').value = 'manual';
+      document.getElementById('editContent').value = '';
+      document.getElementById('modalDelete').style.display = 'none';
+      openModal();
+    });
+
+    // --- Save ---
+    document.getElementById('modalSave').addEventListener('click', function() {
+      var title = document.getElementById('editTitle').value.trim();
+      var category = document.getElementById('editCategory').value.trim();
+      var tags = document.getElementById('editTags').value.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+      var content = document.getElementById('editContent').value.trim();
+
+      if (!content || !title) { alert('Titulo e conteudo sao obrigatorios'); return; }
+
+      var body;
+      if (isNewChunk) {
+        body = { action: 'create_chunk', title: title, category: category, content: content, tags: tags };
+      } else {
+        body = { action: 'update_chunk', id: currentChunkId, title: title, category: category, content: content, tags: tags };
+      }
+
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(r => r.json()).then(function(data) {
+        if (data.success) {
+          closeModal();
+          loadChunks(currentPage);
+        } else {
+          alert('Erro: ' + (data.error || 'desconhecido'));
+        }
+      });
+    });
+
+    // --- Delete chunk ---
+    document.getElementById('modalDelete').addEventListener('click', function() {
+      if (!currentChunkId) return;
+      if (!confirm('Tem certeza que quer excluir este conhecimento?')) return;
+
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_chunk', id: currentChunkId })
+      }).then(r => r.json()).then(function() {
+        closeModal();
+        loadChunks(currentPage);
+      });
+    });
+
+    // --- Corrections ---
+    // --- Admin Tone Config ---
+    function loadAdminTone() {
+      fetch(API + '?action=get_config&key=tone_global').then(r => r.json()).then(function(data) {
+        if (data.value) document.getElementById('adminToneInput').value = data.value;
+      }).catch(function() {});
+    }
+
+    document.getElementById('adminToneSaveBtn').addEventListener('click', function() {
+      var text = document.getElementById('adminToneInput').value.trim();
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      var statusEl = document.getElementById('adminToneStatus');
+
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_config', key: 'tone_global', value: text })
+      }).then(r => r.json()).then(function(data) {
+        statusEl.textContent = data.success ? 'Salvo!' : 'Erro';
+        setTimeout(function() { statusEl.textContent = ''; }, 3000);
+      }).catch(function() {
+        statusEl.textContent = 'Erro';
+      }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Salvar tom';
+      });
+    });
+
+    function loadCorrections() {
+      var el = document.getElementById('correctionsList');
+      el.innerHTML = '<div class="loading">Carregando...</div>';
+
+      fetch(API + '?action=admin_corrections').then(r => r.json()).then(function(data) {
+        if (!data.corrections || data.corrections.length === 0) {
+          el.innerHTML = '<div class="loading">Nenhuma correcao ainda</div>';
+          return;
+        }
+
+        var html = '';
+        data.corrections.forEach(function(corr) {
+          var dt = new Date(corr.created_at);
+          var dateStr = dt.toLocaleDateString('pt-BR') + ' ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          var promoted = corr.categories && corr.categories.includes('promovida');
+          var scope = corr.filho_nome || 'global';
+          var qPreview = corr.original_question ? corr.original_question.substring(0, 80) : '—';
+          var rPreview = corr.original_response ? corr.original_response.substring(0, 120) + '...' : '';
+
+          html += '<div class="correction-card ' + (corr.active ? '' : 'inactive') + '">' +
+            '<div class="corr-meta">' +
+              '<span class="corr-date">' + dateStr + '</span>' +
+              '<span class="corr-scope">' + scope + '</span>' +
+              (promoted ? '<span class="corr-badge">promovida</span>' : '') +
+              (!corr.active ? '<span class="corr-badge corr-badge-off">desativada</span>' : '') +
+            '</div>' +
+            '<div class="corr-question"><strong>Pergunta:</strong> ' + escapeHtml(qPreview) + '</div>' +
+            (rPreview ? '<div class="corr-response"><strong>Resposta original:</strong> ' + escapeHtml(rPreview) + '</div>' : '') +
+            '<div class="corr-text"><strong>Correcao:</strong> ' + escapeHtml(corr.correction) + '</div>' +
+            '<div class="corr-actions">' +
+              (!promoted && corr.active ? '<button class="admin-btn-sm admin-btn-accent" onclick="promoteCorrection(' + corr.id + ')">Promover a conhecimento</button>' : '') +
+              (corr.active ? '<button class="admin-btn-sm admin-btn-danger" onclick="deactivateCorrection(' + corr.id + ')">Desativar</button>' : '') +
+              (!corr.active ? '<button class="admin-btn-sm admin-btn-reactivate" onclick="reactivateCorrection(' + corr.id + ')">Reativar</button>' : '') +
+            '</div>' +
+          '</div>';
+        });
+        el.innerHTML = html;
+      });
+    }
+
+    window.promoteCorrection = function(id) {
+      if (!confirm('Promover esta correcao a conhecimento permanente no banco?')) return;
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'promote_correction', id: id })
+      }).then(r => r.json()).then(function(data) {
+        if (data.success) loadCorrections();
+        else alert('Erro: ' + (data.error || ''));
+      });
+    };
+
+    window.deactivateCorrection = function(id) {
+      if (!confirm('Desativar esta correcao?')) return;
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_correction', id: id })
+      }).then(r => r.json()).then(function() { loadCorrections(); });
+    };
+
+    window.reactivateCorrection = function(id) {
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reactivate_correction', id: id })
+      }).then(r => r.json()).then(function(data) {
+        if (data.success) loadCorrections();
+        else alert('Erro: ' + (data.error || ''));
+      });
+    };
+
+    // Expose loadChunks globally for pagination
+    window.loadChunks = loadChunks;
+
+    // --- Modal ---
+    function openModal() { document.getElementById('editOverlay').classList.add('active'); }
+    function closeModal() { document.getElementById('editOverlay').classList.remove('active'); }
+    document.getElementById('modalClose').addEventListener('click', closeModal);
+    document.getElementById('modalCancel').addEventListener('click', closeModal);
+    document.getElementById('editOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    // --- Util ---
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ===========================
+    // IMPORT TAB
+    // ===========================
+    var importChunksData = [];
+
+    function loadImportCategories() {
+      // Categories already in the select, no dynamic load needed
+    }
+
+    // File drop zone
+    var dropZone = document.getElementById('importDropZone');
+    var fileInput = document.getElementById('importFile');
+
+    dropZone.addEventListener('click', function() { fileInput.click(); });
+    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) handleImportFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', function() {
+      if (fileInput.files.length > 0) handleImportFile(fileInput.files[0]);
+    });
+
+    async function handleImportFile(file) {
+      var nameEl = document.getElementById('importFileName');
+      nameEl.textContent = 'Processando: ' + file.name + '...';
+
+      // Auto-fill title from filename
+      var titleInput = document.getElementById('importTitle');
+      if (!titleInput.value.trim()) {
+        titleInput.value = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+      }
+
+      try {
+        var text = '';
+        var ext = file.name.split('.').pop().toLowerCase();
+
+        if (ext === 'pdf') {
+          text = await extractPdfText(file);
+        } else if (ext === 'docx') {
+          text = await extractDocxText(file);
+        } else if (ext === 'txt' || ext === 'md') {
+          text = await file.text();
+        } else {
+          nameEl.textContent = 'Formato nao suportado: .' + ext;
+          return;
+        }
+
+        document.getElementById('importContent').value = text;
+        nameEl.textContent = file.name + ' — ' + text.length + ' caracteres extraidos';
+      } catch (err) {
+        nameEl.textContent = 'Erro ao processar: ' + err.message;
+      }
+    }
+
+    async function extractPdfText(file) {
+      var arrayBuffer = await file.arrayBuffer();
+      var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      var pages = [];
+      for (var i = 1; i <= pdf.numPages; i++) {
+        var page = await pdf.getPage(i);
+        var content = await page.getTextContent();
+        var strings = content.items.map(function(item) { return item.str; });
+        pages.push(strings.join(' '));
+      }
+      return pages.join('\n\n');
+    }
+
+    async function extractDocxText(file) {
+      var arrayBuffer = await file.arrayBuffer();
+      var result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+      return result.value;
+    }
+
+    // Chunking logic
+    function chunkText(text, maxChunkSize) {
+      maxChunkSize = maxChunkSize || 1500;
+      var paragraphs = text.split(/\n{2,}/).map(function(p) { return p.trim(); }).filter(Boolean);
+      var chunks = [];
+      var current = '';
+
+      for (var i = 0; i < paragraphs.length; i++) {
+        var p = paragraphs[i];
+        if (current.length + p.length + 2 > maxChunkSize && current.length > 0) {
+          chunks.push(current.trim());
+          current = p;
+        } else {
+          current += (current ? '\n\n' : '') + p;
+        }
+      }
+      if (current.trim()) chunks.push(current.trim());
+
+      // If any chunk is still too big, split by sentences
+      var finalChunks = [];
+      for (var j = 0; j < chunks.length; j++) {
+        if (chunks[j].length > maxChunkSize * 1.5) {
+          var sentences = chunks[j].split(/(?<=[.!?])\s+/);
+          var sub = '';
+          for (var k = 0; k < sentences.length; k++) {
+            if (sub.length + sentences[k].length + 1 > maxChunkSize && sub.length > 0) {
+              finalChunks.push(sub.trim());
+              sub = sentences[k];
+            } else {
+              sub += (sub ? ' ' : '') + sentences[k];
+            }
+          }
+          if (sub.trim()) finalChunks.push(sub.trim());
+        } else {
+          finalChunks.push(chunks[j]);
+        }
+      }
+      return finalChunks;
+    }
+
+    // Preview
+    document.getElementById('importPreviewBtn').addEventListener('click', function() {
+      var content = document.getElementById('importContent').value.trim();
+      if (!content) { alert('Cole ou importe algum conteudo primeiro'); return; }
+
+      importChunksData = chunkText(content);
+
+      var previewEl = document.getElementById('importPreview');
+      var statsEl = document.getElementById('importPreviewStats');
+      var chunksEl = document.getElementById('importPreviewChunks');
+
+      var totalChars = importChunksData.reduce(function(s, c) { return s + c.length; }, 0);
+      statsEl.textContent = importChunksData.length + ' chunks · ' + totalChars + ' caracteres total';
+
+      var html = '';
+      importChunksData.forEach(function(chunk, idx) {
+        var preview = chunk.length > 150 ? chunk.substring(0, 150) + '...' : chunk;
+        html += '<div class="preview-chunk">' +
+          '<span class="preview-chunk-num">#' + (idx + 1) + '</span> ' +
+          '<span class="preview-chunk-size">(' + chunk.length + ' chars)</span> ' +
+          escapeHtml(preview) +
+        '</div>';
+      });
+      chunksEl.innerHTML = html;
+      previewEl.style.display = '';
+      document.getElementById('importSaveBtn').disabled = false;
+    });
+
+    // Save to DB
+    document.getElementById('importSaveBtn').addEventListener('click', async function() {
+      var title = document.getElementById('importTitle').value.trim();
+      var category = document.getElementById('importCategory').value;
+      var tagsStr = document.getElementById('importTags').value.trim();
+      var tags = tagsStr ? tagsStr.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [category];
+
+      if (!title) { alert('Informe um titulo/nome para o documento'); return; }
+      if (importChunksData.length === 0) { alert('Faca a pre-visualizacao primeiro'); return; }
+
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      var statusEl = document.getElementById('importStatus');
+      statusEl.textContent = '';
+
+      try {
+        var res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'import_chunks',
+            title: title,
+            category: category,
+            tags: tags,
+            chunks: importChunksData
+          })
+        });
+        var data = await res.json();
+        if (data.success) {
+          statusEl.innerHTML = '<span style="color:#4ade80">Importado com sucesso! ' + data.chunksCreated + ' chunks salvos no banco.</span>';
+          // Clear form
+          document.getElementById('importContent').value = '';
+          document.getElementById('importTitle').value = '';
+          document.getElementById('importTags').value = '';
+          document.getElementById('importFileName').textContent = '';
+          document.getElementById('importPreview').style.display = 'none';
+          importChunksData = [];
+          // Reload stats
+          fetch(API + '?action=stats').then(r => r.json()).then(function(d) {
+            document.getElementById('adminStats').textContent =
+              d.chunks + ' chunks · ' + d.documents + ' docs · ' + d.corrections + ' correcoes';
+          });
+        } else {
+          statusEl.innerHTML = '<span style="color:#f87171">Erro: ' + (data.error || 'desconhecido') + '</span>';
+        }
+      } catch (err) {
+        statusEl.innerHTML = '<span style="color:#f87171">Erro de rede: ' + err.message + '</span>';
+      }
+      btn.disabled = false;
+      btn.textContent = 'Salvar no banco';
+    });
+
+    // ===========================
+    // DIRECTIVES TAB (individual directives)
+    // ===========================
+    var currentDirFilter = '_all';
+
+    // Tab click within Diretrizes
+    document.querySelectorAll('.dir-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.dir-tab').forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        currentDirFilter = tab.dataset.person;
+        loadDirectivesList();
+      });
+    });
+
+    function loadDirectivesList() {
+      var listEl = document.getElementById('directivesList');
+      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;">Carregando...</div>';
+
+      var url = API + '?action=list_directives';
+      if (currentDirFilter && currentDirFilter !== '_all') {
+        url += '&person=' + encodeURIComponent(currentDirFilter);
+      }
+
+      fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+        if (!data.directives || data.directives.length === 0) {
+          listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:20px;">Nenhuma diretriz ainda. Adicione acima.</div>';
+          return;
+        }
+
+        var html = '';
+        data.directives.forEach(function(dir) {
+          var personLabel = dir.person ? dir.person : 'Global';
+          var personColor = dir.person ? '#4A90D9' : '#E8C547';
+          var dt = new Date(dir.created_at);
+          var dateStr = dt.toLocaleDateString('pt-BR');
+          var sourceLabel = dir.source === 'chat' ? 'via chat' : (dir.source === 'correction' ? 'via correcao' : (dir.source === 'migrated' ? 'migrada' : 'admin'));
+
+          html += '<div class="directive-card" data-id="' + dir.id + '" style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">' +
+            '<div style="flex:1;">' +
+              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+                '<span style="font-size:0.7rem;background:' + personColor + '22;color:' + personColor + ';padding:2px 8px;border-radius:4px;font-weight:600;">' + personLabel + '</span>' +
+                '<span style="font-size:0.65rem;color:var(--text-muted);">' + dateStr + ' · ' + sourceLabel + '</span>' +
+              '</div>' +
+              '<div class="dir-text" style="color:var(--text);font-size:0.88rem;line-height:1.5;">' + escapeHtml(dir.directive_text) + '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:6px;flex-shrink:0;">' +
+              '<button class="admin-btn-sm" onclick="editDirective(' + dir.id + ', this)" title="Editar" style="font-size:0.7rem;">Editar</button>' +
+              '<button class="admin-btn-sm admin-btn-danger" onclick="deleteDirective(' + dir.id + ')" title="Remover" style="font-size:0.7rem;">X</button>' +
+            '</div>' +
+          '</div>';
+        });
+        listEl.innerHTML = html;
+      }).catch(function(err) {
+        listEl.innerHTML = '<div style="color:#f87171;font-size:0.85rem;">Erro ao carregar: ' + err.message + '</div>';
+      });
+    }
+
+    // Add directive
+    document.getElementById('addDirBtn').addEventListener('click', function() {
+      var person = document.getElementById('newDirPerson').value;
+      var text = document.getElementById('newDirText').value.trim();
+      if (!text) { document.getElementById('newDirText').style.borderColor = '#f87171'; return; }
+
+      var btn = this;
+      btn.disabled = true;
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_directive', person: person, directive_text: text, source: 'admin' })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+          document.getElementById('newDirText').value = '';
+          loadDirectivesList();
+        } else {
+          alert('Erro: ' + (data.error || ''));
+        }
+      }).catch(function(err) { alert('Erro: ' + err.message); })
+        .finally(function() { btn.disabled = false; });
+    });
+
+    // Edit directive inline
+    window.editDirective = function(id, btn) {
+      var card = btn.closest('.directive-card');
+      var textEl = card.querySelector('.dir-text');
+      var currentText = textEl.textContent;
+
+      // Replace text with input
+      var input = document.createElement('textarea');
+      input.className = 'admin-textarea';
+      input.value = currentText;
+      input.rows = 2;
+      input.style.fontSize = '0.88rem';
+      input.style.marginTop = '4px';
+      textEl.replaceWith(input);
+
+      // Replace Edit button with Save
+      btn.textContent = 'Salvar';
+      btn.onclick = function() {
+        var newText = input.value.trim();
+        if (!newText) return;
+
+        btn.disabled = true;
+        fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update_directive', id: id, directive_text: newText })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.success) loadDirectivesList();
+          else alert('Erro: ' + (data.error || ''));
+        }).finally(function() { btn.disabled = false; });
+      };
+    };
+
+    // Delete directive
+    window.deleteDirective = function(id) {
+      if (!confirm('Remover esta diretriz?')) return;
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_directive', id: id })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) loadDirectivesList();
+        else alert('Erro: ' + (data.error || ''));
+      });
+    };
+
+    // Migrate old directives
+    document.getElementById('migrateDirBtn').addEventListener('click', function() {
+      var btn = this;
+      var statusEl = document.getElementById('migrateStatus');
+      btn.disabled = true;
+      statusEl.textContent = 'Migrando...';
+
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'migrate_directives' })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+          statusEl.textContent = data.migrated + ' diretrizes migradas!';
+          if (data.migrated > 0) loadDirectivesList();
+        } else {
+          statusEl.textContent = 'Erro: ' + (data.error || '');
+        }
+      }).catch(function(err) {
+        statusEl.textContent = 'Erro: ' + err.message;
+      }).finally(function() { btn.disabled = false; });
+    });
+
+    // Wire up tab switching for directives tab
+    document.querySelectorAll('.admin-tabs .tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        if (tab.dataset.tab === 'diretrizes') loadDirectivesList();
+      });
+    });
+
+    // ===========================
+    // EXPORT TAB
+    // ===========================
+    async function exportAllData(chunksOnly) {
+      var statusEl = document.getElementById(chunksOnly ? 'exportChunksStatus' : 'exportStatus');
+      var btn = document.getElementById(chunksOnly ? 'exportChunksBtn' : 'exportFullBtn');
+      var logEl = document.getElementById('exportLog');
+      btn.disabled = true;
+      statusEl.textContent = 'Carregando...';
+      logEl.textContent = '';
+
+      try {
+        var exportData = { exportDate: new Date().toISOString(), version: 'ALMA_BACKUP_v1' };
+
+        // Export all chunks (paginated)
+        var allChunks = [];
+        var page = 1;
+        var totalPages = 1;
+        while (page <= totalPages) {
+          var res = await fetch(API + '?action=admin_chunks&page=' + page + '&per_page=50');
+          var data = await res.json();
+          allChunks = allChunks.concat(data.chunks);
+          totalPages = data.totalPages;
+          statusEl.textContent = 'Chunks: ' + allChunks.length + '/' + data.total + '...';
+          page++;
+        }
+        exportData.chunks = allChunks;
+        exportData.totalChunks = allChunks.length;
+        logEl.textContent = 'Chunks carregados: ' + allChunks.length;
+
+        if (!chunksOnly) {
+          // Export corrections
+          var corrRes = await fetch(API + '?action=admin_corrections');
+          var corrData = await corrRes.json();
+          exportData.corrections = corrData.corrections || [];
+          logEl.textContent += '\nCorrecoes carregadas: ' + exportData.corrections.length;
+
+          // Export stats
+          var statsRes = await fetch(API + '?action=stats');
+          var statsData = await statsRes.json();
+          exportData.stats = statsData;
+
+          // Export categories
+          var catRes = await fetch(API + '?action=categories');
+          var catData = await catRes.json();
+          exportData.categories = catData.categories || [];
+          logEl.textContent += '\nCategorias: ' + exportData.categories.length;
+
+          // Export config keys (photos, directives, tone)
+          var configKeys = [
+            'tone_config', 'directives_global',
+            'directives_Noah', 'directives_Nathan', 'directives_Isaac',
+            'directives_Chris', 'directives_Leslen', 'directives_Nivalda',
+            'photo_Noah', 'photo_Nathan', 'photo_Isaac',
+            'photo_Chris', 'photo_Leslen', 'photo_Nivalda'
+          ];
+          var configs = {};
+          for (var i = 0; i < configKeys.length; i++) {
+            try {
+              var cfgRes = await fetch(API + '?action=get_config&key=' + encodeURIComponent(configKeys[i]));
+              var cfgData = await cfgRes.json();
+              if (cfgData.value) configs[configKeys[i]] = cfgData.value;
+            } catch (e) {}
+          }
+          exportData.config = configs;
+          logEl.textContent += '\nConfigs carregadas: ' + Object.keys(configs).length;
+        }
+
+        // Generate download
+        var totalChars = allChunks.reduce(function(s, c) { return s + (c.content ? c.content.length : 0); }, 0);
+        exportData.totalCharacters = totalChars;
+
+        var json = JSON.stringify(exportData, null, 2);
+        var blob = new Blob([json], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        var dateStr = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = 'ALMA_BACKUP_' + dateStr + (chunksOnly ? '_chunks' : '_full') + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        var sizeMB = (json.length / 1024 / 1024).toFixed(2);
+        statusEl.textContent = 'Exportado! (' + sizeMB + ' MB)';
+        logEl.textContent += '\n\nBackup salvo: ' + a.download + ' (' + sizeMB + ' MB)';
+      } catch (err) {
+        statusEl.textContent = 'Erro: ' + err.message;
+        logEl.textContent += '\nErro: ' + err.message;
+      }
+      btn.disabled = false;
+    }
+
+    document.getElementById('exportFullBtn').addEventListener('click', function() { exportAllData(false); });
+    document.getElementById('exportChunksBtn').addEventListener('click', function() { exportAllData(true); });
+
+    // --- Init ---
+    loadChunks(1);
+  })();
+  </script>
+</body>
+</html>
