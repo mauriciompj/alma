@@ -8,6 +8,7 @@
   <title>ALMA — Entrar</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕊</text></svg>">
+  <script src="js/i18n.js"></script>
 </head>
 <body>
   <main class="page-login">
@@ -42,10 +43,27 @@
         <button type="submit" class="login-btn" id="loginBtn">Entrar</button>
       </form>
 
-      <p class="login-hint">Cada pessoa tem seu acesso privado ao ALMA.</p>
+      <p class="login-hint" id="loginHint">Cada pessoa tem seu acesso privado ao ALMA.</p>
+
+      <!-- Language selector -->
+      <div id="langSelector" style="margin-top:20px;"></div>
     </div>
   </main>
 
+  <script>
+    // Apply i18n translations after locale loads
+    loadLocale(getCurrentLang(), function() {
+      document.title = t('login.pageTitle');
+      document.querySelector('.alma-subtitle').textContent = t('app.subtitle');
+      document.querySelector('label[for="loginUser"]').textContent = t('login.nameLabel');
+      document.getElementById('loginUser').placeholder = t('login.namePlaceholder');
+      document.querySelector('label[for="loginPass"]').textContent = t('login.passwordLabel');
+      document.getElementById('loginPass').placeholder = t('login.passwordPlaceholder');
+      document.getElementById('loginBtn').textContent = t('login.submitButton');
+      document.getElementById('loginHint').textContent = t('login.hint');
+      createLangSelector('langSelector');
+    });
+  </script>
   <script>
     (function() {
       'use strict';
@@ -64,7 +82,7 @@
         e.preventDefault();
         errorEl.textContent = '';
         btn.disabled = true;
-        btn.textContent = 'Entrando...';
+        btn.textContent = t('login.submitting');
 
         var username = document.getElementById('loginUser').value.trim();
         var password = document.getElementById('loginPass').value;
@@ -90,15 +108,15 @@
             // Admin goes to dashboard, users go to chat
             window.location.href = data.admin ? 'index.html' : 'chat.html';
           } else {
-            errorEl.textContent = data.error || 'Erro ao entrar';
+            errorEl.textContent = data.error || t('login.errorGeneric');
             btn.disabled = false;
-            btn.textContent = 'Entrar';
+            btn.textContent = t('login.submitButton');
           }
         })
         .catch(function() {
-          errorEl.textContent = 'Erro de conexão. Tente novamente.';
+          errorEl.textContent = t('login.errorConnection');
           btn.disabled = false;
-          btn.textContent = 'Entrar';
+          btn.textContent = t('login.submitButton');
         });
       });
 
