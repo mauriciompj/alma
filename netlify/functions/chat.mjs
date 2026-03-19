@@ -171,73 +171,105 @@ async function searchMemories(query, personName) {
   // Format search query for PostgreSQL full-text search (using | as OR operator)
   const tsQuery = searchTerms.join(' | ');
 
+  // Semantic tag mapping for query terms to memory categories
+  const tagMap = {
+    'pai': 'paternidade', 'medo': 'trauma', 'erro': 'valores',
+    'arrepend': 'valores', 'deus': 'fe', 'fé': 'fe', 'jesus': 'fe',
+    'homem': 'valores', 'mulher': 'amor', 'amor': 'amor',
+    'relacion': 'amor', 'namorad': 'amor', 'casament': 'amor',
+    'chris': 'chris', 'separ': 'amor', 'traiç': 'amor',
+    'noah': 'noah', 'nathan': 'nathan', 'isaac': 'isaac',
+    'polícia': 'policia', 'delegad': 'policia', 'trabalh': 'policia',
+    'suicíd': 'suicidio', 'morr': 'suicidio', 'desist': 'suicidio',
+    'patch': 'patch', 'código': 'patch', 'sistema': 'patch',
+    'alma': 'paternidade', 'valor': 'valores', 'honra': 'valores',
+    'corag': 'valores', 'verdad': 'valores', 'lealdad': 'valores',
+    'filho': 'paternidade', 'crian': 'paternidade',
+  };
+
+  const childLower = personName.toLowerCase();
+
   try {
+    // Phase 3.1: Fetch MORE candidates than needed, then rerank with person-awareness
+    const FETCH_POOL = MAX_CONTEXT_CHUNKS * 3; // Fetch 3x to have candidates for reranking
+
     // Primary search: full-text search ranked by relevance
     let results = await sql`
-      SELECT content, title, category, tags, source_file,
+      SELECT id, content, title, category, tags, source_file,
              ts_rank(search_vector, to_tsquery('portuguese', ${tsQuery})) as rank
       FROM alma_chunks
       WHERE search_vector @@ to_tsquery('portuguese', ${tsQuery})
       ORDER BY rank DESC
-      LIMIT ${MAX_CONTEXT_CHUNKS}
+      LIMIT ${FETCH_POOL}
     `;
 
-    // If results are sparse, supplement with tag-based fallback matching
-    if (results.length < 3) {
-      // Semantic tag mapping for query terms to memory categories
-      const tagMap = {
-        'pai': 'paternidade', 'medo': 'trauma', 'erro': 'valores',
-        'arrepend': 'valores', 'deus': 'fe', 'fé': 'fe', 'jesus': 'fe',
-        'homem': 'valores', 'mulher': 'amor', 'amor': 'amor',
-        'relacion': 'amor', 'namorad': 'amor', 'casament': 'amor',
-        'chris': 'chris', 'separ': 'amor', 'traiç': 'amor',
-        'noah': 'noah', 'nathan': 'nathan', 'isaac': 'isaac',
-        'polícia': 'policia', 'delegad': 'policia', 'trabalh': 'policia',
-        'suicíd': 'suicidio', 'morr': 'suicidio', 'desist': 'suicidio',
-        'patch': 'patch', 'código': 'patch', 'sistema': 'patch',
-        'alma': 'paternidade', 'valor': 'valores', 'honra': 'valores',
-        'corag': 'valores', 'verdad': 'valores', 'lealdad': 'valores',
-        'filho': 'paternidade', 'crian': 'paternidade',
-      };
-
-      // Match search terms to semantic tags
+    // Supplement with tag-based fallback if results are sparse
+    if (results.length < FETCH_POOL) {
       const matchedTags = [];
       for (const term of searchTerms) {
         for (const [key, tag] of Object.entries(tagMap)) {
-          if (term.includes(key)) {
-            matchedTags.push(tag);
-          }
+          if (term.includes(key)) matchedTags.push(tag);
         }
       }
 
-      // Query by matched tags if semantic mapping found
       if (matchedTags.length > 0) {
+        const existingIds = results.map(r => r.id || 0).concat([0]);
         const tagResults = await sql`
-          SELECT content, title, category, tags, source_file, 0 as rank
+          SELECT id, content, title, category, tags, source_file, 0 as rank
           FROM alma_chunks
           WHERE tags && ${matchedTags}::TEXT[]
-          AND id NOT IN (${results.map(r => r.id || 0).concat([0])})
+          AND id NOT IN (${existingIds})
           ORDER BY chunk_index ASC
-          LIMIT ${MAX_CONTEXT_CHUNKS - results.length}
+          LIMIT ${FETCH_POOL - results.length}
         `;
         results = [...results, ...tagResults];
       }
     }
 
-    // If still below target, add memories specifically tagged with the person's name
-    const childLower = personName.toLowerCase();
-    if (results.length < MAX_CONTEXT_CHUNKS) {
-      const childResults = await sql`
-        SELECT content, title, category, tags, source_file, 0 as rank
-        FROM alma_chunks
-        WHERE ${childLower} = ANY(tags)
-        AND id NOT IN (${results.map(r => r.id || 0).concat([0])})
-        LIMIT 2
-      `;
-      results = [...results, ...childResults];
-    }
+    // Always fetch person-specific memories to guarantee they're in the pool
+    const existingIds = results.map(r => r.id || 0).concat([0]);
+    const personResults = await sql`
+      SELECT id, content, title, category, tags, source_file, 0 as rank
+      FROM alma_chunks
+      WHERE ${childLower} = ANY(tags)
+      AND id NOT IN (${existingIds})
+      LIMIT 4
+    `;
+    results = [...results, ...personResults];
 
-    return results.slice(0, MAX_CONTEXT_CHUNKS);
+    // --- RERANKING: boost results based on person relevance ---
+    const reranked = results.map(r => {
+      let score = Number(r.rank) || 0;
+      const tags = r.tags || [];
+
+      // Boost 1: Memory is tagged with the current person's name (+0.5)
+      if (tags.includes(childLower)) {
+        score += 0.5;
+      }
+
+      // Boost 2: Memory category matches person (e.g., "noah" category for Noah) (+0.3)
+      if (r.category && r.category.toLowerCase() === childLower) {
+        score += 0.3;
+      }
+
+      // Boost 3: Memory is about children in general when talking to a child (+0.1)
+      const CHILDREN = ['noah', 'nathan', 'isaac'];
+      if (CHILDREN.includes(childLower) && tags.some(t => ['paternidade', 'filhos'].includes(t))) {
+        score += 0.1;
+      }
+
+      // Boost 4: Core identity memories always get a small baseline (+0.05)
+      if (['legado_alma', 'valores', 'paternidade'].includes(r.category)) {
+        score += 0.05;
+      }
+
+      return { ...r, finalScore: score };
+    });
+
+    // Sort by final score (highest first), then slice to limit
+    reranked.sort((a, b) => b.finalScore - a.finalScore);
+
+    return reranked.slice(0, MAX_CONTEXT_CHUNKS);
   } catch (e) {
     // Fallback to simple substring matching if full-text search fails
     console.error('Search error, falling back to LIKE:', e.message);
