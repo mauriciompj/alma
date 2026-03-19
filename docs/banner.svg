@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0d0d0d;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#E8954A;stop-opacity:1" />
+      <stop offset="35%" style="stop-color:#D8AA32;stop-opacity:1" />
+      <stop offset="65%" style="stop-color:#E8954A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D8AA32;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#E8954A;stop-opacity:0" />
+      <stop offset="30%" style="stop-color:#D8AA32;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#D8AA32;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E8954A;stop-opacity:0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="300" fill="url(#bgGrad)" rx="12"/>
+
+  <!-- Border glow -->
+  <rect x="1" y="1" width="898" height="298" fill="none" stroke="#D8AA3233" stroke-width="1" rx="12"/>
+
+  <!-- ALMA title -->
+  <text x="450" y="130" font-family="Georgia, 'Times New Roman', serif" font-size="80" font-weight="bold"
+        fill="url(#textGrad)" text-anchor="middle" letter-spacing="20">ALMA</text>
+
+  <!-- Divider line -->
+  <line x1="300" y1="155" x2="600" y2="155" stroke="url(#lineGrad)" stroke-width="2"/>
+
+  <!-- Subtitle -->
+  <text x="450" y="195" font-family="Georgia, 'Times New Roman', serif" font-size="18" font-style="italic"
+        fill="#B8B8CC" text-anchor="middle">An emotional legacy archive</text>
+
+  <!-- Tagline -->
+  <text x="450" y="230" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14"
+        fill="#888899" text-anchor="middle">Preserve your voice, values, and memories for the people you love.</text>
+
+  <!-- Tech badges area -->
+  <text x="450" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12"
+        fill="#666677" text-anchor="middle">Claude AI  ·  Netlify  ·  Neon  ·  Open Source</text>
+</svg>

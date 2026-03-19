@@ -206,14 +206,26 @@ a:hover {
   margin-bottom: 24px;
 }
 
+/* Animated gradient — Claude-style orange flow */
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .alma-logo {
   font-family: var(--font-title);
   font-size: 4rem;
   font-weight: 700;
-  color: var(--accent);
   letter-spacing: 0.15em;
   margin-bottom: 0;
-  text-shadow: 0 0 40px rgba(232, 197, 71, 0.15);
+  background: linear-gradient(90deg, #E8954A, #D8AA32, #E8C547, #D8AA32, #E8954A);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientFlow 6s ease infinite;
+  text-shadow: none;
 }
 
 .alma-divider {
@@ -514,10 +526,16 @@ a:hover {
 .chat-header-title {
   font-family: var(--font-title);
   font-size: 1.1rem;
-  color: var(--accent);
+  background: linear-gradient(90deg, #E8954A, #D8AA32, #E8C547, #D8AA32, #E8954A);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientFlow 6s ease infinite;
 }
 
 .chat-header-title span {
+  -webkit-text-fill-color: var(--text-soft);
   color: var(--text-soft);
   font-weight: 400;
 }
