@@ -11,15 +11,22 @@
 </head>
 <body>
   <main class="page-login">
+    <!-- Demo banner: only shows on demo domain -->
+    <div id="demoBanner" style="display:none; background:#d4a017; color:#0D0D0D; text-align:center; padding:10px 16px; font-size:14px; font-weight:600; position:fixed; top:0; left:0; right:0; z-index:1000;">
+      DEMO — Dados fictícios. Login: Lucas / demo123 &nbsp;|&nbsp; <a href="https://github.com/mauriciompj/alma" style="color:#0D0D0D; text-decoration:underline;">Ver no GitHub</a>
+    </div>
+    <script>if(location.hostname.includes('demo'))document.getElementById('demoBanner').style.display='block';</script>
+
     <div class="login-container">
 
       <!-- Header -->
       <div class="alma-title">
         <h1 class="alma-logo">ALMA</h1>
         <div class="alma-divider"></div>
-        <div class="alma-author">Maurício Maciel Pereira Júnior</div>
+        <div class="alma-author" id="almaAuthor">Maurício Maciel Pereira Júnior</div>
         <p class="alma-subtitle">A voz do seu pai, guardada no tempo</p>
       </div>
+      <script>if(location.hostname.includes('demo'))document.getElementById('almaAuthor').textContent='Rafael Mendes (Personagem Fictício)';</script>
 
       <!-- Login Form -->
       <form class="login-form" id="loginForm" autocomplete="off">
