@@ -29,3 +29,6 @@ SENHAS_USUARIOS.txt
 
 # Personal data (reports, private documents)
 data/*.txt
+
+# Database backups (contain all ALMA data — never commit)
+db/backups/

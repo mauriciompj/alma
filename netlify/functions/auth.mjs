@@ -4,9 +4,13 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import bcrypt from 'bcryptjs';
+
+// Restrict CORS to production domain only (set via env var or fallback)
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
 
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
@@ -69,8 +73,39 @@ async function handleLogin(sql, body) {
     u.username.toLowerCase() === username.toLowerCase()
   );
 
-  if (!user || user.password !== password) {
+  if (!user) {
     return jsonResponse({ error: 'Invalid username or password' }, 401);
+  }
+
+  // Compare password: support both bcrypt hash and legacy plain text
+  const isBcrypt = user.password && user.password.startsWith('$2');
+  let passwordValid = false;
+
+  if (isBcrypt) {
+    passwordValid = await bcrypt.compare(password, user.password);
+  } else {
+    // Legacy plain text comparison — will auto-migrate below
+    passwordValid = (user.password === password);
+  }
+
+  if (!passwordValid) {
+    return jsonResponse({ error: 'Invalid username or password' }, 401);
+  }
+
+  // Auto-migrate: hash plain text password on first successful login
+  if (!isBcrypt) {
+    try {
+      const hashed = await bcrypt.hash(password, 12);
+      user.password = hashed;
+      await sql`
+        UPDATE alma_config SET value = ${JSON.stringify(usersJson)}, updated_at = NOW()
+        WHERE key = 'users_json'
+      `;
+      console.log(`[ALMA] Auto-migrated password hash for user: ${user.username}`);
+    } catch (e) {
+      // Non-fatal: login still works, hash will happen next time
+      console.error('[ALMA] Failed to auto-migrate password:', e.message);
+    }
   }
 
   // Generate simple session token

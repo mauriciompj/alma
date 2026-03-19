@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "netlify dev",
     "build": "echo 'Static site — no build step needed'",
-    "seed": "node db/run-seed.mjs"
+    "seed": "node db/run-seed.mjs",
+    "backup": "node db/backup.mjs"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.0"
+    "@neondatabase/serverless": "^0.10.0",
+    "bcryptjs": "^2.4.3"
   },
   "engines": {
     "node": ">=18.0.0"

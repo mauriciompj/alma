@@ -6,8 +6,11 @@ import { neon } from '@neondatabase/serverless';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
+// Restrict CORS to production domain only (set via env var or fallback)
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
+
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
