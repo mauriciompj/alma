@@ -45,14 +45,15 @@
       headerTitle.innerHTML = 'ALMA <span>\u00b7 ' + personName + '</span>';
     }
 
-    // Set placeholder based on person type / name
-    if (chatInput) {
-      var placeholders = {
-        'Davi': 'Pergunte ao teu irmão...', // i18n
-        'Nivalda': 'Pergunte ao teu filho...', // i18n
-      };
-      chatInput.placeholder = placeholders[personName]
-        || (isChild ? 'Pergunte algo ao seu pai...' : 'Pergunte algo ao Maurício...'); // i18n
+    // Set placeholder based on person type / name (i18n-aware)
+    if (chatInput && typeof t === 'function' && t('chat.placeholderChild') !== 'chat.placeholderChild') {
+      var customPh = t('chat.placeholderCustom.' + personName.toLowerCase());
+      chatInput.placeholder = (customPh && !customPh.startsWith('chat.'))
+        ? customPh
+        : (isChild ? t('chat.placeholderChild') : t('chat.placeholderOther', { authorName: t('labels.authorName') }));
+    } else if (chatInput) {
+      var placeholders = { 'Davi': 'Pergunte ao teu irmão...', 'Nivalda': 'Pergunte ao teu filho...' };
+      chatInput.placeholder = placeholders[personName] || (isChild ? 'Pergunte algo ao seu pai...' : 'Pergunte algo ao Maurício...');
     }
 
     // Update suggestions based on person type
@@ -85,17 +86,27 @@
       }
     }
 
-    // Welcome message if no history
+    // Welcome message if no history — i18n aware
     if (conversationHistory.length === 0) {
       var welcome;
-      if (personName === 'Davi') {
-        welcome = 'E a\u00ed, Davi. Esse \u00e9 o ALMA \u2014 a voz do teu irm\u00e3o organizada em palavras, valores e mem\u00f3rias. Tudo que eu quis deixar registrado t\u00e1 aqui. Pode perguntar o que quiser, mano.'; // i18n
-      } else if (personName === 'Nivalda') {
-        welcome = 'Oi, m\u00e3e. Esse \u00e9 o ALMA \u2014 as palavras, os valores e as mem\u00f3rias que o teu filho quis deixar registradas. A senhora pode perguntar o que quiser.'; // i18n
-      } else if (isChild) {
-        welcome = 'Oi, ' + personName + '. Eu sei que talvez voc\u00ea esteja lendo isso daqui alguns anos, talvez eu j\u00e1 n\u00e3o esteja por perto pra responder pessoalmente. Por isso criei isso \u2014 pra voc\u00ea poder me perguntar o que quiser. Pode ser sobre a vida, sobre quem eu fui, sobre o que achei certo ou errado, sobre como agir quando ficar dif\u00edcil. Estou aqui. O que voc\u00ea quer saber?'; // i18n
+      var hasI18n = (typeof t === 'function' && t('welcome.child') !== 'welcome.child');
+
+      if (hasI18n) {
+        // Use translated welcome messages
+        welcome = isChild
+          ? t('welcome.child', { name: personName })
+          : t('welcome.other', { name: personName, authorName: t('labels.authorName') });
       } else {
-        welcome = 'Oi, ' + personName + '. Esse \u00e9 o ALMA \u2014 o arquivo de legado emocional do Maur\u00edcio. Aqui est\u00e3o as palavras, os valores e as mem\u00f3rias que ele quis deixar registradas. Pode perguntar o que quiser.'; // i18n
+        // Fallback to hardcoded PT
+        if (personName === 'Davi') {
+          welcome = 'E a\u00ed, Davi. Esse \u00e9 o ALMA \u2014 a voz do teu irm\u00e3o organizada em palavras, valores e mem\u00f3rias. Tudo que eu quis deixar registrado t\u00e1 aqui. Pode perguntar o que quiser, mano.';
+        } else if (personName === 'Nivalda') {
+          welcome = 'Oi, m\u00e3e. Esse \u00e9 o ALMA \u2014 as palavras, os valores e as mem\u00f3rias que o teu filho quis deixar registradas. A senhora pode perguntar o que quiser.';
+        } else if (isChild) {
+          welcome = 'Oi, ' + personName + '. Eu sei que talvez voc\u00ea esteja lendo isso daqui alguns anos, talvez eu j\u00e1 n\u00e3o esteja por perto pra responder pessoalmente. Por isso criei isso \u2014 pra voc\u00ea poder me perguntar o que quiser. Pode ser sobre a vida, sobre quem eu fui, sobre o que achei certo ou errado, sobre como agir quando ficar dif\u00edcil. Estou aqui. O que voc\u00ea quer saber?';
+        } else {
+          welcome = 'Oi, ' + personName + '. Esse \u00e9 o ALMA \u2014 o arquivo de legado emocional do Maur\u00edcio. Aqui est\u00e3o as palavras, os valores e as mem\u00f3rias que ele quis deixar registradas. Pode perguntar o que quiser.';
+        }
       }
       addMessage('alma', welcome);
     }
@@ -224,6 +235,7 @@
       body: JSON.stringify({
         message: userMessage,
         personName: personName,
+        lang: (typeof getCurrentLang === 'function' ? getCurrentLang() : 'pt-BR'),
         history: conversationHistory.filter(function (m) {
           return m.role === 'user' || m.role === 'assistant';
         }),

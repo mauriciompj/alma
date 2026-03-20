@@ -156,6 +156,41 @@
       });
     })();
   </script>
+  <script>
+    // Load i18n for chat page — translate static elements
+    loadLocale(getCurrentLang(), function() {
+      // Chat input placeholder
+      var isChild = ['filho'].includes(localStorage.getItem('alma_type'));
+      var input = document.getElementById('chatInput');
+      if (input) input.placeholder = isChild ? t('chat.placeholderChild') : t('chat.placeholderOther', { authorName: t('labels.authorName') });
+      if (input) input.setAttribute('aria-label', t('chat.placeholderChild'));
+
+      // Suggestions
+      var sugKeys = ['values', 'hardTimes', 'love', 'whyAlma'];
+      var sugBtns = document.querySelectorAll('.suggestion-btn');
+      for (var i = 0; i < sugBtns.length && i < sugKeys.length; i++) {
+        var txt = t('chat.suggestions.' + sugKeys[i]);
+        if (txt && txt !== 'chat.suggestions.' + sugKeys[i]) {
+          sugBtns[i].textContent = '"' + txt + '"';
+          sugBtns[i].setAttribute('data-text', txt);
+        }
+      }
+
+      // Header nav
+      var sobreLink = document.querySelector('.chat-header-nav a[href="sobre.html"]');
+      if (sobreLink && getCurrentLang() === 'en') sobreLink.textContent = 'About';
+      if (sobreLink && getCurrentLang() === 'es') sobreLink.textContent = 'Acerca';
+
+      // Directives panel
+      var dirDesc = document.querySelector('.directives-panel-desc');
+      if (dirDesc && getCurrentLang() !== 'pt-BR') dirDesc.textContent = t('directives.empty');
+      var dirInput = document.getElementById('chatNewDirText');
+      if (dirInput) dirInput.placeholder = t('directives.addPlaceholder');
+
+      // Store locale globally for alma.js to use
+      window.ALMA_LANG = getCurrentLang();
+    });
+  </script>
   <script src="js/alma.js"></script>
 </body>
 </html>

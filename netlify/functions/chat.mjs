@@ -93,6 +93,7 @@ export default async function handler(req) {
     const body = await req.json();
     const { message, history = [] } = body;
     const personName = body.personName || body.filhoNome; // Support both v2 (personName) and v1 (filhoNome)
+    const lang = body.lang || 'pt-BR'; // User's chosen UI language
 
     if (!message || !personName) {
       return new Response(JSON.stringify({ error: 'Missing message or personName' }), {
@@ -102,7 +103,7 @@ export default async function handler(req) {
     }
 
     // 1. Search for relevant memories from Neon DB
-    const memories = await searchMemories(message, personName);
+    const memories = await searchMemories(message, personName, lang);
 
     // 2. Fetch active corrections (scoped: sons share all, others get individual)
     const corrections = await getCorrections(personName);
@@ -114,7 +115,7 @@ export default async function handler(req) {
     const directives = await getDirectives(personName);
 
     // 5. Build system prompt with retrieved memories + corrections + tone + directives
-    const systemPrompt = buildSystemPrompt(memories, corrections, personName, toneConfig, directives);
+    const systemPrompt = buildSystemPrompt(memories, corrections, personName, toneConfig, directives, lang);
 
     // 6. Call Anthropic API
     const response = await callAnthropic(systemPrompt, history, message);
@@ -145,8 +146,9 @@ export default async function handler(req) {
   }
 }
 
-async function searchMemories(query, personName) {
+async function searchMemories(query, personName, lang = 'pt-BR') {
   // personName parameter: person's name / child's name — used to personalize memory search
+  // lang parameter: user's UI language — used to boost memories in that language
   const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
 
   // Parse and clean search query: lowercase, remove special chars, split into terms
@@ -263,6 +265,16 @@ async function searchMemories(query, personName) {
         score += 0.05;
       }
 
+      // Boost 5: Memory is in the user's language (+0.8 — highest boost)
+      const langCode = lang === 'pt-BR' ? 'pt' : lang; // normalize
+      if (tags.includes(langCode)) {
+        score += 0.8;
+      }
+      // Penalize memories in OTHER non-PT languages if user chose a specific language
+      if (lang !== 'pt-BR' && !tags.includes(langCode) && (tags.includes('en') || tags.includes('es'))) {
+        score -= 0.3; // push down memories in wrong foreign language
+      }
+
       return { ...r, finalScore: score };
     });
 
@@ -377,8 +389,8 @@ async function getDirectives(personName) {
   }
 }
 
-function buildSystemPrompt(memories, corrections, personName, toneConfig = '', directives = {}) {
-  // Build the complete system prompt by layering: base prompt → person context → config → directives → corrections → memories
+function buildSystemPrompt(memories, corrections, personName, toneConfig = '', directives = {}, lang = 'pt-BR') {
+  // Build the complete system prompt by layering: base prompt → person context → config → directives → corrections → memories → language
   let prompt = SYSTEM_PROMPT_BASE;
 
   // Add person-specific context to tailor response behavior per relationship
@@ -447,6 +459,13 @@ function buildSystemPrompt(memories, corrections, personName, toneConfig = '', d
     }
 
     prompt += `\n--- Fim das memórias. Responda como Maurício, baseando-se neste conteúdo real. ---`;
+  }
+
+  // Language instruction: if user selected a non-Portuguese language, respond in that language
+  if (lang && lang !== 'pt-BR') {
+    const langNames = { 'en': 'English', 'es': 'Spanish (Español)' };
+    const langName = langNames[lang] || lang;
+    prompt += `\n\n=============================================\nLANGUAGE INSTRUCTION (HIGHEST PRIORITY)\n=============================================\nThe user is reading this in ${langName}. You MUST respond entirely in ${langName}.\nThe memories above are in Portuguese — that's the source material. But your RESPONSE must be in ${langName}.\nKeep the same tone, warmth, and personality — just translate your voice.\n--- End of language instruction. ---`;
   }
 
   return prompt;
