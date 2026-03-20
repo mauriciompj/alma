@@ -244,10 +244,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Content moderation (AI-powered)
 - [x] Person-aware memory reranking
 - [x] Demo site with fictional data
+- [x] Age-aware responses (adapts tone to child's current age)
+- [x] Conversation history (persistent, saved per person)
+- [x] PWA support (installable, offline-capable)
+- [ ] Self-hosted AI mode (Ollama/LM Studio) — [see proposal](docs/issue-ollama-integration.md)
 - [ ] Voice synthesis (hear ALMA in the author's actual voice)
-- [ ] Conversation history (saved per person)
 - [ ] One-click setup wizard
-- [ ] Mobile-optimized PWA
 - [ ] Import from journals, WhatsApp exports, voice memos
 - [ ] "Letter mode" — scheduled messages for future dates
 
