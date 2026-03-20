@@ -144,8 +144,9 @@ export default async function handler(req) {
       });
     }
 
-    // 0. Load system prompt (DB first, fallback to hardcoded)
+    // 0. Load system prompt + person contexts (DB first, fallback to hardcoded)
     const systemPromptBase = await getSystemPromptBase();
+    const personContexts = await getPersonContexts();
 
     // 1. Search for relevant memories from Neon DB
     const memories = await searchMemories(message, personName, lang);
@@ -153,9 +154,8 @@ export default async function handler(req) {
     // 2. Fetch active corrections (scoped: sons share all, others get individual)
     const corrections = await getCorrections(personName, personContexts);
 
-    // 3. Fetch tone configuration + person contexts
+    // 3. Fetch tone configuration
     const toneConfig = await getToneConfig();
-    const personContexts = await getPersonContexts();
 
     // 4. Fetch directives (per-person + global)
     const directives = await getDirectives(personName);
