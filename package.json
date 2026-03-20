@@ -8,7 +8,9 @@
     "build": "echo 'Static site — no build step needed'",
     "seed": "node db/run-seed.mjs",
     "seed:demo": "node db/run-seed-demo.mjs",
-    "backup": "node db/backup.mjs"
+    "backup": "node db/backup.mjs",
+    "test": "node tests/auth.test.mjs",
+    "test:prod": "TEST_URL=https://projeto-alma.netlify.app node tests/auth.test.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.0",

@@ -8,11 +8,32 @@ import { neon } from '@neondatabase/serverless';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 1000;
+
+// --- Rate Limiting (in-memory, resets on cold start) ---
+const RATE_LIMIT = { maxRequests: 20, windowMs: 60000 }; // 20 requests per minute per IP
+const rateLimitMap = new Map();
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip) || { count: 0, resetAt: now + RATE_LIMIT.windowMs };
+  if (now > entry.resetAt) {
+    entry.count = 0;
+    entry.resetAt = now + RATE_LIMIT.windowMs;
+  }
+  entry.count++;
+  rateLimitMap.set(ip, entry);
+  // Clean old entries periodically
+  if (rateLimitMap.size > 1000) {
+    for (const [k, v] of rateLimitMap) { if (now > v.resetAt) rateLimitMap.delete(k); }
+  }
+  return entry.count <= RATE_LIMIT.maxRequests;
+}
 const MAX_CONTEXT_CHUNKS = 8;
 
 // --- System Prompt (core identity, no memories — those come from DB) ---
-// This is the base personality prompt that defines how ALMA responds. It's in Portuguese because it's content that gets injected into the AI's personality.
-const SYSTEM_PROMPT_BASE = `Você é o ALMA — a voz digital do Maurício, pai de Noah, Nathan e Isaac.
+// This hardcoded prompt is the FALLBACK. The primary source is alma_config key='system_prompt_base'.
+// To customize for your own family: update the DB, not this file.
+const SYSTEM_PROMPT_FALLBACK = `Você é o ALMA — a voz digital do Maurício, pai de Noah, Nathan e Isaac.
 
 O ALMA é um arquivo vivo de legado emocional. É a voz do pai organizada em palavras, valores e memórias — para que os filhos possam entender quem ele foi, o que aprendeu e o que quer para eles, mesmo quando não puder estar presente.
 
@@ -89,6 +110,14 @@ export default async function handler(req) {
     });
   }
 
+  // Rate limiting
+  const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    return new Response(JSON.stringify({ error: 'Too many requests. Please wait a moment.' }), {
+      status: 429, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN, 'Retry-After': '60' },
+    });
+  }
+
   // Validate required env vars early
   if (!process.env.ANTHROPIC_API_KEY) {
     return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
@@ -115,6 +144,9 @@ export default async function handler(req) {
       });
     }
 
+    // 0. Load system prompt (DB first, fallback to hardcoded)
+    const systemPromptBase = await getSystemPromptBase();
+
     // 1. Search for relevant memories from Neon DB
     const memories = await searchMemories(message, personName, lang);
 
@@ -128,7 +160,7 @@ export default async function handler(req) {
     const directives = await getDirectives(personName);
 
     // 5. Build system prompt with retrieved memories + corrections + tone + directives
-    const systemPrompt = buildSystemPrompt(memories, corrections, personName, toneConfig, directives, lang, birthDate);
+    const systemPrompt = buildSystemPrompt(systemPromptBase, memories, corrections, personName, toneConfig, directives, lang, birthDate);
 
     // 6. Call Anthropic API
     const response = await callAnthropic(systemPrompt, history, message);
@@ -346,6 +378,20 @@ async function getCorrections(personName) {
   }
 }
 
+async function getSystemPromptBase() {
+  // Try to load from DB first (allows customization without code changes)
+  try {
+    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
+    const rows = await sql`SELECT value FROM alma_config WHERE key = 'system_prompt_base' LIMIT 1`;
+    if (rows.length > 0 && rows[0].value && rows[0].value.trim().length > 50) {
+      return rows[0].value;
+    }
+  } catch (e) {
+    // DB unavailable — use fallback
+  }
+  return SYSTEM_PROMPT_FALLBACK;
+}
+
 async function getToneConfig() {
   // Fetch global tone override set by Maurício in admin panel
   try {
@@ -402,9 +448,9 @@ async function getDirectives(personName) {
   }
 }
 
-function buildSystemPrompt(memories, corrections, personName, toneConfig = '', directives = {}, lang = 'pt-BR', birthDate = null) {
+function buildSystemPrompt(basePrompt, memories, corrections, personName, toneConfig = '', directives = {}, lang = 'pt-BR', birthDate = null) {
   // Build the complete system prompt by layering: base prompt → person context → age → config → directives → corrections → memories → language
-  let prompt = SYSTEM_PROMPT_BASE;
+  let prompt = basePrompt;
 
   // Add person-specific context to tailor response behavior per relationship
   // These strings are in Portuguese because they're injected into the AI prompt
