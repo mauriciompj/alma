@@ -74,17 +74,26 @@
       });
     }
 
-    // Load history from session
-    var saved = sessionStorage.getItem('alma_history_' + personName);
-    if (saved) {
-      try {
-        conversationHistory = JSON.parse(saved);
+    // Load history from database (persistent across sessions)
+    loadHistoryFromDB(personName).then(function(dbHistory) {
+      if (dbHistory && dbHistory.length > 0) {
+        conversationHistory = dbHistory;
         renderSavedHistory();
         hideSuggestions();
-      } catch (e) {
-        conversationHistory = [];
       }
-    }
+    }).catch(function() {
+      // Fallback: try sessionStorage
+      var saved = sessionStorage.getItem('alma_history_' + personName);
+      if (saved) {
+        try {
+          conversationHistory = JSON.parse(saved);
+          renderSavedHistory();
+          hideSuggestions();
+        } catch (e) {
+          conversationHistory = [];
+        }
+      }
+    });
 
     // Welcome message if no history — i18n aware
     if (conversationHistory.length === 0) {
@@ -624,12 +633,15 @@
   }
 
   function saveHistory() {
+    // Save to sessionStorage (immediate fallback)
     try {
       sessionStorage.setItem('alma_history_' + personName, JSON.stringify(conversationHistory));
     } catch (e) {
       conversationHistory = conversationHistory.slice(-10);
       sessionStorage.setItem('alma_history_' + personName, JSON.stringify(conversationHistory));
     }
+    // Save to database (persistent across sessions) — fire and forget
+    saveHistoryToDB(personName, conversationHistory);
   }
 
   // --- Markdown Parser ---
@@ -802,4 +814,27 @@
   } else {
     init();
   }
+
+  // --- Persistent History (Database) ---
+
+  var _saveHistoryTimer = null;
+
+  function loadHistoryFromDB(person) {
+    return fetch('/.netlify/functions/memories?action=get_history&person=' + encodeURIComponent(person))
+      .then(function(r) { return r.json(); })
+      .then(function(data) { return data.history || []; });
+  }
+
+  function saveHistoryToDB(person, messages) {
+    // Debounce: wait 2 seconds after last message before saving to DB
+    if (_saveHistoryTimer) clearTimeout(_saveHistoryTimer);
+    _saveHistoryTimer = setTimeout(function() {
+      fetch('/.netlify/functions/memories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_history', person: person, messages: messages })
+      }).catch(function() {}); // Silent fail
+    }, 2000);
+  }
+
 })();

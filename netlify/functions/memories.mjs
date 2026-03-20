@@ -107,6 +107,8 @@ export default async function handler(req) {
         case 'create_chunk': return await handleCreateChunk(sql, body);
         case 'import_chunks': return await handleImportChunks(sql, body);
         case 'reactivate_correction': return await handleReactivateCorrection(sql, body);
+        case 'save_history': return await handleSaveHistory(sql, body);
+        case 'clear_history': return await handleClearHistory(sql, body);
         case 'add_directive': return await handleAddDirective(sql, body);
         case 'update_directive': return await handleUpdateDirective(sql, body);
         case 'delete_directive': return await handleDeleteDirective(sql, body);
@@ -308,6 +310,19 @@ export default async function handler(req) {
           result = { key, value: rows.length > 0 ? rows[0].value : null };
         } catch (e) {
           result = { key, value: null };
+        }
+        break;
+      }
+
+      case 'get_history': {
+        const person = url.searchParams.get('person') || '';
+        if (!person) { result = { error: 'Missing person parameter' }; break; }
+        try {
+          const rows = await sql`SELECT value FROM alma_config WHERE key = ${'history_' + person} LIMIT 1`;
+          const history = rows.length > 0 ? JSON.parse(rows[0].value) : [];
+          result = { person, history };
+        } catch (e) {
+          result = { person, history: [] };
         }
         break;
       }
@@ -654,6 +669,41 @@ async function handleMigrateDirectives(sql, body) {
   }
 
   return jsonResponse({ success: true, migrated });
+}
+
+// --- Conversation History ---
+
+const MAX_HISTORY_MESSAGES = 100; // Max messages per person stored in DB
+
+async function handleSaveHistory(sql, body) {
+  const { person, messages } = body;
+  if (!person || !messages) return jsonResponse({ error: 'Missing person or messages' }, 400);
+
+  // Trim to last MAX_HISTORY_MESSAGES
+  const trimmed = Array.isArray(messages) ? messages.slice(-MAX_HISTORY_MESSAGES) : [];
+
+  try {
+    await sql`
+      INSERT INTO alma_config (key, value, updated_at)
+      VALUES (${'history_' + person}, ${JSON.stringify(trimmed)}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(trimmed)}, updated_at = NOW()
+    `;
+    return jsonResponse({ success: true, saved: trimmed.length });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to save history: ' + e.message }, 500);
+  }
+}
+
+async function handleClearHistory(sql, body) {
+  const { person } = body;
+  if (!person) return jsonResponse({ error: 'Missing person' }, 400);
+
+  try {
+    await sql`DELETE FROM alma_config WHERE key = ${'history_' + person}`;
+    return jsonResponse({ success: true });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to clear history' }, 500);
+  }
 }
 
 async function handleImportChunks(sql, body) {
