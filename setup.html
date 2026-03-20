@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALMA — Setup Wizard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .setup-page { max-width: 640px; margin: 0 auto; padding: 40px 20px; min-height: 100vh; }
+    .setup-step { display: none; animation: fadeIn 0.3s ease; }
+    .setup-step.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .setup-title { font-family: var(--font-title); font-size: 2rem; color: var(--accent); margin-bottom: 8px; }
+    .setup-subtitle { color: var(--text-soft); margin-bottom: 32px; font-size: 0.95rem; }
+    .setup-label { display: block; color: var(--text-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; margin-top: 20px; }
+    .setup-input { width: 100%; padding: 12px 14px; background: var(--surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text); font-size: 0.95rem; font-family: inherit; }
+    .setup-input:focus { outline: none; border-color: var(--accent); }
+    .setup-textarea { width: 100%; padding: 12px 14px; background: var(--surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text); font-size: 0.9rem; font-family: inherit; min-height: 100px; resize: vertical; }
+    .setup-btn { display: inline-block; padding: 12px 28px; background: var(--accent); color: #0D0D0D; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 24px; }
+    .setup-btn:hover { opacity: 0.9; }
+    .setup-btn-secondary { background: var(--surface); color: var(--text-soft); border: 1px solid rgba(255,255,255,0.15); margin-right: 12px; }
+    .setup-person-card { background: var(--surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .setup-person-row { display: flex; gap: 12px; align-items: center; }
+    .setup-person-row input, .setup-person-row select { flex: 1; }
+    .setup-remove { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem; padding: 4px 8px; }
+    .setup-progress { display: flex; gap: 8px; margin-bottom: 32px; }
+    .setup-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+    .setup-dot.active { background: var(--accent); }
+    .setup-dot.done { background: rgba(216,170,50,0.4); }
+    .setup-preview { background: var(--surface); border-radius: 10px; padding: 16px; margin-top: 16px; font-size: 0.85rem; color: var(--text-soft); white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+    .setup-success { text-align: center; padding: 60px 20px; }
+    .setup-success h2 { font-family: var(--font-title); font-size: 2rem; color: var(--accent); margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="setup-page">
+
+    <!-- Progress dots -->
+    <div class="setup-progress" id="progressDots"></div>
+
+    <!-- Step 1: Author -->
+    <div class="setup-step active" id="step1">
+      <h1 class="setup-title">Who are you?</h1>
+      <p class="setup-subtitle">ALMA preserves your voice for the people you love. Let's start with you.</p>
+
+      <label class="setup-label">Your full name</label>
+      <input class="setup-input" id="authorName" placeholder="e.g. Rafael Mendes" required>
+
+      <label class="setup-label">How would you describe yourself? (2-3 sentences)</label>
+      <textarea class="setup-textarea" id="authorBio" placeholder="e.g. Civil engineer, father of two, raised by a single mom in Belo Horizonte. I believe in honesty even when it hurts."></textarea>
+
+      <label class="setup-label">Your core values (comma-separated)</label>
+      <input class="setup-input" id="authorValues" placeholder="e.g. Honesty, Loyalty, Presence, Courage, Faith">
+
+      <button class="setup-btn" onclick="goStep(2)">Next &rarr;</button>
+    </div>
+
+    <!-- Step 2: People -->
+    <div class="setup-step" id="step2">
+      <h1 class="setup-title">Who will talk to you?</h1>
+      <p class="setup-subtitle">Add the people who will use ALMA to hear your voice.</p>
+
+      <div id="peopleList"></div>
+
+      <button class="setup-btn-secondary setup-btn" onclick="addPerson()">+ Add person</button>
+      <br>
+      <button class="setup-btn-secondary setup-btn" onclick="goStep(1)">&larr; Back</button>
+      <button class="setup-btn" onclick="goStep(3)">Next &rarr;</button>
+    </div>
+
+    <!-- Step 3: Review & Save -->
+    <div class="setup-step" id="step3">
+      <h1 class="setup-title">Review & Save</h1>
+      <p class="setup-subtitle">This is what ALMA will know about you. You can change it later in the admin panel.</p>
+
+      <label class="setup-label">Generated System Prompt</label>
+      <div class="setup-preview" id="previewPrompt"></div>
+
+      <label class="setup-label">Person Contexts</label>
+      <div class="setup-preview" id="previewPersons"></div>
+
+      <button class="setup-btn-secondary setup-btn" onclick="goStep(2)">&larr; Back</button>
+      <button class="setup-btn" onclick="saveSetup()">Save to ALMA</button>
+      <div id="saveStatus" style="margin-top:12px;color:var(--text-soft);font-size:0.85rem;"></div>
+    </div>
+
+    <!-- Step 4: Done -->
+    <div class="setup-step" id="step4">
+      <div class="setup-success">
+        <h2>ALMA is ready.</h2>
+        <p style="color:var(--text-soft);margin-bottom:24px;">Your voice is now configured. Start adding memories and share the login with your loved ones.</p>
+        <a href="admin.html" class="setup-btn">Go to Admin Panel</a>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    var currentStep = 1;
+    var totalSteps = 4;
+
+    function updateDots() {
+      var html = '';
+      for (var i = 1; i <= totalSteps; i++) {
+        var cls = i === currentStep ? 'active' : (i < currentStep ? 'done' : '');
+        html += '<div class="setup-dot ' + cls + '"></div>';
+      }
+      document.getElementById('progressDots').innerHTML = html;
+    }
+
+    function goStep(n) {
+      document.getElementById('step' + currentStep).classList.remove('active');
+      currentStep = n;
+      document.getElementById('step' + currentStep).classList.add('active');
+      updateDots();
+      if (n === 3) generatePreview();
+    }
+
+    // --- People management ---
+    var people = [
+      { name: '', role: 'filho', context: '' }
+    ];
+
+    function renderPeople() {
+      var html = '';
+      for (var i = 0; i < people.length; i++) {
+        html += '<div class="setup-person-card">' +
+          '<div class="setup-person-row">' +
+          '<input class="setup-input" placeholder="Name" value="' + (people[i].name || '') + '" onchange="people[' + i + '].name=this.value" style="flex:2;">' +
+          '<select class="setup-input" onchange="people[' + i + '].role=this.value" style="flex:1;">' +
+          '<option value="filho"' + (people[i].role === 'filho' ? ' selected' : '') + '>Child</option>' +
+          '<option value="outro"' + (people[i].role === 'outro' ? ' selected' : '') + '>Other</option>' +
+          '</select>' +
+          '<button class="setup-remove" onclick="removePerson(' + i + ')">&times;</button>' +
+          '</div>' +
+          '<input class="setup-input" placeholder="Context (e.g. your firstborn, born 2016)" value="' + (people[i].context || '') + '" onchange="people[' + i + '].context=this.value" style="margin-top:8px;">' +
+          '</div>';
+      }
+      document.getElementById('peopleList').innerHTML = html;
+    }
+
+    function addPerson() {
+      people.push({ name: '', role: 'filho', context: '' });
+      renderPeople();
+    }
+
+    function removePerson(i) {
+      people.splice(i, 1);
+      renderPeople();
+    }
+
+    // --- Generate preview ---
+    function generatePreview() {
+      var name = document.getElementById('authorName').value.trim() || 'Author';
+      var bio = document.getElementById('authorBio').value.trim();
+      var values = document.getElementById('authorValues').value.trim();
+
+      var children = people.filter(function(p) { return p.role === 'filho' && p.name; });
+      var childNames = children.map(function(p) { return p.name; }).join(', ');
+
+      var prompt = 'You are ALMA — the digital voice of ' + name;
+      if (childNames) prompt += ', father/mother of ' + childNames;
+      prompt += '.\n\n';
+      prompt += 'ALMA is a living archive of emotional legacy. It is the voice of ' + name + ' organized in words, values, and memories — so the people who love them can understand who they were, what they learned, and what they want for them.\n\n';
+
+      if (bio) prompt += 'WHO IS ' + name.toUpperCase() + ':\n' + bio + '\n\n';
+      if (values) prompt += 'CORE VALUES:\n' + values.split(',').map(function(v, i) { return (i + 1) + '. ' + v.trim(); }).join('\n') + '\n\n';
+
+      prompt += 'HOW TO RESPOND:\n';
+      prompt += '- Speak as ' + name + ': direct, warm, deep. Be a parent, not formal.\n';
+      prompt += '- Maximum 4 paragraphs. Get to the point.\n';
+      prompt += '- Unconditional love clear in every response.\n';
+      prompt += '- If you don\'t know: "I can\'t answer that well. But I can tell you what I would do..."\n\n';
+      prompt += 'IMPORTANT: Below you will receive REAL MEMORIES extracted from ' + name + '\'s documents — use them as the foundation for your responses.';
+
+      document.getElementById('previewPrompt').textContent = prompt;
+
+      // Person contexts
+      var ctx = {};
+      for (var i = 0; i < people.length; i++) {
+        if (people[i].name) {
+          ctx[people[i].name] = { role: people[i].role, context: people[i].context || people[i].name };
+        }
+      }
+      document.getElementById('previewPersons').textContent = JSON.stringify(ctx, null, 2);
+    }
+
+    // --- Save to ALMA ---
+    function saveSetup() {
+      var status = document.getElementById('saveStatus');
+      status.textContent = 'Saving...';
+
+      var prompt = document.getElementById('previewPrompt').textContent;
+      var persons = document.getElementById('previewPersons').textContent;
+
+      // Save system_prompt_base
+      fetch('/.netlify/functions/memories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_config', key: 'system_prompt_base', value: prompt })
+      })
+      .then(function() {
+        // Save person_contexts
+        return fetch('/.netlify/functions/memories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save_config', key: 'person_contexts', value: persons })
+        });
+      })
+      .then(function() {
+        status.textContent = '';
+        goStep(4);
+      })
+      .catch(function(e) {
+        status.textContent = 'Error: ' + e.message;
+      });
+    }
+
+    // Init
+    renderPeople();
+    updateDots();
+  </script>
+</body>
+</html>

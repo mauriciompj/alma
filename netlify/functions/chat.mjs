@@ -151,16 +151,17 @@ export default async function handler(req) {
     const memories = await searchMemories(message, personName, lang);
 
     // 2. Fetch active corrections (scoped: sons share all, others get individual)
-    const corrections = await getCorrections(personName);
+    const corrections = await getCorrections(personName, personContexts);
 
-    // 3. Fetch tone configuration
+    // 3. Fetch tone configuration + person contexts
     const toneConfig = await getToneConfig();
+    const personContexts = await getPersonContexts();
 
     // 4. Fetch directives (per-person + global)
     const directives = await getDirectives(personName);
 
     // 5. Build system prompt with retrieved memories + corrections + tone + directives
-    const systemPrompt = buildSystemPrompt(systemPromptBase, memories, corrections, personName, toneConfig, directives, lang, birthDate);
+    const systemPrompt = buildSystemPrompt(systemPromptBase, memories, corrections, personName, toneConfig, directives, lang, birthDate, personContexts);
 
     // 6. Call Anthropic API
     const response = await callAnthropic(systemPrompt, history, message);
@@ -342,12 +343,14 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
   }
 }
 
-async function getCorrections(personName) {
+async function getCorrections(personName, personContexts = {}) {
   try {
     const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
-    // List of Maurício's sons
-    const CHILDREN = ['Noah', 'Nathan', 'Isaac'];
-    // Check if querying person is one of the sons (they share all corrections)
+    // Determine children dynamically from person contexts
+    const CHILDREN = Object.entries(personContexts)
+      .filter(([_, v]) => v.role === 'filho')
+      .map(([name]) => name);
+    if (CHILDREN.length === 0) CHILDREN.push('Noah', 'Nathan', 'Isaac'); // fallback
     const isChild = CHILDREN.includes(personName);
 
     let corrections;
@@ -390,6 +393,30 @@ async function getSystemPromptBase() {
     // DB unavailable — use fallback
   }
   return SYSTEM_PROMPT_FALLBACK;
+}
+
+// Hardcoded fallback for person contexts (used when DB has no 'person_contexts' key)
+const PERSON_CONTEXT_FALLBACK = {
+  'Noah': { role: 'filho', context: 'seu filho primogênito (nascido em 2016)' },
+  'Nathan': { role: 'filho', context: 'seu filho gêmeo (nascido em 2020)' },
+  'Isaac': { role: 'filho', context: 'seu filho gêmeo (nascido em 2020)' },
+  'Chris': { role: 'outro', context: 'a mãe dos seus filhos. Fale com respeito e carinho — ela é uma grande mulher' },
+  'Leslen': { role: 'outro', context: 'sua companheira, a mulher que te mostrou que você ainda pode amar. Fale com amor e verdade' },
+  'Nivalda': { role: 'outro', context: 'sua mãe, a Mãezinha. Fale com amor, gratidão e respeito profundo — ela é a base de tudo que você é' },
+  'Davi': { role: 'outro', context: 'seu irmão mais novo. Fale como irmão mais velho — com amor, parceria e cumplicidade. Vocês se protegem desde sempre' },
+};
+
+async function getPersonContexts() {
+  // Load person contexts from DB (allows customization without code changes)
+  try {
+    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
+    const rows = await sql`SELECT value FROM alma_config WHERE key = 'person_contexts' LIMIT 1`;
+    if (rows.length > 0 && rows[0].value) {
+      const parsed = JSON.parse(rows[0].value);
+      if (Object.keys(parsed).length > 0) return parsed;
+    }
+  } catch (e) {}
+  return PERSON_CONTEXT_FALLBACK;
 }
 
 async function getToneConfig() {
@@ -448,25 +475,14 @@ async function getDirectives(personName) {
   }
 }
 
-function buildSystemPrompt(basePrompt, memories, corrections, personName, toneConfig = '', directives = {}, lang = 'pt-BR', birthDate = null) {
+function buildSystemPrompt(basePrompt, memories, corrections, personName, toneConfig = '', directives = {}, lang = 'pt-BR', birthDate = null, personContexts = {}) {
   // Build the complete system prompt by layering: base prompt → person context → age → config → directives → corrections → memories → language
   let prompt = basePrompt;
 
-  // Add person-specific context to tailor response behavior per relationship
-  // These strings are in Portuguese because they're injected into the AI prompt
-  const CHILDREN = ['Noah', 'Nathan', 'Isaac'];
-  const PERSON_CONTEXT = {
-    'Noah': 'seu filho primogênito (nascido em 2016)',
-    'Nathan': 'seu filho gêmeo (nascido em 2020)',
-    'Isaac': 'seu filho gêmeo (nascido em 2020)',
-    'Chris': 'a mãe dos seus filhos. Fale com respeito e carinho — ela é uma grande mulher',
-    'Leslen': 'sua companheira, a mulher que te mostrou que você ainda pode amar. Fale com amor e verdade',
-    'Nivalda': 'sua mãe, a Mãezinha. Fale com amor, gratidão e respeito profundo — ela é a base de tudo que você é',
-    'Davi': 'seu irmão mais novo. Fale como irmão mais velho — com amor, parceria e cumplicidade. Vocês se protegem desde sempre',
-  };
-  const personCtx = PERSON_CONTEXT[personName] || '';
-  // Check if talking to a son (uses father voice) vs. other person (uses Maurício's own voice)
-  const isChild = CHILDREN.includes(personName);
+  // Person context from DB (or fallback) — determines voice and relationship
+  const personData = personContexts[personName] || {};
+  const personCtx = personData.context || '';
+  const isChild = personData.role === 'filho';
 
   if (isChild) {
     // Sons: speak as father
