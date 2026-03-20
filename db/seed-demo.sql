@@ -50,8 +50,8 @@ CREATE INDEX IF NOT EXISTS idx_chunks_category ON alma_chunks(category);
 
 -- 4. Users (demo credentials — public, no secrets)
 INSERT INTO alma_config (key, value) VALUES ('users_json', '[
-  {"username": "Lucas", "password": "demo123", "name": "Lucas", "type": "filho", "admin": false},
-  {"username": "Helena", "password": "demo123", "name": "Helena", "type": "filho", "admin": false},
+  {"username": "Lucas", "password": "demo123", "name": "Lucas", "type": "filho", "admin": false, "birthDate": "2014-06-15"},
+  {"username": "Helena", "password": "demo123", "name": "Helena", "type": "filho", "admin": false, "birthDate": "2017-02-28"},
   {"username": "Visitante", "password": "demo123", "name": "Visitante", "type": "outro", "admin": false},
   {"username": "Admin", "password": "demoadmin", "name": "Demo Admin", "type": "admin", "admin": true}
 ]') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;

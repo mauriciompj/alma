@@ -151,6 +151,7 @@ async function handleLogin(sql, body) {
     type: user.type,
     admin: !!user.admin,
     token,
+    birthDate: user.birthDate || null, // e.g. "2016-03-15"
     displayName: user.displayName || user.name,
   });
 }

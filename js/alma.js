@@ -236,6 +236,7 @@
         message: userMessage,
         personName: personName,
         lang: (typeof getCurrentLang === 'function' ? getCurrentLang() : 'pt-BR'),
+        birthDate: localStorage.getItem('alma_birthDate') || null,
         history: conversationHistory.filter(function (m) {
           return m.role === 'user' || m.role === 'assistant';
         }),

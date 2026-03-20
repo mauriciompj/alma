@@ -100,6 +100,7 @@
             localStorage.setItem('alma_user', data.name);
             localStorage.setItem('alma_type', data.type);
             localStorage.setItem('alma_admin', data.admin ? '1' : '0');
+            if (data.birthDate) localStorage.setItem('alma_birthDate', data.birthDate);
 
             // Also set sessionStorage for chat.html compatibility
             sessionStorage.setItem('alma_filho', data.name);

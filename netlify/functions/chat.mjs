@@ -94,6 +94,7 @@ export default async function handler(req) {
     const { message, history = [] } = body;
     const personName = body.personName || body.filhoNome; // Support both v2 (personName) and v1 (filhoNome)
     const lang = body.lang || 'pt-BR'; // User's chosen UI language
+    const birthDate = body.birthDate || null; // e.g. "2016-03-15"
 
     if (!message || !personName) {
       return new Response(JSON.stringify({ error: 'Missing message or personName' }), {
@@ -115,7 +116,7 @@ export default async function handler(req) {
     const directives = await getDirectives(personName);
 
     // 5. Build system prompt with retrieved memories + corrections + tone + directives
-    const systemPrompt = buildSystemPrompt(memories, corrections, personName, toneConfig, directives, lang);
+    const systemPrompt = buildSystemPrompt(memories, corrections, personName, toneConfig, directives, lang, birthDate);
 
     // 6. Call Anthropic API
     const response = await callAnthropic(systemPrompt, history, message);
@@ -389,8 +390,8 @@ async function getDirectives(personName) {
   }
 }
 
-function buildSystemPrompt(memories, corrections, personName, toneConfig = '', directives = {}, lang = 'pt-BR') {
-  // Build the complete system prompt by layering: base prompt → person context → config → directives → corrections → memories → language
+function buildSystemPrompt(memories, corrections, personName, toneConfig = '', directives = {}, lang = 'pt-BR', birthDate = null) {
+  // Build the complete system prompt by layering: base prompt → person context → age → config → directives → corrections → memories → language
   let prompt = SYSTEM_PROMPT_BASE;
 
   // Add person-specific context to tailor response behavior per relationship
@@ -415,6 +416,35 @@ function buildSystemPrompt(memories, corrections, personName, toneConfig = '', d
   } else {
     // Others: speak as Maurício himself, not as father
     prompt += `\n\nVocê está conversando com: ${personName} — ${personCtx}. Fale como MAURÍCIO (não como "pai"). Use o nome da pessoa naturalmente.`;
+  }
+
+  // Age-aware response: calculate age from birthDate and adapt tone/depth
+  if (birthDate) {
+    const birth = new Date(birthDate);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const monthDiff = now.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age--;
+
+    if (age > 0 && age < 100) {
+      prompt += `\n\n=============================================\nIDADE ATUAL DE ${personName.toUpperCase()}: ${age} ANOS\n=============================================\n`;
+
+      if (age <= 7) {
+        prompt += `${personName} é uma CRIANÇA PEQUENA (${age} anos). Fale de forma MUITO simples, curta e carinhosa. Use palavras que uma criança entende. Sem conceitos abstratos. Muito amor, segurança e leveza. Frases curtas. Pode usar comparações com coisas do dia a dia (super-herói, bicho, brincadeira). Máximo 2 parágrafos curtos.`;
+      } else if (age <= 12) {
+        prompt += `${personName} é uma CRIANÇA (${age} anos). Fale de forma simples mas já pode introduzir valores. Use exemplos concretos. Histórias funcionam melhor que conceitos. Tom de pai presente e acessível. Pode ser um pouco mais profundo que com uma criança pequena, mas sem peso emocional excessivo. Máximo 3 parágrafos.`;
+      } else if (age <= 15) {
+        prompt += `${personName} é um ADOLESCENTE JOVEM (${age} anos). Está começando a questionar o mundo. Fale com respeito à inteligência dele(a), sem ser condescendente. Pode abordar temas mais sérios mas com sensibilidade. Valide os sentimentos. Não dê sermão — converse como alguém que já passou por isso. Tom direto mas acolhedor.`;
+      } else if (age <= 17) {
+        prompt += `${personName} é um ADOLESCENTE (${age} anos). Já pensa sobre identidade, futuro, relacionamentos. Fale como adulto pra adulto jovem. Pode ser direto, profundo, honesto sobre erros e acertos. Trate com respeito. A opinião dele(a) importa. Compartilhe vulnerabilidades reais — isso conecta mais que conselhos prontos.`;
+      } else if (age <= 25) {
+        prompt += `${personName} é um JOVEM ADULTO (${age} anos). Está construindo a própria vida. Fale como par — com sabedoria mas sem superioridade. Pode ser completamente honesto, direto, profundo. Compartilhe erros reais, arrependimentos, lições duras. Esse é o momento em que os conselhos mais difíceis fazem mais sentido.`;
+      } else {
+        prompt += `${personName} é um ADULTO (${age} anos). Fale de igual pra igual. Profundidade total. Sem filtro de proteção — a verdade crua é um presente nessa fase. Compartilhe tudo: erros, acertos, o que faria diferente. Trate como alguém que já tem maturidade pra processar qualquer coisa.`;
+      }
+
+      prompt += `\n--- Adapte o vocabulário, a profundidade e o tom à idade de ${age} anos. Isso é fundamental. ---`;
+    }
   }
 
   // Add tone override from Maurício (custom instructions on how to sound)
