@@ -67,9 +67,30 @@ export default async function handler(req) {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
+  // Health check endpoint: GET /api/memories?action=health
+  const url = new URL(req.url);
+  if (url.searchParams.get('action') === 'health') {
+    const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    return jsonResponse({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: !!dbUrl,
+        anthropic: !!apiKey,
+        cors_origin: ALLOWED_ORIGIN,
+      },
+    });
+  }
+
+  // Validate required env vars
+  const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+  if (!dbUrl) {
+    return jsonResponse({ error: 'Database not configured. Set DATABASE_URL env var.' }, 503);
+  }
+
   try {
-    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
-    const url = new URL(req.url);
+    const sql = neon(dbUrl);
 
     // Handle POST requests
     if (req.method === 'POST') {

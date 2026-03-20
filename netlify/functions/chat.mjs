@@ -89,6 +89,18 @@ export default async function handler(req) {
     });
   }
 
+  // Validate required env vars early
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+    });
+  }
+  if (!process.env.NETLIFY_DATABASE_URL && !process.env.DATABASE_URL) {
+    return new Response(JSON.stringify({ error: 'DATABASE_URL not configured' }), {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+    });
+  }
+
   try {
     const body = await req.json();
     const { message, history = [] } = body;
@@ -133,10 +145,10 @@ export default async function handler(req) {
       },
     });
   } catch (error) {
-    console.error('ALMA Chat Error:', error);
+    console.error('[ALMA Chat Error]', error.message);
     return new Response(JSON.stringify({
-      error: 'Internal error',
-      details: error.message,
+      error: 'Internal error. Please try again.',
+      // details intentionally omitted in production — check server logs
     }), {
       status: 500,
       headers: {

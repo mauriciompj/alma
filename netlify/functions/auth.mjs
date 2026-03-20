@@ -173,22 +173,53 @@ async function handleVerifyToken(sql, body) {
       return jsonResponse({ valid: false, reason: 'expired' }, 401);
     }
 
+    // Periodic cleanup: ~5% chance per verify to purge all expired sessions
+    if (Math.random() < 0.05) {
+      cleanupExpiredSessions(sql).catch(() => {}); // Fire-and-forget
+    }
+
     return jsonResponse({
       valid: true,
       name: session.name,
       type: session.type,
       admin: !!session.admin,
+      birthDate: session.birthDate || null,
     });
   } catch (e) {
     return jsonResponse({ valid: false }, 401);
   }
 }
 
-function generateToken() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
+// Remove all expired sessions from database (runs periodically)
+async function cleanupExpiredSessions(sql) {
+  try {
+    const sessions = await sql`
+      SELECT key, value FROM alma_config WHERE key LIKE 'session_%'
+    `;
+    const now = new Date();
+    let cleaned = 0;
+    for (const row of sessions) {
+      try {
+        const sess = JSON.parse(row.value);
+        if (sess.expiresAt && new Date(sess.expiresAt) < now) {
+          await sql`DELETE FROM alma_config WHERE key = ${row.key}`;
+          cleaned++;
+        }
+      } catch (e) {
+        // Malformed session — delete it
+        await sql`DELETE FROM alma_config WHERE key = ${row.key}`;
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) console.log(`[ALMA] Cleaned ${cleaned} expired sessions`);
+  } catch (e) {
+    console.error('[ALMA] Session cleanup error:', e.message);
   }
-  return token;
+}
+
+function generateToken() {
+  // Cryptographically secure token generation (replaces Math.random)
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(36).padStart(2, '0')).join('').slice(0, 48);
 }
