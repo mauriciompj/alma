@@ -12,6 +12,14 @@
 
 ---
 
+<p align="center">
+  <img src="docs/screenshots/chat.png" alt="ALMA Chat — um filho perguntando ao pai sobre coragem" width="600">
+  <br>
+  <em>"Pai, o que é coragem pra você?" — O ALMA responde usando memórias reais, adaptando o tom à idade.</em>
+</p>
+
+---
+
 ## O que é o ALMA?
 
 ALMA é uma plataforma que permite preservar sua voz, seus valores e suas memórias para as pessoas que você ama — para que elas possam conversar com você mesmo quando você não estiver mais presente.
