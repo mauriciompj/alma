@@ -261,12 +261,12 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
       }
 
       if (matchedTags.length > 0) {
-        const existingIds = results.map(r => r.id || 0).concat([0]);
+        const existingIds = results.map(r => Number(r.id) || 0).concat([0]);
         const tagResults = await sql`
           SELECT id, content, title, category, tags, source_file, 0 as rank
           FROM alma_chunks
           WHERE tags && ${matchedTags}::TEXT[]
-          AND id NOT IN (${existingIds})
+          AND NOT (id = ANY(${existingIds}::int[]))
           ORDER BY chunk_index ASC
           LIMIT ${FETCH_POOL - results.length}
         `;
@@ -275,12 +275,12 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
     }
 
     // Always fetch person-specific memories to guarantee they're in the pool
-    const existingIds = results.map(r => r.id || 0).concat([0]);
+    const existingIds2 = results.map(r => Number(r.id) || 0).concat([0]);
     const personResults = await sql`
       SELECT id, content, title, category, tags, source_file, 0 as rank
       FROM alma_chunks
       WHERE ${childLower} = ANY(tags)
-      AND id NOT IN (${existingIds})
+      AND NOT (id = ANY(${existingIds2}::int[]))
       LIMIT 4
     `;
     results = [...results, ...personResults];

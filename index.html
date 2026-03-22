@@ -182,8 +182,8 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
           var el = document.getElementById('almaStats');
-          if (el && data.documents) {
-            var text = '<span>' + data.documents + ' documentos</span> · <span>' + data.chunks + ' memorias</span>';
+          if (el && data.chunks) {
+            var text = '<span>' + data.chunks + ' memorias</span>';
             if (data.corrections > 0) text += ' · <span>' + data.corrections + ' correcoes</span>';
             el.innerHTML = text;
           }

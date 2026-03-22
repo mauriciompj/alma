@@ -267,7 +267,7 @@
     // --- Load stats ---
     fetch(API + '?action=stats').then(r => r.json()).then(function(data) {
       document.getElementById('adminStats').textContent =
-        data.chunks + ' chunks · ' + data.documents + ' docs · ' + data.corrections + ' correcoes';
+        data.chunks + ' memorias · ' + data.corrections + ' correcoes';
     });
 
     // --- Load categories ---
