@@ -43,7 +43,7 @@ npm install
 
 # Copy environment config
 cp .env.example .env
-# Fill in your Neon database URL and OpenAI API key
+# Fill in your Neon database URL and Anthropic API key
 
 # Start the dev server
 npx netlify dev
@@ -65,9 +65,11 @@ alma/
 ├── admin.html          # Admin panel (memories, directives, photos)
 ├── sobre.html          # About page
 ├── js/
-│   └── alma.js         # Core frontend logic
+│   ├── alma.js         # Core frontend logic (chat, corrections, directives)
+│   └── i18n.js         # Internationalization system
 ├── css/
-│   └── alma.css        # Styles
+│   ├── style.css       # Main styles (dark theme, responsive)
+│   └── admin.css       # Admin panel styles
 ├── locales/            # i18n translation files
 │   ├── pt-BR.json
 │   ├── en.json
@@ -75,10 +77,15 @@ alma/
 ├── netlify/
 │   └── functions/
 │       ├── chat.mjs    # RAG chat engine + AI personality
-│       ├── memories.mjs # Memory CRUD + corrections + directives
-│       └── auth.mjs    # Authentication
-└── data/
-    └── memories.json   # Reference memory structure
+│       ├── memories.mjs # Memory CRUD + corrections + directives + persons API
+│       └── auth.mjs    # Authentication + session management + rate limiting
+├── db/
+│   ├── seed.sql        # Database schema (run once to create tables)
+│   ├── run-seed.mjs    # Schema runner
+│   ├── import-json.mjs # CLI tool to import memory chunks from JSON
+│   └── backup.mjs      # Database backup to JSON
+├── setup.html          # First-time setup wizard (admin only)
+└── manifest.json       # PWA manifest
 ```
 
 ## Guidelines
@@ -109,9 +116,10 @@ Write clear, concise commit messages. Examples:
 
 ALMA adapts its tone based on the relationship (child, sibling, parent, friend). To add a new relationship type:
 
-1. Add the context in `PERSON_CONTEXT` inside `chat.mjs`
-2. Add placeholder and welcome messages in all locale files
-3. Test the conversational tone — it should feel natural, not robotic
+1. Add the person as a user in `users_json` (via admin panel or DB) with the appropriate `type` field (`filho` or `outro`) and a `description`
+2. Person contexts are now built automatically from `users_json` — no code changes needed
+3. Optionally, add custom placeholder and welcome messages in all locale files
+4. Test the conversational tone — it should feel natural, not robotic
 
 ## What we especially welcome
 
