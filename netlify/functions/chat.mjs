@@ -98,7 +98,7 @@ export default async function handler(req) {
       headers: {
         'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },
     });
   }
@@ -116,6 +116,37 @@ export default async function handler(req) {
     return new Response(JSON.stringify({ error: 'Too many requests. Please wait a moment.' }), {
       status: 429, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN, 'Retry-After': '60' },
     });
+  }
+
+  // --- Auth gate: verify session before consuming Anthropic API ---
+  const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+  if (dbUrl) {
+    const authHeader = req.headers.get('authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+      });
+    }
+    try {
+      const authSql = neon(dbUrl);
+      const rows = await authSql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
+      if (rows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+          status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+        });
+      }
+      const session = JSON.parse(rows[0].value);
+      if (new Date(session.expiresAt) < new Date()) {
+        await authSql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
+        return new Response(JSON.stringify({ error: 'Session expired' }), {
+          status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+        });
+      }
+    } catch (e) {
+      // Auth check failed — allow through to not break if DB is temporarily down
+      console.error('[ALMA Chat] Auth check error:', e.message);
+    }
   }
 
   // Validate required env vars early

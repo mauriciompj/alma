@@ -52,8 +52,41 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netli
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+// --- Session verification (shared auth logic) ---
+// Actions that require admin privileges
+const ADMIN_ACTIONS = new Set([
+  'save_config', 'update_chunk', 'delete_chunk', 'create_chunk', 'import_chunks',
+  'promote_correction', 'delete_correction', 'reactivate_correction',
+  'add_directive', 'update_directive', 'delete_directive',
+  'migrate_directives', 'classify_input',
+]);
+// Actions that require any valid session (not necessarily admin)
+const AUTH_ACTIONS = new Set([
+  'save_correction', 'save_history', 'clear_history',
+]);
+
+async function verifySession(sql, req) {
+  const authHeader = req.headers.get('authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+
+  try {
+    const rows = await sql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
+    if (rows.length === 0) return null;
+
+    const session = JSON.parse(rows[0].value);
+    if (new Date(session.expiresAt) < new Date()) {
+      await sql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
+      return null;
+    }
+    return session; // { name, type, admin, token, expiresAt }
+  } catch (e) {
+    return null;
+  }
+}
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -75,11 +108,6 @@ export default async function handler(req) {
     return jsonResponse({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      checks: {
-        database: !!dbUrl,
-        anthropic: !!apiKey,
-        cors_origin: ALLOWED_ORIGIN,
-      },
     });
   }
 
@@ -96,6 +124,17 @@ export default async function handler(req) {
     if (req.method === 'POST') {
       const body = await req.json();
       const action = body.action;
+
+      // --- Auth gate: verify session for protected actions ---
+      if (ADMIN_ACTIONS.has(action) || AUTH_ACTIONS.has(action)) {
+        const session = await verifySession(sql, req);
+        if (!session) {
+          return jsonResponse({ error: 'Authentication required' }, 401);
+        }
+        if (ADMIN_ACTIONS.has(action) && !session.admin) {
+          return jsonResponse({ error: 'Admin access required' }, 403);
+        }
+      }
 
       switch (action) {
         case 'save_correction': return await handleSaveCorrection(sql, body);

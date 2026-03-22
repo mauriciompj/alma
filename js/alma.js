@@ -20,6 +20,15 @@
   let almaPhoto = ''; // base64 photo for ALMA avatar
   const CHILDREN = ['Noah', 'Nathan', 'Isaac'];
 
+  // --- Auth helper: include session token in all API calls ---
+  function authHeaders() {
+    var token = localStorage.getItem('alma_token') || '';
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token,
+    };
+  }
+
   // --- DOM Elements ---
   const chatMessages = document.getElementById('chatMessages');
   const chatInput = document.getElementById('chatInput');
@@ -240,7 +249,7 @@
   async function sendToBackend(userMessage) {
     var response = await fetch('/.netlify/functions/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({
         message: userMessage,
         personName: personName,
@@ -445,7 +454,7 @@
     try {
       var response = await fetch('/.netlify/functions/memories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           action: 'classify_input',
           text: text,
@@ -550,7 +559,7 @@
         // Save as correction (old behavior)
         var response = await fetch('/.netlify/functions/memories', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({
             action: 'save_correction',
             originalQuestion: correctionQuestion,
@@ -571,7 +580,7 @@
         var person = cls.type === 'directive_global' ? '_global' : (cls.person || personName);
         var response = await fetch('/.netlify/functions/memories', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({
             action: 'add_directive',
             person: person,
@@ -773,7 +782,7 @@
       if (!confirm('Remover esta diretriz?')) return; // i18n
       fetch('/.netlify/functions/memories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'delete_directive', id: id })
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) loadDirectivesList();
@@ -791,7 +800,7 @@
         addBtn.disabled = true;
         fetch('/.netlify/functions/memories', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({
             action: 'add_directive',
             person: personName,
@@ -831,7 +840,7 @@
     _saveHistoryTimer = setTimeout(function() {
       fetch('/.netlify/functions/memories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'save_history', person: person, messages: messages })
       }).catch(function() {}); // Silent fail
     }, 2000);

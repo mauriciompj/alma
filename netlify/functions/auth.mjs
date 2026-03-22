@@ -9,10 +9,30 @@ import bcrypt from 'bcryptjs';
 // Restrict CORS to production domain only (set via env var or fallback)
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
 
+// --- Login rate limiting (in-memory, resets on cold start) ---
+const LOGIN_RATE_LIMIT = { maxAttempts: 5, windowMs: 300000 }; // 5 attempts per 5 minutes per IP
+const loginAttempts = new Map();
+
+function checkLoginRateLimit(ip) {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip) || { count: 0, resetAt: now + LOGIN_RATE_LIMIT.windowMs };
+  if (now > entry.resetAt) {
+    entry.count = 0;
+    entry.resetAt = now + LOGIN_RATE_LIMIT.windowMs;
+  }
+  entry.count++;
+  loginAttempts.set(ip, entry);
+  // Clean old entries periodically
+  if (loginAttempts.size > 500) {
+    for (const [k, v] of loginAttempts) { if (now > v.resetAt) loginAttempts.delete(k); }
+  }
+  return entry.count <= LOGIN_RATE_LIMIT.maxAttempts;
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 function jsonResponse(data, status = 200) {
@@ -37,6 +57,10 @@ export default async function handler(req) {
     const { action } = body;
 
     if (action === 'login') {
+      const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+      if (!checkLoginRateLimit(clientIp)) {
+        return jsonResponse({ error: 'Too many login attempts. Please wait 5 minutes.' }, 429);
+      }
       return await handleLogin(sql, body);
     }
 
@@ -46,7 +70,8 @@ export default async function handler(req) {
 
     return jsonResponse({ error: 'Unknown action' }, 400);
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    console.error('[ALMA Auth] Error:', error.message);
+    return jsonResponse({ error: 'Internal server error' }, 500);
   }
 }
 

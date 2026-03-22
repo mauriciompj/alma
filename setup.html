@@ -96,6 +96,30 @@
   </div>
 
   <script>
+    // --- Auth guard: admin only ---
+    (function() {
+      var token = localStorage.getItem('alma_token');
+      var isAdmin = localStorage.getItem('alma_admin') === 'true';
+      if (!token || !isAdmin) {
+        window.location.href = 'login.html';
+        return;
+      }
+      // Verify token is still valid
+      fetch('/.netlify/functions/auth', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ action: 'verify', token: token })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (!data.valid || !data.admin) window.location.href = 'login.html';
+      }).catch(function() { window.location.href = 'login.html'; });
+    })();
+
+    // Auth helper
+    function authHeaders() {
+      var token = localStorage.getItem('alma_token') || '';
+      return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+    }
+
     var currentStep = 1;
     var totalSteps = 4;
 
@@ -196,14 +220,14 @@
       // Save system_prompt_base
       fetch('/.netlify/functions/memories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'save_config', key: 'system_prompt_base', value: prompt })
       })
       .then(function() {
         // Save person_contexts
         return fetch('/.netlify/functions/memories', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({ action: 'save_config', key: 'person_contexts', value: persons })
         });
       })

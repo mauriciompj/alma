@@ -252,6 +252,12 @@
     let currentChunkId = null;
     let isNewChunk = false;
 
+    // Auth helper — include session token in all API calls
+    function authHeaders() {
+      var token = localStorage.getItem('alma_token') || '';
+      return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+    }
+
     // --- Tabs ---
     document.querySelectorAll('.admin-tabs .tab').forEach(function(tab) {
       tab.addEventListener('click', function() {
@@ -412,7 +418,7 @@
 
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(body)
       }).then(r => r.json()).then(function(data) {
         if (data.success) {
@@ -431,7 +437,7 @@
 
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'delete_chunk', id: currentChunkId })
       }).then(r => r.json()).then(function() {
         closeModal();
@@ -456,7 +462,7 @@
 
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'save_config', key: 'tone_global', value: text })
       }).then(r => r.json()).then(function(data) {
         statusEl.textContent = data.success ? 'Salvo!' : 'Erro';
@@ -513,7 +519,7 @@
       if (!confirm('Promover esta correcao a conhecimento permanente no banco?')) return;
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'promote_correction', id: id })
       }).then(r => r.json()).then(function(data) {
         if (data.success) loadCorrections();
@@ -525,7 +531,7 @@
       if (!confirm('Desativar esta correcao?')) return;
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'delete_correction', id: id })
       }).then(r => r.json()).then(function() { loadCorrections(); });
     };
@@ -533,7 +539,7 @@
     window.reactivateCorrection = function(id) {
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'reactivate_correction', id: id })
       }).then(r => r.json()).then(function(data) {
         if (data.success) loadCorrections();
@@ -721,7 +727,7 @@
       try {
         var res = await fetch(API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({
             action: 'import_chunks',
             title: title,
@@ -823,7 +829,7 @@
       btn.disabled = true;
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'add_directive', person: person, directive_text: text, source: 'admin' })
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) {
@@ -860,7 +866,7 @@
         btn.disabled = true;
         fetch(API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({ action: 'update_directive', id: id, directive_text: newText })
         }).then(function(r) { return r.json(); }).then(function(data) {
           if (data.success) loadDirectivesList();
@@ -874,7 +880,7 @@
       if (!confirm('Remover esta diretriz?')) return;
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'delete_directive', id: id })
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) loadDirectivesList();
@@ -891,7 +897,7 @@
 
       fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'migrate_directives' })
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) {
