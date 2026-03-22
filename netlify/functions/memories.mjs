@@ -124,12 +124,21 @@ export default async function handler(req) {
 
     switch (action) {
       case 'stats': {
-        const docs = await sql`SELECT COUNT(*) as count FROM alma_documents`;
         const chunks = await sql`SELECT COUNT(*) as count FROM alma_chunks`;
         const categories = await sql`
           SELECT category, COUNT(*) as count FROM alma_chunks GROUP BY category ORDER BY count DESC
         `;
-        const totalChars = await sql`SELECT SUM(char_count) as total FROM alma_chunks`;
+        let totalChars = 0;
+        try {
+          const tc = await sql`SELECT SUM(char_count) as total FROM alma_chunks`;
+          totalChars = parseInt(tc[0].total) || 0;
+        } catch (e) {
+          // char_count column may not exist in older schemas
+          try {
+            const tc = await sql`SELECT SUM(LENGTH(content)) as total FROM alma_chunks`;
+            totalChars = parseInt(tc[0].total) || 0;
+          } catch (e2) {}
+        }
         let correctionsCount = 0;
         try {
           const corr = await sql`SELECT COUNT(*) as count FROM alma_corrections WHERE active = true`;
@@ -137,9 +146,8 @@ export default async function handler(req) {
         } catch (e) {}
 
         result = {
-          documents: parseInt(docs[0].count),
           chunks: parseInt(chunks[0].count),
-          totalCharacters: parseInt(totalChars[0].total),
+          totalCharacters: totalChars,
           corrections: correctionsCount,
           categories: categories.map(c => ({ name: c.category, chunks: parseInt(c.count) })),
         };
