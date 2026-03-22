@@ -361,6 +361,34 @@ export default async function handler(req) {
         break;
       }
 
+      case 'get_persons': {
+        // Returns user list WITHOUT passwords — for dynamic UI rendering
+        try {
+          const rows = await sql`SELECT value FROM alma_config WHERE key = 'users_json' LIMIT 1`;
+          if (rows.length > 0) {
+            const users = JSON.parse(rows[0].value);
+            const admin = users.find(u => u.admin || u.type === 'admin');
+            result = {
+              author: admin ? (admin.displayName || admin.name) : 'ALMA',
+              persons: users
+                .filter(u => u.type !== 'admin')
+                .map(u => ({
+                  name: u.name,
+                  type: u.type,
+                  displayName: u.displayName || u.name,
+                  description: u.description || '',
+                  birthDate: u.birthDate || null,
+                })),
+            };
+          } else {
+            result = { persons: [] };
+          }
+        } catch (e) {
+          result = { persons: [] };
+        }
+        break;
+      }
+
       case 'get_history': {
         const person = url.searchParams.get('person') || '';
         if (!person) { result = { error: 'Missing person parameter' }; break; }

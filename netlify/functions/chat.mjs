@@ -381,17 +381,16 @@ async function getCorrections(personName, personContexts = {}) {
     const CHILDREN = Object.entries(personContexts)
       .filter(([_, v]) => v.role === 'filho')
       .map(([name]) => name);
-    if (CHILDREN.length === 0) CHILDREN.push('Noah', 'Nathan', 'Isaac'); // fallback
     const isChild = CHILDREN.includes(personName);
 
     let corrections;
-    if (isChild) {
-      // Sons share ALL corrections made on any son + global (empty filho_nome field)
+    if (isChild && CHILDREN.length > 0) {
+      // Children share ALL corrections made on any child + global
       corrections = await sql`
         SELECT original_question, correction, filho_nome
         FROM alma_corrections
         WHERE active = true
-          AND (filho_nome IN ('Noah', 'Nathan', 'Isaac') OR filho_nome = '' OR filho_nome IS NULL)
+          AND (filho_nome = ANY(${CHILDREN}) OR filho_nome = '' OR filho_nome IS NULL)
         ORDER BY created_at DESC
         LIMIT 20
       `;
@@ -426,27 +425,39 @@ async function getSystemPromptBase() {
   return SYSTEM_PROMPT_FALLBACK;
 }
 
-// Hardcoded fallback for person contexts (used when DB has no 'person_contexts' key)
-const PERSON_CONTEXT_FALLBACK = {
-  'Noah': { role: 'filho', context: 'seu filho primogênito (nascido em 2016)' },
-  'Nathan': { role: 'filho', context: 'seu filho gêmeo (nascido em 2020)' },
-  'Isaac': { role: 'filho', context: 'seu filho gêmeo (nascido em 2020)' },
-  'Chris': { role: 'outro', context: 'a mãe dos seus filhos. Fale com respeito e carinho — ela é uma grande mulher' },
-  'Leslen': { role: 'outro', context: 'sua companheira, a mulher que te mostrou que você ainda pode amar. Fale com amor e verdade' },
-  'Nivalda': { role: 'outro', context: 'sua mãe, a Mãezinha. Fale com amor, gratidão e respeito profundo — ela é a base de tudo que você é' },
-  'Davi': { role: 'outro', context: 'seu irmão mais novo. Fale como irmão mais velho — com amor, parceria e cumplicidade. Vocês se protegem desde sempre' },
-};
+// Empty fallback — person contexts should be configured via setup.html or DB
+// If no person_contexts key exists, the system will build contexts from users_json
+const PERSON_CONTEXT_FALLBACK = {};
 
 async function getPersonContexts() {
-  // Load person contexts from DB (allows customization without code changes)
+  const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
+
+  // Try explicit person_contexts config first
   try {
-    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
     const rows = await sql`SELECT value FROM alma_config WHERE key = 'person_contexts' LIMIT 1`;
     if (rows.length > 0 && rows[0].value) {
       const parsed = JSON.parse(rows[0].value);
       if (Object.keys(parsed).length > 0) return parsed;
     }
   } catch (e) {}
+
+  // Fallback: build person contexts from users_json
+  try {
+    const rows = await sql`SELECT value FROM alma_config WHERE key = 'users_json' LIMIT 1`;
+    if (rows.length > 0 && rows[0].value) {
+      const users = JSON.parse(rows[0].value);
+      const contexts = {};
+      for (const u of users) {
+        if (u.type === 'admin') continue;
+        contexts[u.name] = {
+          role: u.type === 'filho' ? 'filho' : 'outro',
+          context: u.description || (u.displayName || u.name),
+        };
+      }
+      if (Object.keys(contexts).length > 0) return contexts;
+    }
+  } catch (e) {}
+
   return PERSON_CONTEXT_FALLBACK;
 }
 

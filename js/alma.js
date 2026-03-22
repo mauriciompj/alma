@@ -18,8 +18,6 @@
   let lastQuestion = ''; // track for corrections
   let personPhoto = ''; // base64 photo if available
   let almaPhoto = ''; // base64 photo for ALMA avatar
-  const CHILDREN = ['Noah', 'Nathan', 'Isaac'];
-
   // --- Auth helper: include session token in all API calls ---
   function authHeaders() {
     var token = localStorage.getItem('alma_token') || '';
@@ -39,14 +37,14 @@
   // --- Initialize ---
   function init() {
     personName = sessionStorage.getItem('alma_filho') || '';
-    personType = sessionStorage.getItem('alma_tipo') || (CHILDREN.includes(personName) ? 'filho' : 'outro');
+    personType = sessionStorage.getItem('alma_tipo') || localStorage.getItem('alma_type') || 'outro';
     if (!personName) {
       window.location.href = 'index.html';
       return;
     }
 
     var isChild = personType === 'filho';
-    var almaLabel = isChild ? 'Pai' : 'Maurício';
+    var authorLabel = 'ALMA'; // default, overwritten by DB
 
     // Set header
     var headerTitle = document.getElementById('headerTitle');
@@ -54,15 +52,25 @@
       headerTitle.innerHTML = 'ALMA <span>\u00b7 ' + personName + '</span>';
     }
 
-    // Set placeholder based on person type / name (i18n-aware)
-    if (chatInput && typeof t === 'function' && t('chat.placeholderChild') !== 'chat.placeholderChild') {
-      var customPh = t('chat.placeholderCustom.' + personName.toLowerCase());
-      chatInput.placeholder = (customPh && !customPh.startsWith('chat.'))
-        ? customPh
-        : (isChild ? t('chat.placeholderChild') : t('chat.placeholderOther', { authorName: t('labels.authorName') }));
-    } else if (chatInput) {
-      var placeholders = { 'Davi': 'Pergunte ao teu irmão...', 'Nivalda': 'Pergunte ao teu filho...' };
-      chatInput.placeholder = placeholders[personName] || (isChild ? 'Pergunte algo ao seu pai...' : 'Pergunte algo ao Maurício...');
+    // Load author name from DB, then set placeholders
+    fetch('/.netlify/functions/memories?action=get_persons')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.author) authorLabel = data.author;
+        setPlaceholder(isChild, authorLabel);
+      })
+      .catch(function() { setPlaceholder(isChild, authorLabel); });
+
+    function setPlaceholder(child, author) {
+      if (!chatInput) return;
+      if (typeof t === 'function' && t('chat.placeholderChild') !== 'chat.placeholderChild') {
+        var customPh = t('chat.placeholderCustom.' + personName.toLowerCase());
+        chatInput.placeholder = (customPh && !customPh.startsWith('chat.'))
+          ? customPh
+          : (child ? t('chat.placeholderChild') : t('chat.placeholderOther', { authorName: author }));
+      } else {
+        chatInput.placeholder = child ? 'Pergunte algo ao seu pai...' : 'Pergunte algo ao ' + author + '...';
+      }
     }
 
     // Update suggestions based on person type
@@ -115,15 +123,11 @@
           ? t('welcome.child', { name: personName })
           : t('welcome.other', { name: personName, authorName: t('labels.authorName') });
       } else {
-        // Fallback to hardcoded PT
-        if (personName === 'Davi') {
-          welcome = 'E a\u00ed, Davi. Esse \u00e9 o ALMA \u2014 a voz do teu irm\u00e3o organizada em palavras, valores e mem\u00f3rias. Tudo que eu quis deixar registrado t\u00e1 aqui. Pode perguntar o que quiser, mano.';
-        } else if (personName === 'Nivalda') {
-          welcome = 'Oi, m\u00e3e. Esse \u00e9 o ALMA \u2014 as palavras, os valores e as mem\u00f3rias que o teu filho quis deixar registradas. A senhora pode perguntar o que quiser.';
-        } else if (isChild) {
+        // Fallback to hardcoded PT (generic — no personal names)
+        if (isChild) {
           welcome = 'Oi, ' + personName + '. Eu sei que talvez voc\u00ea esteja lendo isso daqui alguns anos, talvez eu j\u00e1 n\u00e3o esteja por perto pra responder pessoalmente. Por isso criei isso \u2014 pra voc\u00ea poder me perguntar o que quiser. Pode ser sobre a vida, sobre quem eu fui, sobre o que achei certo ou errado, sobre como agir quando ficar dif\u00edcil. Estou aqui. O que voc\u00ea quer saber?';
         } else {
-          welcome = 'Oi, ' + personName + '. Esse \u00e9 o ALMA \u2014 o arquivo de legado emocional do Maur\u00edcio. Aqui est\u00e3o as palavras, os valores e as mem\u00f3rias que ele quis deixar registradas. Pode perguntar o que quiser.';
+          welcome = 'Oi, ' + personName + '. Esse \u00e9 o ALMA \u2014 o arquivo de legado emocional. Aqui est\u00e3o as palavras, os valores e as mem\u00f3rias que foram deixadas registradas. Pode perguntar o que quiser.';
         }
       }
       addMessage('alma', welcome);
@@ -287,7 +291,7 @@
       avatar.style.backgroundSize = 'cover';
       avatar.style.backgroundPosition = 'center';
     } else if (type === 'alma') {
-      avatar.textContent = isChild ? 'Pai' : 'Maurício';
+      avatar.textContent = isChild ? (typeof t === 'function' ? t('labels.father') : 'Pai') : authorLabel;
       avatar.classList.add('avatar-name');
     } else {
       avatar.textContent = personName;
@@ -365,7 +369,7 @@
       '    </div>',
       '    <div class="correction-input-group">',
       '      <label for="correctionText">O que est\u00e1 errado? Ou que diretriz quer adicionar?</label>', // i18n
-      '      <textarea id="correctionText" class="correction-textarea" rows="3" maxlength="2000" placeholder="Ex: N\u00e3o compare Noah com os irm\u00e3os. Ou: Essa resposta ficou fria demais, fale com mais calor..."></textarea>', // i18n
+      '      <textarea id="correctionText" class="correction-textarea" rows="3" maxlength="2000" placeholder="Ex: Essa resposta ficou fria demais, fale com mais calor. Ou: Nunca diga X sobre Y..."></textarea>', // i18n
       '      <span class="correction-char-count" id="correctionCharCount">0/2000</span>',
       '    </div>',
       '    <div id="classifyResult" style="display:none;margin-top:14px;"></div>',
@@ -615,7 +619,7 @@
     if (almaPhoto) {
       avatarHtml = '<div class="message-avatar" style="background-image:url(' + almaPhoto + ');background-size:cover;background-position:center;"></div>';
     } else {
-      var typingLabel = personType === 'filho' ? 'Pai' : 'Maurício';
+      var typingLabel = personType === 'filho' ? (typeof t === 'function' ? t('labels.father') : 'Pai') : authorLabel;
       avatarHtml = '<div class="message-avatar avatar-name">' + typingLabel + '</div>';
     }
     el.innerHTML = avatarHtml + '<div class="typing-dots"><span></span><span></span><span></span></div>';
