@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALMA — Revisor do BD</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .revisor { max-width: 960px; margin: 0 auto; padding: 20px; min-height: 100dvh; }
+  .revisor-header { text-align: center; margin-bottom: 24px; }
+  .revisor-header h1 { font-family: var(--font-title); color: var(--accent); font-size: 1.6rem; }
+  .revisor-header p { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+  .stats-bar { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+  .stat { background: var(--surface); padding: 10px 16px; border-radius: 8px; text-align: center; min-width: 100px; }
+  .stat-value { font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filters select, .filters input { background: var(--surface); color: var(--text); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; font-family: inherit; }
+  .filters input { flex: 1; min-width: 200px; }
+  .filters select { min-width: 140px; }
+  .chunk-list { display: flex; flex-direction: column; gap: 8px; }
+  .chunk { background: var(--surface); border-radius: 10px; padding: 14px 16px; border-left: 3px solid var(--accent-dim); transition: border-color 0.2s; }
+  .chunk:hover { border-left-color: var(--accent); }
+  .chunk-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+  .chunk-title { font-size: 0.82rem; font-weight: 600; color: var(--text); flex: 1; }
+  .chunk-meta { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .chunk-cat { font-size: 0.68rem; padding: 2px 8px; border-radius: 4px; background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+  .chunk-chars { font-size: 0.68rem; color: var(--text-muted); }
+  .chunk-id { font-size: 0.62rem; color: var(--text-muted); }
+  .chunk-content { font-size: 0.82rem; color: var(--text-soft); line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow: hidden; transition: max-height 0.3s; cursor: pointer; }
+  .chunk-content.expanded { max-height: none; }
+  .chunk-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .chunk-actions button { padding: 5px 12px; border: none; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-family: inherit; font-weight: 600; }
+  .btn-edit { background: var(--blue-dim); color: var(--blue); }
+  .btn-delete { background: rgba(217,74,74,0.12); color: #D94A4A; }
+  .btn-recat { background: var(--accent-dim); color: var(--accent); }
+  .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 20px; align-items: center; }
+  .pagination button { padding: 8px 14px; border: 1px solid rgba(255,255,255,0.1); background: var(--surface); color: var(--text); border-radius: 6px; cursor: pointer; font-size: 0.82rem; }
+  .pagination button.active { background: var(--accent); color: #0D0D0D; font-weight: 700; border-color: var(--accent); }
+  .pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
+  .pagination .page-info { color: var(--text-muted); font-size: 0.8rem; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--surface); border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+  .modal h3 { color: var(--accent); margin-bottom: 16px; font-size: 1rem; }
+  .modal label { display: block; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px; margin-top: 12px; }
+  .modal input, .modal textarea, .modal select { width: 100%; padding: 10px; background: var(--bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: inherit; }
+  .modal textarea { min-height: 200px; resize: vertical; line-height: 1.5; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+  .modal-btns button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .back-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; }
+  .back-link:hover { color: var(--accent); }
+  .source-tag { font-size: 0.62rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="revisor">
+  <div class="revisor-header">
+    <a href="index.html" class="back-link">&larr; Voltar</a>
+    <h1>Revisor do BD</h1>
+    <p>Navegue, filtre, edite e limpe as memorias do ALMA</p>
+  </div>
+
+  <div class="stats-bar" id="statsBar"></div>
+
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="Buscar no conteudo...">
+    <select id="catFilter"><option value="">Todas categorias</option></select>
+    <select id="sourceFilter">
+      <option value="">Todas origens</option>
+      <option value="doc">Documentos escritos</option>
+      <option value="instagram">Instagram</option>
+      <option value="whatsapp">WhatsApp</option>
+    </select>
+    <select id="sortBy">
+      <option value="id_desc">Mais recentes</option>
+      <option value="id_asc">Mais antigos</option>
+      <option value="chars_desc">Maiores</option>
+      <option value="chars_asc">Menores</option>
+    </select>
+  </div>
+
+  <div class="chunk-list" id="chunkList"></div>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3 id="modalTitle">Editar chunk</h3>
+    <label>Titulo</label>
+    <input type="text" id="editTitle">
+    <label>Categoria</label>
+    <select id="editCategory"></select>
+    <label>Conteudo</label>
+    <textarea id="editContent"></textarea>
+    <label>Tags (separadas por virgula)</label>
+    <input type="text" id="editTags">
+    <div class="modal-btns">
+      <button style="background:var(--bg);color:var(--text-muted);" onclick="closeModal()">Cancelar</button>
+      <button style="background:#D94A4A;color:white;" id="modalDeleteBtn" onclick="deleteChunk()">Deletar</button>
+      <button style="background:var(--accent);color:#0D0D0D;" onclick="saveChunk()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var token = localStorage.getItem('alma_token');
+  var isAdmin = localStorage.getItem('alma_admin') === '1';
+  if (!token || !isAdmin) { window.location.href = 'login.html'; return; }
+
+  var API = '/.netlify/functions/memories';
+  var currentPage = 1;
+  var perPage = 20;
+  var editingId = null;
+  var allCategories = [];
+
+  function authHeaders() {
+    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+  }
+
+  // Load stats
+  fetch(API + '?action=stats').then(function(r) { return r.json(); }).then(function(data) {
+    var bar = document.getElementById('statsBar');
+    bar.innerHTML =
+      '<div class="stat"><div class="stat-value">' + data.chunks + '</div><div class="stat-label">Memorias</div></div>' +
+      '<div class="stat"><div class="stat-value">' + Math.round(data.totalCharacters/1000) + 'k</div><div class="stat-label">Caracteres</div></div>' +
+      '<div class="stat"><div class="stat-value">' + data.corrections + '</div><div class="stat-label">Correcoes</div></div>' +
+      '<div class="stat"><div class="stat-value">' + data.categories.length + '</div><div class="stat-label">Categorias</div></div>';
+
+    // Populate category filters
+    allCategories = data.categories.map(function(c) { return c.name; });
+    var sel = document.getElementById('catFilter');
+    var editSel = document.getElementById('editCategory');
+    data.categories.forEach(function(c) {
+      sel.innerHTML += '<option value="' + c.name + '">' + c.name + ' (' + c.chunks + ')</option>';
+      editSel.innerHTML += '<option value="' + c.name + '">' + c.name + '</option>';
+    });
+
+    loadChunks();
+  });
+
+  function loadChunks() {
+    var q = document.getElementById('searchInput').value.trim();
+    var cat = document.getElementById('catFilter').value;
+    var source = document.getElementById('sourceFilter').value;
+    var sort = document.getElementById('sortBy').value;
+
+    var url = API + '?action=admin_chunks&page=' + currentPage + '&per_page=' + perPage;
+    if (q) url += '&q=' + encodeURIComponent(q);
+    if (cat) url += '&category=' + encodeURIComponent(cat);
+
+    document.getElementById('chunkList').innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">Carregando...</div>';
+
+    fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+      var chunks = data.chunks || [];
+
+      // Client-side source filter
+      if (source) {
+        chunks = chunks.filter(function(c) {
+          var sf = (c.source_file || '').toLowerCase();
+          if (source === 'instagram') return sf.indexOf('instagram') >= 0;
+          if (source === 'whatsapp') return sf.indexOf('whatsapp') >= 0;
+          if (source === 'doc') return sf.indexOf('instagram') < 0 && sf.indexOf('whatsapp') < 0;
+          return true;
+        });
+      }
+
+      // Client-side sort
+      if (sort === 'chars_desc') chunks.sort(function(a,b) { return (b.char_count||0) - (a.char_count||0); });
+      else if (sort === 'chars_asc') chunks.sort(function(a,b) { return (a.char_count||0) - (b.char_count||0); });
+      else if (sort === 'id_asc') chunks.sort(function(a,b) { return a.id - b.id; });
+
+      renderChunks(chunks);
+      renderPagination(data.total || 0, data.totalPages || 1);
+    }).catch(function() {
+      document.getElementById('chunkList').innerHTML = '<div style="text-align:center;color:#D94A4A;padding:40px;">Erro ao carregar</div>';
+    });
+  }
+
+  function renderChunks(chunks) {
+    var el = document.getElementById('chunkList');
+    if (chunks.length === 0) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">Nenhum chunk encontrado</div>';
+      return;
+    }
+
+    el.innerHTML = chunks.map(function(c) {
+      var sf = (c.source_file || '');
+      var origin = sf.indexOf('instagram') >= 0 ? 'IG' : (sf.indexOf('whatsapp') >= 0 ? 'WA' : 'DOC');
+      var content = (c.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      return '<div class="chunk" data-id="' + c.id + '">' +
+        '<div class="chunk-top">' +
+          '<div class="chunk-title">' + (c.title || '(sem titulo)').replace(/</g,'&lt;') + '</div>' +
+          '<div class="chunk-meta">' +
+            '<span class="source-tag">' + origin + '</span>' +
+            '<span class="chunk-cat">' + c.category + '</span>' +
+            '<span class="chunk-chars">' + (c.char_count || content.length) + 'c</span>' +
+            '<span class="chunk-id">#' + c.id + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="chunk-content" onclick="this.classList.toggle(\'expanded\')">' + content + '</div>' +
+        '<div class="chunk-actions">' +
+          '<button class="btn-edit" onclick="openEdit(' + c.id + ')">Editar</button>' +
+          '<button class="btn-delete" onclick="quickDelete(' + c.id + ')">Deletar</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderPagination(total, totalPages) {
+    var el = document.getElementById('pagination');
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+    var html = '<button ' + (currentPage <= 1 ? 'disabled' : 'onclick="goPage(' + (currentPage-1) + ')"') + '>&laquo;</button>';
+    for (var i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage-2 && i <= currentPage+2)) {
+        html += '<button class="' + (i === currentPage ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
+      } else if (i === currentPage-3 || i === currentPage+3) {
+        html += '<span class="page-info">...</span>';
+      }
+    }
+    html += '<button ' + (currentPage >= totalPages ? 'disabled' : 'onclick="goPage(' + (currentPage+1) + ')"') + '>&raquo;</button>';
+    html += '<span class="page-info">' + total + ' chunks</span>';
+    el.innerHTML = html;
+  }
+
+  window.goPage = function(p) { currentPage = p; loadChunks(); window.scrollTo(0,0); };
+
+  // Filters
+  document.getElementById('searchInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { currentPage = 1; loadChunks(); }
+  });
+  document.getElementById('catFilter').addEventListener('change', function() { currentPage = 1; loadChunks(); });
+  document.getElementById('sourceFilter').addEventListener('change', function() { currentPage = 1; loadChunks(); });
+  document.getElementById('sortBy').addEventListener('change', function() { loadChunks(); });
+
+  // Edit modal
+  window.openEdit = function(id) {
+    editingId = id;
+    document.getElementById('modalTitle').textContent = 'Editar chunk #' + id;
+
+    // Fetch chunk data
+    fetch(API + '?action=admin_chunks&q=&page=1&per_page=1').then(function() {
+      // Find chunk in DOM
+      var chunkEl = document.querySelector('.chunk[data-id="' + id + '"]');
+      if (chunkEl) {
+        document.getElementById('editTitle').value = chunkEl.querySelector('.chunk-title').textContent;
+        document.getElementById('editCategory').value = chunkEl.querySelector('.chunk-cat').textContent;
+        var content = chunkEl.querySelector('.chunk-content').textContent;
+        document.getElementById('editContent').value = content;
+        document.getElementById('editTags').value = '';
+      }
+      document.getElementById('editModal').classList.add('active');
+    });
+  };
+
+  window.closeModal = function() {
+    document.getElementById('editModal').classList.remove('active');
+    editingId = null;
+  };
+
+  window.saveChunk = function() {
+    if (!editingId) return;
+    var body = {
+      action: 'update_chunk',
+      id: editingId,
+      title: document.getElementById('editTitle').value,
+      category: document.getElementById('editCategory').value,
+      content: document.getElementById('editContent').value,
+    };
+    var tags = document.getElementById('editTags').value.trim();
+    if (tags) body.tags = tags.split(',').map(function(t) { return t.trim(); });
+
+    fetch(API, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) { closeModal(); loadChunks(); }
+        else alert('Erro: ' + (data.error || ''));
+      });
+  };
+
+  window.deleteChunk = function() {
+    if (!editingId || !confirm('Deletar chunk #' + editingId + '? Isso nao pode ser desfeito.')) return;
+    fetch(API, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'delete_chunk', id: editingId }) })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) { closeModal(); loadChunks(); }
+        else alert('Erro: ' + (data.error || ''));
+      });
+  };
+
+  window.quickDelete = function(id) {
+    if (!confirm('Deletar chunk #' + id + '?')) return;
+    fetch(API, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'delete_chunk', id: id }) })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          var el = document.querySelector('.chunk[data-id="' + id + '"]');
+          if (el) el.remove();
+        }
+      });
+  };
+
+  document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+})();
+</script>
+</body>
+</html>
