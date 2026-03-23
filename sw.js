@@ -4,7 +4,7 @@
  * API calls always go to network (never cached).
  */
 
-const CACHE_NAME = 'alma-v4';
+const CACHE_NAME = 'alma-v5';
 const STATIC_ASSETS = [
   '/',
   '/login.html',
@@ -20,11 +20,13 @@ const STATIC_ASSETS = [
   '/manifest.json',
 ];
 
-// Install: cache static assets
+// Install: cache static assets (individually so one failure doesn't break all)
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(STATIC_ASSETS);
+      return Promise.allSettled(
+        STATIC_ASSETS.map(function(url) { return cache.add(url); })
+      );
     })
   );
   self.skipWaiting();
@@ -58,7 +60,7 @@ self.addEventListener('fetch', function(event) {
       if (cached) return cached;
       return fetch(event.request).then(function(response) {
         // Cache successful GET responses
-        if (response.ok && event.request.method === 'GET') {
+        if (response.ok && response.status === 200 && event.request.method === 'GET') {
           var clone = response.clone();
           caches.open(CACHE_NAME).then(function(cache) {
             cache.put(event.request, clone);

@@ -20,7 +20,7 @@
   --blue-dim: rgba(74, 144, 217, 0.12);
   --text: #F0F0F0;
   --text-soft: #8A8A9A;
-  --text-muted: #7A7A8A;
+  --text-muted: #9A9AAA;
   --msg-user: #2A2A4A;
   --msg-alma: #1E3A5F;
   --danger: #D94A4A;
@@ -48,6 +48,17 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 a {

@@ -28,6 +28,14 @@
   let voiceNoticeShown = false;
   const voiceCache = new Map();
 
+  // --- HTML escaping helper ---
+  function escapeHtml(str) {
+    if (!str) return '';
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
   // --- Language helper ---
   function currentLang() {
     return (typeof getCurrentLang === 'function') ? getCurrentLang() : 'pt-BR';
@@ -79,7 +87,7 @@
     // Set header
     var headerTitle = document.getElementById('headerTitle');
     if (headerTitle) {
-      headerTitle.innerHTML = 'ALMA <span>\u00b7 ' + personName + '</span>';
+      headerTitle.innerHTML = 'ALMA <span>\u00b7 ' + escapeHtml(personName) + '</span>';
     }
 
     // Load author name from DB, then set placeholders
@@ -135,27 +143,33 @@
       });
     }
 
-    // Load history from database (persistent across sessions, per language)
+    // Load history — demo mode starts fresh every time
     var hKey = historyKey(personName);
-    loadHistoryFromDB(hKey).then(function(dbHistory) {
-      if (dbHistory && dbHistory.length > 0) {
-        conversationHistory = dbHistory;
-        renderSavedHistory();
-        hideSuggestions();
-      }
-    }).catch(function() {
-      // Fallback: try sessionStorage
-      var saved = sessionStorage.getItem('alma_history_' + hKey);
-      if (saved) {
-        try {
-          conversationHistory = JSON.parse(saved);
+    if (window.ALMA_DEMO) {
+      // Demo: always start with empty history, no DB load
+      conversationHistory = [];
+      sessionStorage.removeItem('alma_history_' + hKey);
+    } else {
+      loadHistoryFromDB(hKey).then(function(dbHistory) {
+        if (dbHistory && dbHistory.length > 0) {
+          conversationHistory = dbHistory;
           renderSavedHistory();
           hideSuggestions();
-        } catch (e) {
-          conversationHistory = [];
         }
-      }
-    });
+      }).catch(function() {
+        // Fallback: try sessionStorage
+        var saved = sessionStorage.getItem('alma_history_' + hKey);
+        if (saved) {
+          try {
+            conversationHistory = JSON.parse(saved);
+            renderSavedHistory();
+            hideSuggestions();
+          } catch (e) {
+            conversationHistory = [];
+          }
+        }
+      });
+    }
 
     // Welcome message if no history — i18n aware
     if (conversationHistory.length === 0) {
@@ -571,6 +585,10 @@
     }
 
     var audioUrl = 'data:' + (data.mimeType || 'audio/mpeg') + ';base64,' + data.audio;
+    if (voiceCache.size >= 50) {
+      var oldest = voiceCache.keys().next().value;
+      voiceCache.delete(oldest);
+    }
     voiceCache.set(cleanText, audioUrl);
     return audioUrl;
   }
@@ -773,7 +791,7 @@
       '<div style="background:var(--bg);border-radius:10px;padding:14px;border-left:3px solid ' + typeColor + ';">' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
           '<span style="font-size:0.75rem;background:' + typeColor + '22;color:' + typeColor + ';padding:2px 10px;border-radius:4px;font-weight:600;">' + typeLabel + '</span>' +
-          (cls.person ? '<span style="font-size:0.72rem;color:var(--text-muted);">para ' + cls.person + '</span>' : '') +
+          (cls.person ? '<span style="font-size:0.72rem;color:var(--text-muted);">para ' + escapeHtml(cls.person) + '</span>' : '') +
         '</div>' +
         '<div style="font-size:0.85rem;color:var(--text);line-height:1.5;margin-bottom:8px;">' +
           '<strong>' + tt('correction.refinedText', null, 'Texto refinado:') + '</strong> ' + escapeHtmlSafe(cls.refined_text || originalText) +
@@ -910,6 +928,9 @@
   }
 
   function saveHistory() {
+    // Demo mode: never persist history (not to sessionStorage, not to DB)
+    if (window.ALMA_DEMO) return;
+
     var hKey = historyKey(personName);
     // Save to sessionStorage (immediate fallback)
     try {
@@ -1031,13 +1052,14 @@
           data.directives.forEach(function(dir) {
             var isGlobal = !dir.person;
             var tagColor = isGlobal ? '#E8C547' : '#4A90D9';
-            var tagLabel = isGlobal ? 'Global' : dir.person;
+            var tagLabel = isGlobal ? 'Global' : escapeHtml(dir.person);
+            var safeId = parseInt(dir.id, 10);
             html += '<div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:2px solid ' + tagColor + ';display:flex;align-items:flex-start;gap:8px;">' +
               '<div style="flex:1;">' +
                 '<span style="font-size:0.62rem;color:' + tagColor + ';font-weight:600;">' + tagLabel + '</span>' +
                 '<div style="font-size:0.82rem;color:var(--text);line-height:1.4;margin-top:2px;">' + escapeHtmlSafe(dir.directive_text) + '</div>' +
               '</div>' +
-              '<button onclick="window._deleteDirective(' + dir.id + ')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;padding:0 2px;line-height:1;" title="' + tt('directives.removeConfirm', null, 'Remover') + '">&times;</button>' +
+              '<button onclick="window._deleteDirective(' + safeId + ')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;padding:0 2px;line-height:1;" title="' + tt('directives.removeConfirm', null, 'Remover') + '">&times;</button>' +
             '</div>';
           });
           listEl.innerHTML = html;

@@ -243,8 +243,8 @@ async function cleanupExpiredSessions(sql) {
 }
 
 function generateToken() {
-  // Cryptographically secure token generation (replaces Math.random)
+  // Cryptographically secure token generation using hex encoding (full entropy)
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes, b => b.toString(36).padStart(2, '0')).join('').slice(0, 48);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }

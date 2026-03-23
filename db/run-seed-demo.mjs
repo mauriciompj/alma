@@ -10,11 +10,14 @@ import { neon } from '@neondatabase/serverless';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { config } from 'dotenv';
+
+config(); // Load .env automatically
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function seedDemo() {
-  const dbUrl = process.env.DATABASE_URL;
+  const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
   if (!dbUrl) {
     console.error('ERROR: DATABASE_URL not set.');
     console.error('Usage: DATABASE_URL="postgresql://..." node db/run-seed-demo.mjs');

@@ -108,6 +108,12 @@
 (function() {
   'use strict';
 
+  function escapeHtml(str) {
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
   var token = localStorage.getItem('alma_token');
   var isAdmin = localStorage.getItem('alma_admin') === '1';
   if (!token || !isAdmin) { window.location.href = 'login.html'; return; }
@@ -136,8 +142,8 @@
     var sel = document.getElementById('catFilter');
     var editSel = document.getElementById('editCategory');
     data.categories.forEach(function(c) {
-      sel.innerHTML += '<option value="' + c.name + '">' + c.name + ' (' + c.chunks + ')</option>';
-      editSel.innerHTML += '<option value="' + c.name + '">' + c.name + '</option>';
+      sel.innerHTML += '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + ' (' + parseInt(c.chunks) + ')</option>';
+      editSel.innerHTML += '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>';
     });
 
     loadChunks();
@@ -191,22 +197,23 @@
     el.innerHTML = chunks.map(function(c) {
       var sf = (c.source_file || '');
       var origin = sf.indexOf('instagram') >= 0 ? 'IG' : (sf.indexOf('whatsapp') >= 0 ? 'WA' : 'DOC');
-      var content = (c.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      var content = escapeHtml(c.content || '');
+      var safeId = parseInt(c.id);
 
-      return '<div class="chunk" data-id="' + c.id + '">' +
+      return '<div class="chunk" data-id="' + safeId + '">' +
         '<div class="chunk-top">' +
-          '<div class="chunk-title">' + (c.title || '(sem titulo)').replace(/</g,'&lt;') + '</div>' +
+          '<div class="chunk-title">' + escapeHtml(c.title || '(sem titulo)') + '</div>' +
           '<div class="chunk-meta">' +
             '<span class="source-tag">' + origin + '</span>' +
-            '<span class="chunk-cat">' + c.category + '</span>' +
-            '<span class="chunk-chars">' + (c.char_count || content.length) + 'c</span>' +
-            '<span class="chunk-id">#' + c.id + '</span>' +
+            '<span class="chunk-cat">' + escapeHtml(c.category) + '</span>' +
+            '<span class="chunk-chars">' + (parseInt(c.char_count) || content.length) + 'c</span>' +
+            '<span class="chunk-id">#' + safeId + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="chunk-content" onclick="this.classList.toggle(\'expanded\')">' + content + '</div>' +
         '<div class="chunk-actions">' +
-          '<button class="btn-edit" onclick="openEdit(' + c.id + ')">Editar</button>' +
-          '<button class="btn-delete" onclick="quickDelete(' + c.id + ')">Deletar</button>' +
+          '<button class="btn-edit" onclick="openEdit(' + safeId + ')">Editar</button>' +
+          '<button class="btn-delete" onclick="quickDelete(' + safeId + ')">Deletar</button>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -216,24 +223,30 @@
     var el = document.getElementById('pagination');
     if (totalPages <= 1) { el.innerHTML = ''; return; }
 
-    var html = '<button ' + (currentPage <= 1 ? 'disabled' : 'onclick="goPage(' + (currentPage-1) + ')"') + '>&laquo;</button>';
+    var html = '<button ' + (currentPage <= 1 ? 'disabled' : 'onclick="goPage(' + parseInt(currentPage-1) + ')"') + '>&laquo;</button>';
     for (var i = 1; i <= totalPages; i++) {
       if (i === 1 || i === totalPages || (i >= currentPage-2 && i <= currentPage+2)) {
-        html += '<button class="' + (i === currentPage ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
+        html += '<button class="' + (i === currentPage ? 'active' : '') + '" onclick="goPage(' + parseInt(i) + ')">' + parseInt(i) + '</button>';
       } else if (i === currentPage-3 || i === currentPage+3) {
         html += '<span class="page-info">...</span>';
       }
     }
-    html += '<button ' + (currentPage >= totalPages ? 'disabled' : 'onclick="goPage(' + (currentPage+1) + ')"') + '>&raquo;</button>';
-    html += '<span class="page-info">' + total + ' chunks</span>';
+    html += '<button ' + (currentPage >= totalPages ? 'disabled' : 'onclick="goPage(' + parseInt(currentPage+1) + ')"') + '>&raquo;</button>';
+    html += '<span class="page-info">' + parseInt(total) + ' chunks</span>';
     el.innerHTML = html;
   }
 
   window.goPage = function(p) { currentPage = p; loadChunks(); window.scrollTo(0,0); };
 
   // Filters
-  document.getElementById('searchInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { currentPage = 1; loadChunks(); }
+  var searchTimeout;
+  var searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(function() { currentPage = 1; loadChunks(); }, 300);
+  });
+  searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { clearTimeout(searchTimeout); currentPage = 1; loadChunks(); }
   });
   document.getElementById('catFilter').addEventListener('change', function() { currentPage = 1; loadChunks(); });
   document.getElementById('sourceFilter').addEventListener('change', function() { currentPage = 1; loadChunks(); });
@@ -241,13 +254,13 @@
 
   // Edit modal
   window.openEdit = function(id) {
-    editingId = id;
-    document.getElementById('modalTitle').textContent = 'Editar chunk #' + id;
+    editingId = parseInt(id);
+    document.getElementById('modalTitle').textContent = 'Editar chunk #' + editingId;
 
     // Fetch chunk data
     fetch(API + '?action=admin_chunks&q=&page=1&per_page=1').then(function() {
       // Find chunk in DOM
-      var chunkEl = document.querySelector('.chunk[data-id="' + id + '"]');
+      var chunkEl = document.querySelector('.chunk[data-id="' + editingId + '"]');
       if (chunkEl) {
         document.getElementById('editTitle').value = chunkEl.querySelector('.chunk-title').textContent;
         document.getElementById('editCategory').value = chunkEl.querySelector('.chunk-cat').textContent;
@@ -295,6 +308,7 @@
   };
 
   window.quickDelete = function(id) {
+    id = parseInt(id);
     if (!confirm('Deletar chunk #' + id + '?')) return;
     fetch(API, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'delete_chunk', id: id }) })
       .then(function(r) { return r.json(); })

@@ -144,8 +144,10 @@ export default async function handler(req) {
         });
       }
     } catch (e) {
-      // Auth check failed — allow through to not break if DB is temporarily down
       console.error('[ALMA Chat] Auth check error:', e.message);
+      return new Response(JSON.stringify({ error: 'Authentication service unavailable' }), {
+        status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+      });
     }
   }
 
@@ -165,7 +167,8 @@ export default async function handler(req) {
     const body = await req.json();
     const { message, history = [] } = body;
     const personName = body.personName || body.filhoNome; // Support both v2 (personName) and v1 (filhoNome)
-    const lang = body.lang || 'pt-BR'; // User's chosen UI language
+    const ALLOWED_LANGS = ['pt-BR', 'en', 'es'];
+    const lang = ALLOWED_LANGS.includes(body.lang) ? body.lang : 'pt-BR';
     const birthDate = body.birthDate || null; // e.g. "2016-03-15"
 
     if (!message || !personName) {

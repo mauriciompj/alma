@@ -314,20 +314,20 @@
         return;
       }
 
-      var html = '<div class="results-count">' + total + ' resultados</div>';
+      var html = '<div class="results-count">' + parseInt(total) + ' resultados</div>';
       chunks.forEach(function(chunk) {
         var preview = chunk.content.length > 200 ? chunk.content.substring(0, 200) + '...' : chunk.content;
         var tags = chunk.tags ? chunk.tags.join(', ') : '';
-        html += '<div class="chunk-card" data-id="' + chunk.id + '">' +
+        html += '<div class="chunk-card" data-id="' + parseInt(chunk.id) + '">' +
           '<div class="chunk-header">' +
-            '<span class="chunk-category">' + chunk.category + '</span>' +
-            '<span class="chunk-title">' + chunk.title + '</span>' +
-            '<span class="chunk-chars">' + chunk.char_count + ' chars</span>' +
+            '<span class="chunk-category">' + escapeHtml(chunk.category) + '</span>' +
+            '<span class="chunk-title">' + escapeHtml(chunk.title) + '</span>' +
+            '<span class="chunk-chars">' + parseInt(chunk.char_count) + ' chars</span>' +
           '</div>' +
           '<div class="chunk-preview">' + escapeHtml(preview) + '</div>' +
           (tags ? '<div class="chunk-tags">' + escapeHtml(tags) + '</div>' : '') +
           '<div class="chunk-actions">' +
-            '<button class="admin-btn-sm" onclick="editChunk(' + chunk.id + ')">Editar</button>' +
+            '<button class="admin-btn-sm" onclick="editChunk(' + parseInt(chunk.id) + ')">Editar</button>' +
           '</div>' +
         '</div>';
       });
@@ -339,9 +339,9 @@
       if (totalPages <= 1) { el.innerHTML = ''; return; }
 
       var html = '';
-      if (page > 1) html += '<button class="page-btn" onclick="loadChunks(' + (page-1) + ')">&laquo; Anterior</button>';
-      html += '<span class="page-info">Pagina ' + page + ' de ' + totalPages + '</span>';
-      if (page < totalPages) html += '<button class="page-btn" onclick="loadChunks(' + (page+1) + ')">Proxima &raquo;</button>';
+      if (page > 1) html += '<button class="page-btn" onclick="loadChunks(' + parseInt(page-1) + ')">&laquo; Anterior</button>';
+      html += '<span class="page-info">Pagina ' + parseInt(page) + ' de ' + parseInt(totalPages) + '</span>';
+      if (page < totalPages) html += '<button class="page-btn" onclick="loadChunks(' + parseInt(page+1) + ')">Proxima &raquo;</button>';
       el.innerHTML = html;
     }
 
@@ -496,8 +496,8 @@
 
           html += '<div class="correction-card ' + (corr.active ? '' : 'inactive') + '">' +
             '<div class="corr-meta">' +
-              '<span class="corr-date">' + dateStr + '</span>' +
-              '<span class="corr-scope">' + scope + '</span>' +
+              '<span class="corr-date">' + escapeHtml(dateStr) + '</span>' +
+              '<span class="corr-scope">' + escapeHtml(scope) + '</span>' +
               (promoted ? '<span class="corr-badge">promovida</span>' : '') +
               (!corr.active ? '<span class="corr-badge corr-badge-off">desativada</span>' : '') +
             '</div>' +
@@ -505,9 +505,9 @@
             (rPreview ? '<div class="corr-response"><strong>Resposta original:</strong> ' + escapeHtml(rPreview) + '</div>' : '') +
             '<div class="corr-text"><strong>Correcao:</strong> ' + escapeHtml(corr.correction) + '</div>' +
             '<div class="corr-actions">' +
-              (!promoted && corr.active ? '<button class="admin-btn-sm admin-btn-accent" onclick="promoteCorrection(' + corr.id + ')">Promover a conhecimento</button>' : '') +
-              (corr.active ? '<button class="admin-btn-sm admin-btn-danger" onclick="deactivateCorrection(' + corr.id + ')">Desativar</button>' : '') +
-              (!corr.active ? '<button class="admin-btn-sm admin-btn-reactivate" onclick="reactivateCorrection(' + corr.id + ')">Reativar</button>' : '') +
+              (!promoted && corr.active ? '<button class="admin-btn-sm admin-btn-accent" onclick="promoteCorrection(' + parseInt(corr.id) + ')">Promover a conhecimento</button>' : '') +
+              (corr.active ? '<button class="admin-btn-sm admin-btn-danger" onclick="deactivateCorrection(' + parseInt(corr.id) + ')">Desativar</button>' : '') +
+              (!corr.active ? '<button class="admin-btn-sm admin-btn-reactivate" onclick="reactivateCorrection(' + parseInt(corr.id) + ')">Reativar</button>' : '') +
             '</div>' +
           '</div>';
         });
@@ -561,7 +561,9 @@
 
     // --- Util ---
     function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      var d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
     }
 
     // ===========================
@@ -738,7 +740,7 @@
         });
         var data = await res.json();
         if (data.success) {
-          statusEl.innerHTML = '<span style="color:#4ade80">Importado com sucesso! ' + data.chunksCreated + ' chunks salvos no banco.</span>';
+          statusEl.innerHTML = '<span style="color:#4ade80">Importado com sucesso! ' + parseInt(data.chunksCreated) + ' chunks salvos no banco.</span>';
           // Clear form
           document.getElementById('importContent').value = '';
           document.getElementById('importTitle').value = '';
@@ -752,10 +754,10 @@
               d.chunks + ' chunks · ' + d.documents + ' docs · ' + d.corrections + ' correcoes';
           });
         } else {
-          statusEl.innerHTML = '<span style="color:#f87171">Erro: ' + (data.error || 'desconhecido') + '</span>';
+          statusEl.innerHTML = '<span style="color:#f87171">Erro: ' + escapeHtml(data.error || 'desconhecido') + '</span>';
         }
       } catch (err) {
-        statusEl.innerHTML = '<span style="color:#f87171">Erro de rede: ' + err.message + '</span>';
+        statusEl.innerHTML = '<span style="color:#f87171">Erro de rede: ' + escapeHtml(err.message) + '</span>';
       }
       btn.disabled = false;
       btn.textContent = 'Salvar no banco';
@@ -799,23 +801,23 @@
           var dateStr = dt.toLocaleDateString('pt-BR');
           var sourceLabel = dir.source === 'chat' ? 'via chat' : (dir.source === 'correction' ? 'via correcao' : (dir.source === 'migrated' ? 'migrada' : 'admin'));
 
-          html += '<div class="directive-card" data-id="' + dir.id + '" style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">' +
+          html += '<div class="directive-card" data-id="' + parseInt(dir.id) + '" style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">' +
             '<div style="flex:1;">' +
               '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
-                '<span style="font-size:0.7rem;background:' + personColor + '22;color:' + personColor + ';padding:2px 8px;border-radius:4px;font-weight:600;">' + personLabel + '</span>' +
-                '<span style="font-size:0.65rem;color:var(--text-muted);">' + dateStr + ' · ' + sourceLabel + '</span>' +
+                '<span style="font-size:0.7rem;background:' + personColor + '22;color:' + personColor + ';padding:2px 8px;border-radius:4px;font-weight:600;">' + escapeHtml(personLabel) + '</span>' +
+                '<span style="font-size:0.65rem;color:var(--text-muted);">' + escapeHtml(dateStr) + ' · ' + escapeHtml(sourceLabel) + '</span>' +
               '</div>' +
               '<div class="dir-text" style="color:var(--text);font-size:0.88rem;line-height:1.5;">' + escapeHtml(dir.directive_text) + '</div>' +
             '</div>' +
             '<div style="display:flex;gap:6px;flex-shrink:0;">' +
-              '<button class="admin-btn-sm" onclick="editDirective(' + dir.id + ', this)" title="Editar" style="font-size:0.7rem;">Editar</button>' +
-              '<button class="admin-btn-sm admin-btn-danger" onclick="deleteDirective(' + dir.id + ')" title="Remover" style="font-size:0.7rem;">X</button>' +
+              '<button class="admin-btn-sm" onclick="editDirective(' + parseInt(dir.id) + ', this)" title="Editar" style="font-size:0.7rem;">Editar</button>' +
+              '<button class="admin-btn-sm admin-btn-danger" onclick="deleteDirective(' + parseInt(dir.id) + ')" title="Remover" style="font-size:0.7rem;">X</button>' +
             '</div>' +
           '</div>';
         });
         listEl.innerHTML = html;
       }).catch(function(err) {
-        listEl.innerHTML = '<div style="color:#f87171;font-size:0.85rem;">Erro ao carregar: ' + err.message + '</div>';
+        listEl.innerHTML = '<div style="color:#f87171;font-size:0.85rem;">Erro ao carregar: ' + escapeHtml(err.message) + '</div>';
       });
     }
 

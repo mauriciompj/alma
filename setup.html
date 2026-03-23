@@ -99,7 +99,7 @@
     // --- Auth guard: admin only ---
     (function() {
       var token = localStorage.getItem('alma_token');
-      var isAdmin = localStorage.getItem('alma_admin') === 'true';
+      var isAdmin = localStorage.getItem('alma_admin') === '1' || localStorage.getItem('alma_admin') === 'true';
       if (!token || !isAdmin) {
         window.location.href = 'login.html';
         return;

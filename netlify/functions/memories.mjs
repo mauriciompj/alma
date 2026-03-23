@@ -38,7 +38,10 @@ Reply ONLY with valid JSON: {"safe": true} or {"safe": false, "reason": "brief e
     const data = await response.json();
     const raw = data.content[0].text.trim();
     const match = raw.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      if (typeof parsed.safe === 'boolean') return parsed;
+    }
     return { safe: true };
   } catch (e) {
     console.error('[ALMA Moderation] Error:', e.message);
@@ -196,7 +199,7 @@ export default async function handler(req) {
       case 'search': {
         const q = url.searchParams.get('q') || '';
         const category = url.searchParams.get('category');
-        const limit = Math.min(parseInt(url.searchParams.get('limit') || '10'), 20);
+        const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit') || '10') || 10, 20));
 
         if (!q && !category) { result = { error: 'Provide q or category parameter' }; break; }
 
@@ -657,9 +660,9 @@ TIPOS:
 3. "directive_global" — instrução de como o ALMA deve se comportar com TODOS
 
 CONTEXTO:
-- Pessoa atual na conversa: ${personName || 'desconhecido'}
-- Pergunta original: ${originalQuestion || 'N/A'}
-- Resposta do ALMA: ${originalResponse ? originalResponse.substring(0, 200) : 'N/A'}
+- Pessoa atual na conversa: "${(personName || 'desconhecido').replace(/"/g, '')}"
+- Pergunta original: "${(originalQuestion || 'N/A').replace(/"/g, '').substring(0, 200)}"
+- Resposta do ALMA: "${(originalResponse || 'N/A').replace(/"/g, '').substring(0, 200)}"
 
 Responda APENAS em JSON válido (sem markdown):
 {
@@ -785,6 +788,9 @@ async function handleImportChunks(sql, body) {
   const { title, category, tags, chunks } = body;
   if (!title || !chunks || !Array.isArray(chunks) || chunks.length === 0) {
     return jsonResponse({ error: 'Missing title or chunks array' }, 400);
+  }
+  if (chunks.length > 500) {
+    return jsonResponse({ error: 'Too many chunks (max 500 per import)' }, 400);
   }
 
   const sourceFile = 'import_' + title.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').substring(0, 60);

@@ -71,6 +71,36 @@
     (function() {
       'use strict';
 
+      // Demo mode: auto-login as Visitante silently, skip form
+      if (location.hostname.includes('demo')) {
+        fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', username: 'Visitante', password: 'demo123' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            localStorage.setItem('alma_token', data.token);
+            localStorage.setItem('alma_user', data.name);
+            localStorage.setItem('alma_type', data.type);
+            localStorage.setItem('alma_admin', '0');
+            if (data.birthDate) localStorage.setItem('alma_birthDate', data.birthDate);
+            else localStorage.removeItem('alma_birthDate');
+            sessionStorage.setItem('alma_filho', data.name);
+            sessionStorage.setItem('alma_tipo', data.type);
+            window.location.href = 'chat.html';
+          } else {
+            // Fallback: show login form if auto-login fails
+            document.querySelector('.login-container').style.display = '';
+          }
+        })
+        .catch(function() {
+          document.querySelector('.login-container').style.display = '';
+        });
+        return;
+      }
+
       // Check if already logged in
       var token = localStorage.getItem('alma_token');
       if (token) {

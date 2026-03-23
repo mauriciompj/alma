@@ -117,11 +117,15 @@
       var type = localStorage.getItem('alma_type');
       var isAdmin = localStorage.getItem('alma_admin') === '1';
       var adminView = sessionStorage.getItem('alma_admin_view') === '1';
+      var isDemo = location.hostname.includes('demo');
 
       if (!token || !user) {
         window.location.href = 'login.html';
         return;
       }
+
+      // Demo mode: flag for alma.js to skip history persistence
+      if (isDemo) window.ALMA_DEMO = true;
 
       // If admin impersonating, use the sessionStorage person. Otherwise use logged-in user.
       if (!adminView) {

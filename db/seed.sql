@@ -18,12 +18,12 @@ CREATE TABLE IF NOT EXISTS alma_config (
 CREATE TABLE IF NOT EXISTS alma_chunks (
   id SERIAL PRIMARY KEY,
   content TEXT NOT NULL,
-  title VARCHAR(500),
-  category VARCHAR(100),
+  title VARCHAR(500) NOT NULL DEFAULT '',
+  category VARCHAR(100) NOT NULL DEFAULT 'geral',
   tags TEXT[] DEFAULT '{}',
-  source_file VARCHAR(255),
+  source_file VARCHAR(255) NOT NULL DEFAULT 'manual',
   chunk_index INTEGER DEFAULT 0,
-  char_count INTEGER,
+  char_count INTEGER DEFAULT 0,
   search_vector TSVECTOR,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -40,10 +40,18 @@ CREATE INDEX IF NOT EXISTS idx_alma_chunks_tags
 CREATE INDEX IF NOT EXISTS idx_alma_chunks_category
   ON alma_chunks (category);
 
+-- Source file index (used by deduplication in import-json.mjs)
+CREATE INDEX IF NOT EXISTS idx_alma_chunks_source_file
+  ON alma_chunks (source_file);
+
+-- Created at index (for recent queries)
+CREATE INDEX IF NOT EXISTS idx_alma_chunks_created_at
+  ON alma_chunks (created_at DESC);
+
 -- Documents registry (tracks imported files/batches)
 CREATE TABLE IF NOT EXISTS alma_documents (
   id SERIAL PRIMARY KEY,
-  file_name VARCHAR(255) NOT NULL,
+  file_name VARCHAR(255) NOT NULL UNIQUE,
   category VARCHAR(100),
   total_chunks INTEGER DEFAULT 0,
   total_chars INTEGER DEFAULT 0,

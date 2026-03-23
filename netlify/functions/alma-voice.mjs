@@ -63,8 +63,8 @@ export default async function handler(req) {
         return json({ error: 'Session expired', code: 'AUTH_EXPIRED' }, 401);
       }
     } catch (e) {
-      // Auth check failed — allow through to not break if DB is temporarily down
       console.error('[ALMA Voice] Auth check error:', e.message);
+      return json({ error: 'Authentication service unavailable', code: 'AUTH_UNAVAILABLE' }, 503);
     }
   }
 
