@@ -4,13 +4,11 @@
     "name": "Español",
     "direction": "ltr"
   },
-
   "app": {
     "title": "ALMA",
     "subtitle": "La voz de tu padre, guardada en el tiempo",
     "description": "Archivo de legado emocional"
   },
-
   "login": {
     "pageTitle": "ALMA — Iniciar sesión",
     "nameLabel": "Tu nombre",
@@ -23,7 +21,6 @@
     "errorConnection": "Error de conexión. Intenta de nuevo.",
     "errorGeneric": "Error al iniciar sesión"
   },
-
   "chat": {
     "placeholderChild": "Pregúntale algo a tu padre...",
     "placeholderOther": "Pregúntale algo a {authorName}...",
@@ -40,22 +37,20 @@
       "love": "¿Qué piensas sobre el amor y las relaciones?",
       "whyAlma": "¿Por qué creaste ALMA?",
       "regrets": "Papá, ¿de qué te arrepientes más en la vida?",
-      "rightThing": "¿Cómo sé si estoy haciendo lo correcto?",
+      "rightThing": "¿Cómo sé cuándo estoy haciendo lo correcto?",
       "beingAMan": "¿Qué querías que supiera sobre ser hombre?",
-      "fears": "¿Le tenías miedo a algo?"
+      "fears": "¿Tenías miedo de algo?"
     }
   },
-
   "welcome": {
     "child": "Hola, {name}. Sé que tal vez estés leyendo esto dentro de unos años, quizás yo ya no esté para responderte en persona. Por eso creé esto — para que puedas preguntarme lo que quieras. Sobre la vida, sobre quién fui, sobre lo que consideré correcto o incorrecto, sobre qué hacer cuando las cosas se pongan difíciles. Estoy aquí. ¿Qué quieres saber?",
     "other": "Hola, {name}. Este es ALMA — el archivo de legado emocional de {authorName}. Aquí están las palabras, los valores y las memorias que quiso dejar registradas. Pregunta lo que quieras."
   },
-
   "correction": {
     "title": "Corregir / Nueva directriz",
     "originalLabel": "Respuesta original:",
     "inputLabel": "¿Qué está mal? ¿O qué directriz quieres agregar?",
-    "inputPlaceholder": "Ej: Esa respuesta fue muy fría, habla con más calidez. O: Nunca digas X sobre Y...",
+    "inputPlaceholder": "Ej: No compares a Noah con sus hermanos. O: Esa respuesta fue muy fría, habla con más calidez...",
     "analyzeButton": "Analizar",
     "analyzing": "Analizando...",
     "analyzingAI": "Analizando con IA...",
@@ -75,7 +70,6 @@
     },
     "refinedText": "Texto refinado:"
   },
-
   "directives": {
     "panelTitle": "Directrices para {name}",
     "loading": "Cargando...",
@@ -86,9 +80,20 @@
     "addButton": "Agregar",
     "global": "Global"
   },
-
+  "voice": {
+    "listen": "Escuchar",
+    "stop": "Detener",
+    "loading": "Generando voz...",
+    "autoEnabled": "Voz automática activada.",
+    "autoDisabled": "Voz automática desactivada.",
+    "autoOnTitle": "Voz automática activada",
+    "autoOffTitle": "Activar voz automática",
+    "requestError": "No pude generar la voz ahora.",
+    "autoplayBlocked": "Tu navegador bloqueó la reproducción automática. Toca Escuchar.",
+    "empty": "No hay texto para narrar."
+  },
   "labels": {
     "father": "Papá",
-    "authorName": "ALMA"
+    "authorName": "Maurício"
   }
 }

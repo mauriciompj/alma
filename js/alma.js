@@ -1,6 +1,6 @@
 /* ============================================
    ALMA — A Voice of the Father
-   v3.1 — Neon DB + Netlify Functions + RAG + Corrections
+   v4.0 — Neon DB + Netlify Functions + RAG + Corrections + Voice (ElevenLabs)
    ============================================ */
 
 (function () {
@@ -18,6 +18,27 @@
   let lastQuestion = ''; // track for corrections
   let personPhoto = ''; // base64 photo if available
   let almaPhoto = ''; // base64 photo for ALMA avatar
+  let authorLabel = 'ALMA'; // default, overwritten by DB on init
+
+  // --- Voice State ---
+  let voiceEnabled = localStorage.getItem('alma_voice_enabled') === '1';
+  let voiceAvailable = false; // set to true after successful probe
+  let currentAudio = null;
+  let currentAudioButton = null;
+  let voiceNoticeShown = false;
+  const voiceCache = new Map();
+
+  // --- Language helper ---
+  function currentLang() {
+    return (typeof getCurrentLang === 'function') ? getCurrentLang() : 'pt-BR';
+  }
+
+  // History key includes person + language to avoid mixing conversations
+  function historyKey(person) {
+    var lang = currentLang();
+    var suffix = (lang && lang !== 'pt-BR') ? '_' + lang : '';
+    return person + suffix;
+  }
   // --- i18n helper: use t() if available, fallback to default ---
   function tt(key, params, fallback) {
     if (typeof t === 'function') {
@@ -53,7 +74,7 @@
     }
 
     var isChild = personType === 'filho';
-    var authorLabel = 'ALMA'; // default, overwritten by DB
+    authorLabel = 'ALMA'; // reset on init, overwritten by DB
 
     // Set header
     var headerTitle = document.getElementById('headerTitle');
@@ -82,15 +103,26 @@
       }
     }
 
-    // Update suggestions based on person type
-    if (!isChild && suggestionsEl) {
-      var sug = {
-        values: tt('chat.suggestions.values', null, 'O que você mais valoriza na vida?'),
-        hardTimes: tt('chat.suggestions.hardTimes', null, 'Como você lida com momentos difíceis?'),
-        love: tt('chat.suggestions.love', null, 'O que você pensa sobre amor?'),
-        whyAlma: tt('chat.suggestions.whyAlma', null, 'Por que você fez o ALMA?'),
-      };
-      suggestionsEl.innerHTML = Object.values(sug).map(function(s) {
+    // Update suggestions based on person type (centralized here to avoid race with i18n)
+    if (suggestionsEl) {
+      var sugList;
+      if (isChild) {
+        sugList = [
+          tt('chat.suggestions.regrets', null, 'Pai, o que você mais se arrepende na vida?'),
+          tt('chat.suggestions.rightThing', null, 'Como eu sei quando tô fazendo a coisa certa?'),
+          tt('chat.suggestions.beingAMan', null, 'O que você queria que eu soubesse sobre ser homem?'),
+          tt('chat.suggestions.fears', null, 'Você tinha medo de alguma coisa?'),
+          tt('chat.suggestions.whyAlma', null, 'Por que você fez o ALMA?'),
+        ];
+      } else {
+        sugList = [
+          tt('chat.suggestions.values', null, 'O que você mais valoriza na vida?'),
+          tt('chat.suggestions.hardTimes', null, 'Como você lida com momentos difíceis?'),
+          tt('chat.suggestions.love', null, 'O que você pensa sobre amor?'),
+          tt('chat.suggestions.whyAlma', null, 'Por que você fez o ALMA?'),
+        ];
+      }
+      suggestionsEl.innerHTML = sugList.map(function(s) {
         return '<button class="suggestion-btn" data-text="' + s + '">"' + s + '"</button>';
       }).join('');
       // Re-bind suggestion events
@@ -103,8 +135,9 @@
       });
     }
 
-    // Load history from database (persistent across sessions)
-    loadHistoryFromDB(personName).then(function(dbHistory) {
+    // Load history from database (persistent across sessions, per language)
+    var hKey = historyKey(personName);
+    loadHistoryFromDB(hKey).then(function(dbHistory) {
       if (dbHistory && dbHistory.length > 0) {
         conversationHistory = dbHistory;
         renderSavedHistory();
@@ -112,7 +145,7 @@
       }
     }).catch(function() {
       // Fallback: try sessionStorage
-      var saved = sessionStorage.getItem('alma_history_' + personName);
+      var saved = sessionStorage.getItem('alma_history_' + hKey);
       if (saved) {
         try {
           conversationHistory = JSON.parse(saved);
@@ -145,20 +178,15 @@
       addMessage('alma', welcome);
     }
 
+    // Voice controls
+    setupVoiceToggle();
+
     // Event listeners
     chatInput.addEventListener('input', handleInputChange);
     chatInput.addEventListener('keydown', handleKeyDown);
     sendBtn.addEventListener('click', handleSend);
 
-    // Suggestion buttons
-    document.querySelectorAll('.suggestion-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var text = btn.getAttribute('data-text');
-        chatInput.value = text;
-        handleInputChange();
-        handleSend();
-      });
-    });
+    // Suggestion button events already bound above in centralized suggestion block
 
     // Load person photo
     fetch('/.netlify/functions/memories?action=get_config&key=photo_' + personName)
@@ -247,8 +275,16 @@
     try {
       var result = await sendToBackend(text);
       hideTyping();
-      addMessage('alma', result.response, result.memoriesUsed);
+      var almaMessageEl = addMessage('alma', result.response, result.memoriesUsed);
       conversationHistory.push({ role: 'assistant', content: result.response });
+
+      // Auto-play voice if enabled and available
+      if (voiceAvailable && voiceEnabled && almaMessageEl) {
+        var voiceBtn = almaMessageEl.querySelector('.btn-play-voice');
+        if (voiceBtn) {
+          playVoiceForButton(voiceBtn, result.response, { forcePlay: true, fromAuto: true }).catch(function () {});
+        }
+      }
       truncateHistory();
       saveHistory();
     } catch (err) {
@@ -269,7 +305,7 @@
       body: JSON.stringify({
         message: userMessage,
         personName: personName,
-        lang: (typeof getCurrentLang === 'function' ? getCurrentLang() : 'pt-BR'),
+        lang: currentLang(),
         birthDate: localStorage.getItem('alma_birthDate') || null,
         history: conversationHistory.filter(function (m) {
           return m.role === 'user' || m.role === 'assistant';
@@ -332,6 +368,18 @@
     content.appendChild(textEl);
     content.appendChild(timeEl);
 
+    // Add voice button for ALMA messages (only if voice is available)
+    if (type === 'alma' && voiceAvailable) {
+      var voiceBtn = document.createElement('button');
+      voiceBtn.type = 'button';
+      voiceBtn.className = 'btn-play-voice';
+      updateVoiceButtonState(voiceBtn, 'idle');
+      voiceBtn.addEventListener('click', function () {
+        playVoiceForButton(voiceBtn, text).catch(function () {});
+      });
+      content.appendChild(voiceBtn);
+    }
+
     // Add correction button for ALMA messages (admin only)
     if (type === 'alma' && conversationHistory.length > 0 && !window.ALMA_HIDE_CORRECTIONS) {
       var corrBtn = document.createElement('button');
@@ -349,6 +397,7 @@
 
     chatMessages.appendChild(msgEl);
     scrollToBottom();
+    return msgEl;
   }
 
   function renderSavedHistory() {
@@ -358,6 +407,209 @@
       if (msg.role === 'user') lastQuestion = msg.content;
       addMessage(type, msg.content);
     });
+  }
+
+  // ============================================
+  // VOICE SYSTEM — ElevenLabs TTS
+  // ============================================
+
+  function setupVoiceToggle() {
+    var btn = document.getElementById('btnVoiceToggle');
+    if (!btn) return;
+
+    // Probe voice endpoint to check if ElevenLabs is configured
+    fetch('/.netlify/functions/alma-voice', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ text: '' }), // empty text triggers 400, but 503 means not configured
+    }).then(function(r) {
+      if (r.status === 503) {
+        // Voice not configured — hide all voice UI
+        voiceAvailable = false;
+        voiceEnabled = false;
+        btn.style.display = 'none';
+        document.querySelectorAll('.btn-play-voice').forEach(function(b) { b.style.display = 'none'; });
+      } else {
+        // Voice is available (400 = expected for empty text, 401 = auth issue but configured)
+        voiceAvailable = true;
+        updateVoiceToggleUI();
+        // Retroactively add voice buttons to already-rendered ALMA messages (race condition fix)
+        document.querySelectorAll('.message.alma .message-content').forEach(function(content) {
+          if (content.querySelector('.btn-play-voice')) return; // already has one
+          var textEl = content.querySelector('.message-text');
+          if (!textEl) return;
+          var msgText = textEl.textContent || '';
+          var voiceBtn = document.createElement('button');
+          voiceBtn.type = 'button';
+          voiceBtn.className = 'btn-play-voice';
+          updateVoiceButtonState(voiceBtn, 'idle');
+          voiceBtn.addEventListener('click', function () {
+            playVoiceForButton(voiceBtn, msgText).catch(function () {});
+          });
+          // Insert before correction button if present, otherwise append
+          var corrBtn = content.querySelector('.btn-correct');
+          if (corrBtn) {
+            content.insertBefore(voiceBtn, corrBtn);
+          } else {
+            content.appendChild(voiceBtn);
+          }
+        });
+      }
+    }).catch(function() {
+      // Network error — hide voice
+      voiceAvailable = false;
+      btn.style.display = 'none';
+    });
+
+    btn.addEventListener('click', function () {
+      if (!voiceAvailable) return;
+      voiceEnabled = !voiceEnabled;
+      localStorage.setItem('alma_voice_enabled', voiceEnabled ? '1' : '0');
+      updateVoiceToggleUI();
+      if (!voiceEnabled) stopCurrentAudio();
+      showSuccess(voiceEnabled
+        ? tt('voice.autoEnabled', null, 'Voz automática ativada.')
+        : tt('voice.autoDisabled', null, 'Voz automática desativada.'));
+    });
+  }
+
+  function updateVoiceToggleUI() {
+    var btn = document.getElementById('btnVoiceToggle');
+    if (!btn) return;
+    btn.classList.toggle('active', voiceEnabled);
+    btn.setAttribute('aria-pressed', voiceEnabled ? 'true' : 'false');
+    var title = voiceEnabled
+      ? tt('voice.autoOnTitle', null, 'Voz automática ativada')
+      : tt('voice.autoOffTitle', null, 'Ativar voz automática');
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+  }
+
+  async function playVoiceForButton(btn, text, options) {
+    var opts = options || {};
+
+    // Toggle off if already playing this button
+    if (!opts.forcePlay && currentAudio && currentAudioButton === btn) {
+      stopCurrentAudio();
+      return;
+    }
+
+    updateVoiceButtonState(btn, 'loading');
+
+    try {
+      var audioUrl = await requestVoiceAudio(text);
+      await startVoicePlayback(audioUrl, btn);
+    } catch (err) {
+      console.error('Voice playback failed:', err);
+      if (btn && (!currentAudioButton || currentAudioButton !== btn)) {
+        updateVoiceButtonState(btn, 'idle');
+      }
+      // Disable voice if not configured
+      if (err && err.code === 'VOICE_NOT_CONFIGURED' && voiceEnabled) {
+        voiceEnabled = false;
+        localStorage.setItem('alma_voice_enabled', '0');
+        updateVoiceToggleUI();
+      }
+      // Don't show error for autoplay blocks (browser policy)
+      if (!(opts.fromAuto && err && err.name === 'NotAllowedError')) {
+        showError(err.message || tt('voice.requestError', null, 'Não consegui gerar a voz agora.'));
+      } else if (!voiceNoticeShown) {
+        voiceNoticeShown = true;
+        showError(tt('voice.autoplayBlocked', null, 'O navegador bloqueou a reprodução automática. Toque em Ouvir.'));
+      }
+      throw err;
+    }
+  }
+
+  function updateVoiceButtonState(btn, state) {
+    if (!btn) return;
+    btn.classList.remove('is-loading', 'is-playing');
+    if (state === 'loading') {
+      btn.classList.add('is-loading');
+      btn.disabled = true;
+      btn.textContent = tt('voice.loading', null, 'Gerando voz...');
+    } else if (state === 'playing') {
+      btn.classList.add('is-playing');
+      btn.disabled = false;
+      btn.textContent = tt('voice.stop', null, 'Parar');
+    } else {
+      btn.disabled = false;
+      btn.textContent = tt('voice.listen', null, 'Ouvir');
+    }
+  }
+
+  async function requestVoiceAudio(text) {
+    var cleanText = (text || '').trim();
+    if (!cleanText) {
+      var emptyErr = new Error(tt('voice.empty', null, 'Não há texto para narrar.'));
+      emptyErr.code = 'VOICE_EMPTY';
+      throw emptyErr;
+    }
+
+    // Return cached audio if available
+    if (voiceCache.has(cleanText)) return voiceCache.get(cleanText);
+
+    var response = await fetch('/.netlify/functions/alma-voice', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ text: cleanText }),
+    });
+
+    var data = {};
+    try { data = await response.json(); } catch (e) { /* ignore */ }
+
+    if (!response.ok) {
+      var err = new Error(data.error || tt('voice.requestError', null, 'Não consegui gerar a voz agora.'));
+      err.code = data.code || null;
+      throw err;
+    }
+
+    if (!data.audio) {
+      var noAudioErr = new Error(tt('voice.requestError', null, 'Não consegui gerar a voz agora.'));
+      noAudioErr.code = data.code || 'VOICE_EMPTY_RESPONSE';
+      throw noAudioErr;
+    }
+
+    var audioUrl = 'data:' + (data.mimeType || 'audio/mpeg') + ';base64,' + data.audio;
+    voiceCache.set(cleanText, audioUrl);
+    return audioUrl;
+  }
+
+  async function startVoicePlayback(audioUrl, btn) {
+    stopCurrentAudio();
+    currentAudio = new Audio(audioUrl);
+    currentAudioButton = btn;
+
+    currentAudio.addEventListener('ended', function () {
+      if (currentAudioButton === btn) {
+        updateVoiceButtonState(btn, 'idle');
+        currentAudio = null;
+        currentAudioButton = null;
+      }
+    });
+
+    currentAudio.addEventListener('error', function () {
+      if (currentAudioButton === btn) {
+        updateVoiceButtonState(btn, 'idle');
+        currentAudio = null;
+        currentAudioButton = null;
+      }
+    });
+
+    updateVoiceButtonState(btn, 'playing');
+    await currentAudio.play();
+  }
+
+  function stopCurrentAudio() {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+    if (currentAudioButton) {
+      updateVoiceButtonState(currentAudioButton, 'idle');
+    }
+    currentAudio = null;
+    currentAudioButton = null;
   }
 
   // ============================================
@@ -658,15 +910,16 @@
   }
 
   function saveHistory() {
+    var hKey = historyKey(personName);
     // Save to sessionStorage (immediate fallback)
     try {
-      sessionStorage.setItem('alma_history_' + personName, JSON.stringify(conversationHistory));
+      sessionStorage.setItem('alma_history_' + hKey, JSON.stringify(conversationHistory));
     } catch (e) {
       conversationHistory = conversationHistory.slice(-10);
-      sessionStorage.setItem('alma_history_' + personName, JSON.stringify(conversationHistory));
+      sessionStorage.setItem('alma_history_' + hKey, JSON.stringify(conversationHistory));
     }
     // Save to database (persistent across sessions) — fire and forget
-    saveHistoryToDB(personName, conversationHistory);
+    saveHistoryToDB(hKey, conversationHistory);
   }
 
   // --- Markdown Parser ---
@@ -701,7 +954,7 @@
 
   // --- Utilities ---
   function formatTime(date) {
-    var locale = (typeof getCurrentLang === 'function') ? getCurrentLang() : 'pt-BR';
+    var locale = currentLang();
     return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   }
 

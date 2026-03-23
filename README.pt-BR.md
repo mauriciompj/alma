@@ -58,6 +58,7 @@ Depois decidiu dar pro mundo.
 | **Busca inteligente** | Full-text search em todas as memórias (RAG) | Navegação manual |
 | **Diretrizes** | Regras de comportamento por pessoa para a IA | Sem personalização |
 | **Multi-idioma** | Pronto para i18n (PT-BR, EN, ES — adicione o seu) | Idioma único |
+| **Voz** | ElevenLabs TTS — ouça a voz clonada do autor | Só texto |
 | **Gratuito e aberto** | Licença MIT, custo zero pra rodar | Assinaturas de $100+/mês |
 | **Self-hosted** | Seus dados ficam com você (Netlify + Neon free tier) | Dependência de fornecedor |
 

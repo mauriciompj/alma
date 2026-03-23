@@ -4,13 +4,11 @@
     "name": "English",
     "direction": "ltr"
   },
-
   "app": {
     "title": "ALMA",
     "subtitle": "Your father's voice, preserved in time",
     "description": "Emotional legacy archive"
   },
-
   "login": {
     "pageTitle": "ALMA — Sign In",
     "nameLabel": "Your name",
@@ -23,7 +21,6 @@
     "errorConnection": "Connection error. Please try again.",
     "errorGeneric": "Login failed"
   },
-
   "chat": {
     "placeholderChild": "Ask your father something...",
     "placeholderOther": "Ask {authorName} something...",
@@ -45,17 +42,15 @@
       "fears": "Were you afraid of anything?"
     }
   },
-
   "welcome": {
     "child": "Hey, {name}. I know you might be reading this years from now, and maybe I'm not around to answer in person anymore. That's why I built this — so you can ask me anything you want. About life, about who I was, about what I thought was right or wrong, about what to do when things get hard. I'm here. What do you want to know?",
     "other": "Hey, {name}. This is ALMA — {authorName}'s emotional legacy archive. Here are the words, values, and memories he wanted to leave behind. Feel free to ask anything."
   },
-
   "correction": {
     "title": "Correct / New directive",
     "originalLabel": "Original response:",
     "inputLabel": "What's wrong? Or what directive do you want to add?",
-    "inputPlaceholder": "E.g.: That response was too cold, speak with more warmth. Or: Never say X about Y...",
+    "inputPlaceholder": "E.g.: Don't compare Noah with his brothers. Or: That response was too cold, speak with more warmth...",
     "analyzeButton": "Analyze",
     "analyzing": "Analyzing...",
     "analyzingAI": "Analyzing with AI...",
@@ -75,7 +70,6 @@
     },
     "refinedText": "Refined text:"
   },
-
   "directives": {
     "panelTitle": "Directives for {name}",
     "loading": "Loading...",
@@ -86,9 +80,20 @@
     "addButton": "Add",
     "global": "Global"
   },
-
+  "voice": {
+    "listen": "Listen",
+    "stop": "Stop",
+    "loading": "Generating voice...",
+    "autoEnabled": "Automatic voice enabled.",
+    "autoDisabled": "Automatic voice disabled.",
+    "autoOnTitle": "Automatic voice enabled",
+    "autoOffTitle": "Enable automatic voice",
+    "requestError": "Couldn't generate voice right now.",
+    "autoplayBlocked": "Your browser blocked autoplay. Tap Listen.",
+    "empty": "There is no text to narrate."
+  },
   "labels": {
     "father": "Dad",
-    "authorName": "ALMA"
+    "authorName": "Maurício"
   }
 }

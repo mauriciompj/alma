@@ -13,6 +13,7 @@
   <img src="https://img.shields.io/badge/DB-Neon_PostgreSQL-00E5A0" alt="Neon">
   <img src="https://img.shields.io/badge/deploy-Netlify-00C7B7" alt="Netlify">
   <img src="https://img.shields.io/badge/i18n-PT_EN_ES-888899" alt="i18n">
+  <img src="https://img.shields.io/badge/voice-ElevenLabs_TTS-8B5CF6" alt="ElevenLabs Voice">
 </p>
 
 <p align="center">
@@ -75,6 +76,7 @@ Then he decided to give it to the world.
 | **Searchable memory** | Full-text search across all memories (RAG) | Manual browsing only |
 | **Directive system** | Per-person behavioral rules for the AI | No customization |
 | **Multi-language** | i18n ready (PT-BR, EN, ES — add your own) | Single language |
+| **Voice** | ElevenLabs TTS — hear the author's cloned voice | Text only |
 | **Free & open** | MIT License, zero cost to run | $100+/month subscriptions |
 | **Self-hosted** | Your data stays yours (Netlify + Neon free tier) | Vendor lock-in |
 

@@ -21,6 +21,11 @@
   to = "/.netlify/functions/auth"
   status = 200
 
+[[redirects]]
+  from = "/api/voice"
+  to = "/.netlify/functions/alma-voice"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]
@@ -28,3 +33,20 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# HTML files: always revalidate (prevents stale content after deploys)
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# JS/CSS: short cache, SW handles offline
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300"

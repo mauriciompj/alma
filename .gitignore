@@ -9,13 +9,14 @@ package-lock.json
 .env.production
 
 
-# Netlify
+# Netlify build artifacts
 .netlify/
 
 
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 
 # Editor
@@ -30,12 +31,16 @@ Thumbs.db
 npm-debug.log*
 
 
+# Deploy artifacts (temporary zip files)
+*.zip
+
+
 # Sensitive files
 SENHAS_USUARIOS.txt
 
 
 # Personal data (reports, private documents)
-data/*.txt
+data/
 
 
 # Database backups and production imports (contain real ALMA data — never commit)

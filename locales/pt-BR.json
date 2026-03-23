@@ -4,13 +4,11 @@
     "name": "Português (Brasil)",
     "direction": "ltr"
   },
-
   "app": {
     "title": "ALMA",
     "subtitle": "A voz do seu pai, guardada no tempo",
     "description": "Arquivo de legado emocional"
   },
-
   "login": {
     "pageTitle": "ALMA — Entrar",
     "nameLabel": "Seu nome",
@@ -23,7 +21,6 @@
     "errorConnection": "Erro de conexão. Tente novamente.",
     "errorGeneric": "Erro ao entrar"
   },
-
   "chat": {
     "placeholderChild": "Pergunte algo ao seu pai...",
     "placeholderOther": "Pergunte algo ao {authorName}...",
@@ -45,17 +42,15 @@
       "fears": "Você tinha medo de alguma coisa?"
     }
   },
-
   "welcome": {
     "child": "Oi, {name}. Eu sei que talvez você esteja lendo isso daqui alguns anos, talvez eu já não esteja por perto pra responder pessoalmente. Por isso criei isso — pra você poder me perguntar o que quiser. Pode ser sobre a vida, sobre quem eu fui, sobre o que achei certo ou errado, sobre como agir quando ficar difícil. Estou aqui. O que você quer saber?",
     "other": "Oi, {name}. Esse é o ALMA — o arquivo de legado emocional do {authorName}. Aqui estão as palavras, os valores e as memórias que ele quis deixar registradas. Pode perguntar o que quiser."
   },
-
   "correction": {
     "title": "Corrigir / Nova diretriz",
     "originalLabel": "Resposta original:",
     "inputLabel": "O que está errado? Ou que diretriz quer adicionar?",
-    "inputPlaceholder": "Ex: Essa resposta ficou fria demais, fale com mais calor. Ou: Nunca diga X sobre Y...",
+    "inputPlaceholder": "Ex: Não compare Noah com os irmãos. Ou: Essa resposta ficou fria demais, fale com mais calor...",
     "analyzeButton": "Analisar",
     "analyzing": "Analisando...",
     "analyzingAI": "Analisando com IA...",
@@ -75,7 +70,6 @@
     },
     "refinedText": "Texto refinado:"
   },
-
   "directives": {
     "panelTitle": "Diretrizes para {name}",
     "loading": "Carregando...",
@@ -86,9 +80,20 @@
     "addButton": "Adicionar",
     "global": "Global"
   },
-
+  "voice": {
+    "listen": "Ouvir",
+    "stop": "Parar",
+    "loading": "Gerando voz...",
+    "autoEnabled": "Voz automática ativada.",
+    "autoDisabled": "Voz automática desativada.",
+    "autoOnTitle": "Voz automática ativada",
+    "autoOffTitle": "Ativar voz automática",
+    "requestError": "Não consegui gerar a voz agora.",
+    "autoplayBlocked": "O navegador bloqueou a reprodução automática. Toque em Ouvir.",
+    "empty": "Não há texto para narrar."
+  },
   "labels": {
     "father": "Pai",
-    "authorName": "ALMA"
+    "authorName": "Maurício"
   }
 }

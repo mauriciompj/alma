@@ -552,7 +552,8 @@ a:hover {
   color: var(--text-muted);
 }
 
-.btn-directives {
+.btn-directives,
+.btn-voice-toggle {
   background: none;
   border: none;
   color: var(--text-muted);
@@ -561,8 +562,26 @@ a:hover {
   display: flex;
   align-items: center;
   transition: color 0.2s;
+  position: relative;
 }
-.btn-directives:hover { color: var(--accent); }
+.btn-directives:hover,
+.btn-voice-toggle:hover { color: var(--accent); }
+
+.btn-voice-toggle.active {
+  color: var(--accent);
+}
+
+.btn-voice-toggle.active::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(216,170,50,0.65);
+}
 
 /* --- Directives Panel (slide-in from right) --- */
 .directives-panel {
@@ -1129,6 +1148,44 @@ a:hover {
 /* ============================================
    CORRECTION SYSTEM
    ============================================ */
+
+/* --- Voice Play Button (per message) --- */
+.btn-play-voice {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid rgba(216,170,50,0.35);
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-play-voice:hover {
+  background: rgba(216,170,50,0.08);
+  border-color: var(--accent);
+}
+
+.btn-play-voice:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.btn-play-voice.is-playing {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+.btn-play-voice.is-loading {
+  color: var(--text-muted);
+}
 
 /* --- Correction Button on Messages --- */
 .btn-correct {
