@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS alma_chunks (
   tags TEXT[] DEFAULT '{}',
   source_file VARCHAR(255),
   chunk_index INTEGER DEFAULT 0,
+  char_count INTEGER,
   search_vector TSVECTOR,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -29,8 +30,10 @@ CREATE TABLE IF NOT EXISTS alma_chunks (
 CREATE TABLE IF NOT EXISTS alma_corrections (
   id SERIAL PRIMARY KEY,
   original_question TEXT,
+  original_response TEXT NOT NULL,
   correction TEXT NOT NULL,
   filho_nome VARCHAR(100) DEFAULT '',
+  categories TEXT[] DEFAULT '{}',
   active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -40,7 +43,18 @@ CREATE TABLE IF NOT EXISTS alma_directives (
   person VARCHAR(100),
   directive_text TEXT NOT NULL,
   active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  source VARCHAR(20) DEFAULT 'admin',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS alma_documents (
+  id SERIAL PRIMARY KEY,
+  file_name VARCHAR(255) NOT NULL,
+  category VARCHAR(100),
+  total_chunks INTEGER DEFAULT 0,
+  total_chars INTEGER DEFAULT 0,
+  imported_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 3. Indexes
@@ -48,7 +62,20 @@ CREATE INDEX IF NOT EXISTS idx_chunks_search ON alma_chunks USING GIN(search_vec
 CREATE INDEX IF NOT EXISTS idx_chunks_tags ON alma_chunks USING GIN(tags);
 CREATE INDEX IF NOT EXISTS idx_chunks_category ON alma_chunks(category);
 
--- 4. Users (demo credentials — public, no secrets)
+-- 4. Trigger: auto-update search_vector and char_count
+CREATE OR REPLACE FUNCTION alma_chunks_search_update() RETURNS trigger AS $$
+BEGIN
+  NEW.search_vector := to_tsvector('portuguese', COALESCE(NEW.title, '') || ' ' || NEW.content);
+  NEW.char_count := LENGTH(NEW.content);
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_alma_chunks_search ON alma_chunks;
+CREATE TRIGGER trg_alma_chunks_search
+  BEFORE INSERT OR UPDATE OF content, title ON alma_chunks
+  FOR EACH ROW EXECUTE FUNCTION alma_chunks_search_update();
+
+-- 5. Users (demo credentials — public, no secrets)
 INSERT INTO alma_config (key, value) VALUES ('users_json', '[
   {"username": "Lucas", "password": "demo123", "name": "Lucas", "type": "filho", "admin": false, "birthDate": "2014-06-15"},
   {"username": "Helena", "password": "demo123", "name": "Helena", "type": "filho", "admin": false, "birthDate": "2017-02-28"},
@@ -56,7 +83,7 @@ INSERT INTO alma_config (key, value) VALUES ('users_json', '[
   {"username": "Admin", "password": "demoadmin", "name": "Demo Admin", "type": "admin", "admin": true}
 ]') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
--- 5. Demo memories — a fictional father named "Rafael Mendes"
+-- 6. Demo memories — a fictional father named "Rafael Mendes"
 -- Rafael: engineer, loves cooking, raised by single mom, divorced, 2 kids
 
 -- IDENTITY / LEGACY

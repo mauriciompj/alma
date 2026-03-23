@@ -40,6 +40,29 @@ CREATE INDEX IF NOT EXISTS idx_alma_chunks_tags
 CREATE INDEX IF NOT EXISTS idx_alma_chunks_category
   ON alma_chunks (category);
 
+-- Documents registry (tracks imported files/batches)
+CREATE TABLE IF NOT EXISTS alma_documents (
+  id SERIAL PRIMARY KEY,
+  file_name VARCHAR(255) NOT NULL,
+  category VARCHAR(100),
+  total_chunks INTEGER DEFAULT 0,
+  total_chars INTEGER DEFAULT 0,
+  imported_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Auto-update search_vector and char_count on INSERT/UPDATE
+CREATE OR REPLACE FUNCTION alma_chunks_search_update() RETURNS trigger AS $$
+BEGIN
+  NEW.search_vector := to_tsvector('portuguese', COALESCE(NEW.title, '') || ' ' || NEW.content);
+  NEW.char_count := LENGTH(NEW.content);
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_alma_chunks_search ON alma_chunks;
+CREATE TRIGGER trg_alma_chunks_search
+  BEFORE INSERT OR UPDATE OF content, title ON alma_chunks
+  FOR EACH ROW EXECUTE FUNCTION alma_chunks_search_update();
+
 -- Corrections (when ALMA gets something wrong, the author fixes it)
 CREATE TABLE IF NOT EXISTS alma_corrections (
   id SERIAL PRIMARY KEY,

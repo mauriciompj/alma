@@ -35,7 +35,7 @@ async function backup() {
     'alma_chunks',
     'alma_corrections',
     'alma_directives',
-    'alma_memories',
+    'alma_documents',
   ];
 
   console.log(`[ALMA Backup] Starting export at ${backupData.exportedAt}`);
