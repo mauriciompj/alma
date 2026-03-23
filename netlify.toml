@@ -26,6 +26,11 @@
   to = "/.netlify/functions/alma-voice"
   status = 200
 
+[[redirects]]
+  from = "/api/ingest"
+  to = "/.netlify/functions/ingest"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]
