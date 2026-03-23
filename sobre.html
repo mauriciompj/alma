@@ -34,7 +34,7 @@
         <section class="sobre-section">
           <h2>Por que foi criado</h2>
           <p>
-            Mauricio cresceu sem um pai estruturado. Um pai alcoolatra, ausente, que amou do jeito torto que conseguiu — mas que nao deixou ferramentas. Mauricio decidiu que seus filhos nao herdariam esse vazio. Herdariam ferramentas.
+            O autor do ALMA cresceu sem um pai estruturado. Um pai ausente, que amou do jeito torto que conseguiu — mas que nao deixou ferramentas. Ele decidiu que seus filhos nao herdariam esse vazio. Herdariam ferramentas.
           </p>
           <p>
             O ALMA e essas ferramentas, digitalizadas e preservadas no tempo. E o manual tecnico de uma linhagem — o "patch" que corrigiu um codigo corrompido, documentado para que as proximas versoes rodem cada vez mais limpas.
@@ -57,7 +57,7 @@
             <p>
               "Eu nao sou perfeito. Nunca fui. Mas fui honesto com voce aqui dentro. Tudo que errei, escrevi. Tudo que aprendi, guardei. Voce pode usar o que funciona e descartar o que nao serve. Mas pelo menos vai saber de onde veio — e vai poder escolher pra onde vai."
             </p>
-            <span class="quote-author">— Mauricio</span>
+            <span class="quote-author" id="quoteAuthor">— ALMA</span>
           </div>
         </section>
 
@@ -68,5 +68,11 @@
       </div>
     </div>
   </div>
+<script>
+fetch('/.netlify/functions/memories?action=get_persons')
+  .then(function(r){return r.json()})
+  .then(function(d){if(d.author){var el=document.getElementById('quoteAuthor');if(el)el.textContent='— '+d.author;}})
+  .catch(function(){});
+</script>
 </body>
 </html>
