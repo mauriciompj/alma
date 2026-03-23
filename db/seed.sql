@@ -13,50 +13,54 @@ CREATE TABLE IF NOT EXISTS alma_config (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Documents registry (tracks imported files/batches)
+-- Created before alma_chunks because chunks reference documents via FK.
+CREATE TABLE IF NOT EXISTS alma_documents (
+  id SERIAL PRIMARY KEY,
+  source_file TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  total_chunks INTEGER NOT NULL DEFAULT 0,
+  file_date DATE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Memories / Knowledge chunks (the heart of ALMA)
 -- Each chunk is a searchable piece of text used by RAG to answer questions.
 CREATE TABLE IF NOT EXISTS alma_chunks (
   id SERIAL PRIMARY KEY,
+  document_id INTEGER REFERENCES alma_documents(id),
+  source_file TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  chunk_index INTEGER NOT NULL DEFAULT 0,
   content TEXT NOT NULL,
-  title VARCHAR(500) NOT NULL DEFAULT '',
-  category VARCHAR(100) NOT NULL DEFAULT 'geral',
   tags TEXT[] DEFAULT '{}',
-  source_file VARCHAR(255) NOT NULL DEFAULT 'manual',
-  chunk_index INTEGER DEFAULT 0,
-  char_count INTEGER DEFAULT 0,
+  file_date DATE,
+  char_count INTEGER,
   search_vector TSVECTOR,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Full-text search index (Portuguese)
-CREATE INDEX IF NOT EXISTS idx_alma_chunks_search
+CREATE INDEX IF NOT EXISTS idx_chunks_search
   ON alma_chunks USING GIN (search_vector);
 
 -- Tag search index
-CREATE INDEX IF NOT EXISTS idx_alma_chunks_tags
+CREATE INDEX IF NOT EXISTS idx_chunks_tags
   ON alma_chunks USING GIN (tags);
 
 -- Category index
-CREATE INDEX IF NOT EXISTS idx_alma_chunks_category
+CREATE INDEX IF NOT EXISTS idx_chunks_category
   ON alma_chunks (category);
 
 -- Source file index (used by deduplication in import-json.mjs)
-CREATE INDEX IF NOT EXISTS idx_alma_chunks_source_file
+CREATE INDEX IF NOT EXISTS idx_chunks_source_file
   ON alma_chunks (source_file);
 
 -- Created at index (for recent queries)
-CREATE INDEX IF NOT EXISTS idx_alma_chunks_created_at
+CREATE INDEX IF NOT EXISTS idx_chunks_created_at
   ON alma_chunks (created_at DESC);
-
--- Documents registry (tracks imported files/batches)
-CREATE TABLE IF NOT EXISTS alma_documents (
-  id SERIAL PRIMARY KEY,
-  file_name VARCHAR(255) NOT NULL UNIQUE,
-  category VARCHAR(100),
-  total_chunks INTEGER DEFAULT 0,
-  total_chars INTEGER DEFAULT 0,
-  imported_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
 
 -- Auto-update search_vector and char_count on INSERT/UPDATE
 CREATE OR REPLACE FUNCTION alma_chunks_search_update() RETURNS trigger AS $$
@@ -74,7 +78,7 @@ CREATE TRIGGER trg_alma_chunks_search
 -- Corrections (when ALMA gets something wrong, the author fixes it)
 CREATE TABLE IF NOT EXISTS alma_corrections (
   id SERIAL PRIMARY KEY,
-  original_question TEXT,
+  original_question TEXT NOT NULL,
   original_response TEXT NOT NULL,
   correction TEXT NOT NULL,
   filho_nome VARCHAR(50),
@@ -117,12 +121,9 @@ ON CONFLICT (key) DO NOTHING;
 -- Done! Now add your memories.
 -- You can do this through the admin panel or by inserting directly:
 --
---   INSERT INTO alma_chunks (title, category, content, tags, source_file,
---     char_count, search_vector)
---   VALUES ('My values', 'valores', 'I believe the most important thing...',
---     ARRAY['valores','core'], 'manual',
---     LENGTH('I believe the most important thing...'),
---     to_tsvector('portuguese', 'My values I believe the most important thing...'));
+--   INSERT INTO alma_chunks (source_file, title, category, chunk_index, content, tags)
+--   VALUES ('manual', 'My values', 'valores', 1, 'I believe the most important thing...',
+--     ARRAY['valores','core']);
 --
 -- Or use the import script:
 --   DATABASE_URL="postgresql://..." node db/import-json.mjs data/my-memories.json

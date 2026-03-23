@@ -512,11 +512,8 @@ async function handleCreateChunk(sql, body) {
   if (!content || !title) return jsonResponse({ error: 'Missing content or title' }, 400);
 
   const result = await sql`
-    INSERT INTO alma_chunks (title, category, content, tags, source_file, char_count, chunk_index,
-      search_vector)
-    VALUES (${title}, ${category || 'correcao'}, ${content}, ${tags || ['correcao']}::TEXT[],
-      ${source_file || 'admin_manual'}, ${content.length}, 0,
-      to_tsvector('portuguese', ${content}))
+    INSERT INTO alma_chunks (source_file, title, category, chunk_index, content, tags)
+    VALUES (${source_file || 'admin_manual'}, ${title}, ${category || 'correcao'}, 0, ${content}, ${tags || ['correcao']}::TEXT[])
     RETURNING id
   `;
   return jsonResponse({ success: true, id: result[0].id });
@@ -538,11 +535,9 @@ async function handlePromoteCorrection(sql, body) {
     : `[CORREÇÃO]\n${corr.correction}`;
 
   const chunkResult = await sql`
-    INSERT INTO alma_chunks (title, category, content, tags, source_file, char_count, chunk_index,
-      search_vector)
-    VALUES (${'Correção #' + corr.id}, 'correcao', ${chunkContent},
-      ${['correcao', 'ajuste_tom']}::TEXT[], 'correcao_promovida',
-      ${chunkContent.length}, 0, to_tsvector('portuguese', ${chunkContent}))
+    INSERT INTO alma_chunks (source_file, title, category, chunk_index, content, tags)
+    VALUES ('correcao_promovida', ${'Correção #' + corr.id}, 'correcao', 0, ${chunkContent},
+      ${['correcao', 'ajuste_tom']}::TEXT[])
     RETURNING id
   `;
 
@@ -797,15 +792,18 @@ async function handleImportChunks(sql, body) {
   const finalCategory = category || 'manual';
   const finalTags = tags && tags.length > 0 ? tags : [finalCategory];
 
-  // First, register in alma_documents
+  // Register in alma_documents (source_file is UNIQUE — skip if already exists)
+  let documentId = null;
   try {
-    await sql`
-      INSERT INTO alma_documents (file_name, category, total_chunks, total_chars, imported_at)
-      VALUES (${sourceFile}, ${finalCategory}, ${chunks.length},
-        ${chunks.reduce((s, c) => s + c.length, 0)}, NOW())
+    const docResult = await sql`
+      INSERT INTO alma_documents (source_file, title, category, total_chunks)
+      VALUES (${sourceFile}, ${title}, ${finalCategory}, ${chunks.length})
+      ON CONFLICT (source_file) DO UPDATE SET total_chunks = alma_documents.total_chunks + ${chunks.length}
+      RETURNING id
     `;
+    documentId = docResult[0]?.id || null;
   } catch (e) {
-    // Table might not have all columns or might not exist — that's ok, continue with chunks
+    // Table might not exist — continue with chunks
   }
 
   // Insert all chunks
@@ -815,11 +813,8 @@ async function handleImportChunks(sql, body) {
     const chunkTitle = chunks.length === 1 ? title : title + ' (' + (i + 1) + '/' + chunks.length + ')';
 
     await sql`
-      INSERT INTO alma_chunks (title, category, content, tags, source_file, char_count, chunk_index,
-        search_vector)
-      VALUES (${chunkTitle}, ${finalCategory}, ${chunkContent}, ${finalTags}::TEXT[],
-        ${sourceFile}, ${chunkContent.length}, ${i},
-        to_tsvector('portuguese', ${chunkContent}))
+      INSERT INTO alma_chunks (document_id, source_file, title, category, chunk_index, content, tags)
+      VALUES (${documentId}, ${sourceFile}, ${chunkTitle}, ${finalCategory}, ${i}, ${chunkContent}, ${finalTags}::TEXT[])
     `;
     created++;
   }
