@@ -8,8 +8,14 @@
  *   TEST_PASS — login password (default: demo123)
  *
  * Examples:
- *   node tests/auth.test.mjs                                          # demo
- *   set TEST_URL=https://projeto-alma.netlify.app&& set TEST_USER=Noah&& set TEST_PASS=67jASyxC&& node tests/auth.test.mjs  # prod (Windows)
+ *   npm test                                      # demo (default credentials)
+ *   npm run test:prod                             # prod (public endpoints only — login uses demo creds, will 401)
+ *
+ *   # Full prod test with real credentials (bash):
+ *   TEST_USER=Mauricio TEST_PASS=YourPass npm run test:prod
+ *
+ *   # Full prod test with real credentials (PowerShell):
+ *   $env:TEST_USER="Mauricio"; $env:TEST_PASS="YourPass"; npm run test:prod
  *
  * Tests are grouped by concern:
  *   1. Login & token management
