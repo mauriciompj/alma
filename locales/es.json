@@ -51,7 +51,7 @@
     "title": "Corregir / Nueva directriz",
     "originalLabel": "Respuesta original:",
     "inputLabel": "¿Qué está mal? ¿O qué directriz quieres agregar?",
-    "inputPlaceholder": "Ej: No compares a Noah con sus hermanos. O: Esa respuesta fue muy fría, habla con más calidez...",
+    "inputPlaceholder": "Ej: Esa respuesta fue muy fría, habla con más calidez. O: Nunca digas X sobre Y...",
     "analyzeButton": "Analizar",
     "analyzing": "Analizando...",
     "analyzingAI": "Analizando con IA...",

@@ -18,6 +18,15 @@
   let lastQuestion = ''; // track for corrections
   let personPhoto = ''; // base64 photo if available
   let almaPhoto = ''; // base64 photo for ALMA avatar
+  // --- i18n helper: use t() if available, fallback to default ---
+  function tt(key, params, fallback) {
+    if (typeof t === 'function') {
+      var result = t(key, params);
+      if (result && result !== key && !result.startsWith(key.split('.')[0] + '.')) return result;
+    }
+    return fallback || key;
+  }
+
   // --- Auth helper: include session token in all API calls ---
   function authHeaders() {
     var token = localStorage.getItem('alma_token') || '';
@@ -75,12 +84,15 @@
 
     // Update suggestions based on person type
     if (!isChild && suggestionsEl) {
-      suggestionsEl.innerHTML = [
-        '<button class="suggestion-btn" data-text="O que você mais valoriza na vida?">"O que você mais valoriza na vida?"</button>', // i18n
-        '<button class="suggestion-btn" data-text="Como você lida com momentos difíceis?">"Como você lida com momentos difíceis?"</button>', // i18n
-        '<button class="suggestion-btn" data-text="O que você pensa sobre amor e relações?">"O que você pensa sobre amor?"</button>', // i18n
-        '<button class="suggestion-btn" data-text="Por que você fez o ALMA?">"Por que você fez o ALMA?"</button>', // i18n
-      ].join('');
+      var sug = {
+        values: tt('chat.suggestions.values', null, 'O que você mais valoriza na vida?'),
+        hardTimes: tt('chat.suggestions.hardTimes', null, 'Como você lida com momentos difíceis?'),
+        love: tt('chat.suggestions.love', null, 'O que você pensa sobre amor?'),
+        whyAlma: tt('chat.suggestions.whyAlma', null, 'Por que você fez o ALMA?'),
+      };
+      suggestionsEl.innerHTML = Object.values(sug).map(function(s) {
+        return '<button class="suggestion-btn" data-text="' + s + '">"' + s + '"</button>';
+      }).join('');
       // Re-bind suggestion events
       suggestionsEl.querySelectorAll('.suggestion-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -242,7 +254,7 @@
     } catch (err) {
       hideTyping();
       console.error('ALMA Error:', err);
-      showError(err.message || 'N\u00e3o consegui responder agora. Tente novamente.'); // i18n
+      showError(err.message || tt('chat.connectionError', null, 'Não consegui responder agora. Tente novamente.'));
     }
 
     isLoading = false;
@@ -313,7 +325,7 @@
     timeEl.className = 'message-time';
     var timeText = formatTime(new Date());
     if (type === 'alma' && memoriesUsed && memoriesUsed > 0) {
-      timeText += ' \u00b7 ' + memoriesUsed + ' mem\u00f3rias consultadas'; // i18n
+      timeText += ' \u00b7 ' + tt('chat.memoriesConsulted', { count: memoriesUsed }, memoriesUsed + ' memórias consultadas');
     }
     timeEl.textContent = timeText;
 
@@ -324,8 +336,8 @@
     if (type === 'alma' && conversationHistory.length > 0 && !window.ALMA_HIDE_CORRECTIONS) {
       var corrBtn = document.createElement('button');
       corrBtn.className = 'btn-correct';
-      corrBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Corrigir'; // i18n
-      corrBtn.title = 'Corrigir esta resposta'; // i18n
+      corrBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> ' + tt('correction.correctButton', null, 'Corrigir');
+      corrBtn.title = tt('correction.correctButton', null, 'Corrigir');
       corrBtn.addEventListener('click', function () {
         openCorrectionModal(text, lastQuestion);
       });
@@ -359,25 +371,25 @@
     overlay.innerHTML = [
       '<div class="correction-modal">',
       '  <div class="correction-header">',
-      '    <h3>Corrigir / Nova diretriz</h3>', // i18n
+      '    <h3>' + tt('correction.title', null, 'Corrigir / Nova diretriz') + '</h3>',
       '    <button class="correction-close" id="correctionClose">&times;</button>',
       '  </div>',
       '  <div class="correction-body">',
       '    <div class="correction-original">',
-      '      <label>Resposta original:</label>', // i18n
+      '      <label>' + tt('correction.originalLabel', null, 'Resposta original:') + '</label>',
       '      <div class="correction-original-text" id="correctionOriginal"></div>',
       '    </div>',
       '    <div class="correction-input-group">',
-      '      <label for="correctionText">O que est\u00e1 errado? Ou que diretriz quer adicionar?</label>', // i18n
-      '      <textarea id="correctionText" class="correction-textarea" rows="3" maxlength="2000" placeholder="Ex: Essa resposta ficou fria demais, fale com mais calor. Ou: Nunca diga X sobre Y..."></textarea>', // i18n
+      '      <label for="correctionText">' + tt('correction.inputLabel', null, 'O que está errado? Ou que diretriz quer adicionar?') + '</label>',
+      '      <textarea id="correctionText" class="correction-textarea" rows="3" maxlength="2000" placeholder="' + tt('correction.inputPlaceholder', null, 'Ex: Essa resposta ficou fria demais, fale com mais calor...') + '"></textarea>',
       '      <span class="correction-char-count" id="correctionCharCount">0/2000</span>',
       '    </div>',
       '    <div id="classifyResult" style="display:none;margin-top:14px;"></div>',
       '  </div>',
       '  <div class="correction-footer">',
-      '    <button class="correction-btn-cancel" id="correctionCancel">Cancelar</button>', // i18n
-      '    <button class="correction-btn-save" id="correctionAnalyze" style="background:var(--blue);border:none;border-radius:8px;color:white;padding:10px 20px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit;">Analisar</button>', // i18n
-      '    <button class="correction-btn-save" id="correctionSave" style="display:none;">Salvar</button>', // i18n
+      '    <button class="correction-btn-cancel" id="correctionCancel">' + tt('correction.cancelButton', null, 'Cancelar') + '</button>',
+      '    <button class="correction-btn-save" id="correctionAnalyze" style="background:var(--blue);border:none;border-radius:8px;color:white;padding:10px 20px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit;">' + tt('correction.analyzeButton', null, 'Analisar') + '</button>',
+      '    <button class="correction-btn-save" id="correctionSave" style="display:none;">' + tt('correction.saveButton', null, 'Salvar') + '</button>',
       '  </div>',
       '</div>'
     ].join('\n');
@@ -451,9 +463,9 @@
     var analyzeBtn = document.getElementById('correctionAnalyze');
     var classifyEl = document.getElementById('classifyResult');
     analyzeBtn.disabled = true;
-    analyzeBtn.textContent = 'Analisando...'; // i18n
+    analyzeBtn.textContent = tt('correction.analyzing', null, 'Analisando...');
     classifyEl.style.display = '';
-    classifyEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">Analisando com IA...</div>'; // i18n
+    classifyEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">' + tt('correction.analyzingAI', null, 'Analisando com IA...') + '</div>';
 
     try {
       var response = await fetch('/.netlify/functions/memories', {
@@ -475,16 +487,16 @@
         renderClassification(result.classification, text);
       } else {
         // Fallback: treat as correction
-        classifyEl.innerHTML = '<div style="color:#f87171;font-size:0.82rem;padding:8px 0;">N\u00e3o consegui classificar. Escolha manualmente:</div>'; // i18n
+        classifyEl.innerHTML = '<div style="color:#f87171;font-size:0.82rem;padding:8px 0;">' + tt('correction.classifyFailed', null, 'Não consegui classificar. Escolha manualmente:') + '</div>';
         renderManualChoice(text);
       }
     } catch (err) {
-      classifyEl.innerHTML = '<div style="color:#f87171;font-size:0.82rem;padding:8px 0;">Erro de rede. Escolha manualmente:</div>'; // i18n
+      classifyEl.innerHTML = '<div style="color:#f87171;font-size:0.82rem;padding:8px 0;">' + tt('correction.networkError', null, 'Erro de rede. Escolha manualmente:') + '</div>';
       renderManualChoice(text);
     }
 
     analyzeBtn.disabled = false;
-    analyzeBtn.textContent = 'Analisar'; // i18n
+    analyzeBtn.textContent = tt('correction.analyzeButton', null, 'Analisar');
     analyzeBtn.style.display = 'none';
     document.getElementById('correctionSave').style.display = '';
   }
@@ -492,9 +504,9 @@
   function renderClassification(cls, originalText) {
     var classifyEl = document.getElementById('classifyResult');
     var typeLabels = {
-      'correction': 'Corre\u00e7\u00e3o', // i18n
-      'directive_individual': 'Diretriz individual', // i18n
-      'directive_global': 'Diretriz global' // i18n
+      'correction': tt('correction.types.correction', null, 'Correção'),
+      'directive_individual': tt('correction.types.directiveIndividual', null, 'Diretriz individual'),
+      'directive_global': tt('correction.types.directiveGlobal', null, 'Diretriz global'),
     };
     var typeColors = {
       'correction': '#D94A4A',
@@ -512,13 +524,13 @@
           (cls.person ? '<span style="font-size:0.72rem;color:var(--text-muted);">para ' + cls.person + '</span>' : '') +
         '</div>' +
         '<div style="font-size:0.85rem;color:var(--text);line-height:1.5;margin-bottom:8px;">' +
-          '<strong>Texto refinado:</strong> ' + escapeHtmlSafe(cls.refined_text || originalText) + // i18n
+          '<strong>' + tt('correction.refinedText', null, 'Texto refinado:') + '</strong> ' + escapeHtmlSafe(cls.refined_text || originalText) +
         '</div>' +
         '<div style="font-size:0.78rem;color:var(--text-soft);font-style:italic;">' + escapeHtmlSafe(cls.explanation || '') + '</div>' +
         '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">' +
-          '<button class="corr-type-btn" data-type="correction" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #D94A4A33;background:#D94A4A15;color:#D94A4A;cursor:pointer;font-family:inherit;' + (cls.type === 'correction' ? 'border-color:#D94A4A;font-weight:700;' : '') + '">Corre\u00e7\u00e3o</button>' + // i18n
-          '<button class="corr-type-btn" data-type="directive_individual" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #4A90D933;background:#4A90D915;color:#4A90D9;cursor:pointer;font-family:inherit;' + (cls.type === 'directive_individual' ? 'border-color:#4A90D9;font-weight:700;' : '') + '">Diretriz ' + personLabel + '</button>' + // i18n
-          '<button class="corr-type-btn" data-type="directive_global" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #E8C54733;background:#E8C54715;color:#E8C547;cursor:pointer;font-family:inherit;' + (cls.type === 'directive_global' ? 'border-color:#E8C547;font-weight:700;' : '') + '">Diretriz global</button>' + // i18n
+          '<button class="corr-type-btn" data-type="correction" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #D94A4A33;background:#D94A4A15;color:#D94A4A;cursor:pointer;font-family:inherit;' + (cls.type === 'correction' ? 'border-color:#D94A4A;font-weight:700;' : '') + '">' + typeLabels['correction'] + '</button>' +
+          '<button class="corr-type-btn" data-type="directive_individual" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #4A90D933;background:#4A90D915;color:#4A90D9;cursor:pointer;font-family:inherit;' + (cls.type === 'directive_individual' ? 'border-color:#4A90D9;font-weight:700;' : '') + '">' + typeLabels['directive_individual'] + ' ' + personLabel + '</button>' +
+          '<button class="corr-type-btn" data-type="directive_global" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #E8C54733;background:#E8C54715;color:#E8C547;cursor:pointer;font-family:inherit;' + (cls.type === 'directive_global' ? 'border-color:#E8C547;font-weight:700;' : '') + '">' + typeLabels['directive_global'] + '</button>' +
         '</div>' +
       '</div>';
 
@@ -553,7 +565,7 @@
 
     var saveBtn = document.getElementById('correctionSave');
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Salvando...'; // i18n
+    saveBtn.textContent = tt('correction.saving', null, 'Salvando...');
 
     var cls = classificationResult || { type: 'correction' };
     var finalText = (cls.refined_text || text).trim();
@@ -575,7 +587,7 @@
         var result = await response.json();
         if (result.success) {
           closeCorrectionModal();
-          showSuccess('Corre\u00e7\u00e3o salva! As pr\u00f3ximas respostas v\u00e3o considerar isso.'); // i18n
+          showSuccess(tt('correction.savedCorrection', null, 'Correção salva! As próximas respostas vão considerar isso.'));
         } else {
           showError('Erro: ' + (result.error || ''));
         }
@@ -595,19 +607,19 @@
         var result = await response.json();
         if (result.success) {
           closeCorrectionModal();
-          var typeLabel = cls.type === 'directive_global' ? 'global' : ('para ' + person);
-          showSuccess('Diretriz ' + typeLabel + ' salva! O ALMA vai seguir a partir de agora.'); // i18n
+          var scopeLabel = cls.type === 'directive_global' ? tt('directives.global', null, 'global') : person;
+          showSuccess(tt('correction.savedDirective', { scope: scopeLabel }, 'Diretriz ' + scopeLabel + ' salva! O ALMA vai seguir a partir de agora.'));
         } else {
           showError('Erro: ' + (result.error || ''));
         }
       }
     } catch (err) {
       console.error('Save error:', err);
-      showError('Erro de conex\u00e3o. Tente novamente.'); // i18n
+      showError(tt('correction.saveError', null, 'Erro de conexão. Tente novamente.'));
     }
 
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Salvar'; // i18n
+    saveBtn.textContent = tt('correction.saveButton', null, 'Salvar');
   }
 
   // --- Typing Indicator ---
@@ -689,7 +701,8 @@
 
   // --- Utilities ---
   function formatTime(date) {
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    var locale = (typeof getCurrentLang === 'function') ? getCurrentLang() : 'pt-BR';
+    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   }
 
   function scrollToBottom() {
@@ -752,13 +765,13 @@
     function loadDirectivesList() {
       var listEl = document.getElementById('chatDirectivesList');
       if (!listEl) return;
-      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem;">Carregando...</div>'; // i18n
+      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem;">' + tt('directives.loading', null, 'Carregando...') + '</div>';
 
       fetch('/.netlify/functions/memories?action=list_directives&person=' + encodeURIComponent(personName))
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (!data.directives || data.directives.length === 0) {
-            listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem;text-align:center;padding:12px 0;">Nenhuma diretriz ainda.</div>'; // i18n
+            listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem;text-align:center;padding:12px 0;">' + tt('directives.empty', null, 'Nenhuma diretriz ainda.') + '</div>';
             return;
           }
           var html = '';
@@ -771,19 +784,19 @@
                 '<span style="font-size:0.62rem;color:' + tagColor + ';font-weight:600;">' + tagLabel + '</span>' +
                 '<div style="font-size:0.82rem;color:var(--text);line-height:1.4;margin-top:2px;">' + escapeHtmlSafe(dir.directive_text) + '</div>' +
               '</div>' +
-              '<button onclick="window._deleteDirective(' + dir.id + ')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;padding:0 2px;line-height:1;" title="Remover">&times;</button>' + // i18n
+              '<button onclick="window._deleteDirective(' + dir.id + ')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;padding:0 2px;line-height:1;" title="' + tt('directives.removeConfirm', null, 'Remover') + '">&times;</button>' +
             '</div>';
           });
           listEl.innerHTML = html;
         })
         .catch(function() {
-          listEl.innerHTML = '<div style="color:#f87171;font-size:0.78rem;">Erro ao carregar</div>'; // i18n
+          listEl.innerHTML = '<div style="color:#f87171;font-size:0.78rem;">' + tt('directives.loadError', null, 'Erro ao carregar') + '</div>';
         });
     }
 
     // Delete directive from chat panel
     window._deleteDirective = function(id) {
-      if (!confirm('Remover esta diretriz?')) return; // i18n
+      if (!confirm(tt('directives.removeConfirm', null, 'Remover esta diretriz?'))) return;
       fetch('/.netlify/functions/memories', {
         method: 'POST',
         headers: authHeaders(),

@@ -51,7 +51,7 @@
     "title": "Corrigir / Nova diretriz",
     "originalLabel": "Resposta original:",
     "inputLabel": "O que está errado? Ou que diretriz quer adicionar?",
-    "inputPlaceholder": "Ex: Não compare Noah com os irmãos. Ou: Essa resposta ficou fria demais, fale com mais calor...",
+    "inputPlaceholder": "Ex: Essa resposta ficou fria demais, fale com mais calor. Ou: Nunca diga X sobre Y...",
     "analyzeButton": "Analisar",
     "analyzing": "Analisando...",
     "analyzingAI": "Analisando com IA...",
