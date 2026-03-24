@@ -133,6 +133,7 @@
   var perPage = 20;
   var editingId = null;
   var allCategories = [];
+  var currentRenderedChunks = [];
 
   function authHeaders() {
     return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
@@ -141,19 +142,40 @@
   // Load stats
   fetch(API + '?action=stats').then(function(r) { return r.json(); }).then(function(data) {
     var bar = document.getElementById('statsBar');
-    bar.innerHTML =
-      '<div class="stat"><div class="stat-value">' + data.chunks + '</div><div class="stat-label">Memorias</div></div>' +
-      '<div class="stat"><div class="stat-value">' + Math.round(data.totalCharacters/1000) + 'k</div><div class="stat-label">Caracteres</div></div>' +
-      '<div class="stat"><div class="stat-value">' + data.corrections + '</div><div class="stat-label">Correcoes</div></div>' +
-      '<div class="stat"><div class="stat-value">' + data.categories.length + '</div><div class="stat-label">Categorias</div></div>';
+    bar.textContent = '';
+    [
+      { value: data.chunks, label: 'Memorias' },
+      { value: Math.round(data.totalCharacters / 1000) + 'k', label: 'Caracteres' },
+      { value: data.corrections, label: 'Correcoes' },
+      { value: data.categories.length, label: 'Categorias' }
+    ].forEach(function(item) {
+      var stat = document.createElement('div');
+      stat.className = 'stat';
+      var valueEl = document.createElement('div');
+      valueEl.className = 'stat-value';
+      valueEl.textContent = item.value;
+      var labelEl = document.createElement('div');
+      labelEl.className = 'stat-label';
+      labelEl.textContent = item.label;
+      stat.appendChild(valueEl);
+      stat.appendChild(labelEl);
+      bar.appendChild(stat);
+    });
 
     // Populate category filters
     allCategories = data.categories.map(function(c) { return c.name; });
     var sel = document.getElementById('catFilter');
     var editSel = document.getElementById('editCategory');
     data.categories.forEach(function(c) {
-      sel.innerHTML += '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + ' (' + parseInt(c.chunks) + ')</option>';
-      editSel.innerHTML += '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>';
+      var option = document.createElement('option');
+      option.value = c.name;
+      option.textContent = c.name + ' (' + parseInt(c.chunks) + ')';
+      sel.appendChild(option);
+
+      var editOption = document.createElement('option');
+      editOption.value = c.name;
+      editOption.textContent = c.name;
+      editSel.appendChild(editOption);
     });
 
     loadChunks();
@@ -199,54 +221,135 @@
 
   function renderChunks(chunks) {
     var el = document.getElementById('chunkList');
+    currentRenderedChunks = chunks.slice();
     if (chunks.length === 0) {
-      el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">' + rt('revisor.empty', 'Nenhum chunk encontrado') + '</div>';
+      el.textContent = '';
+      var empty = document.createElement('div');
+      empty.style.textAlign = 'center';
+      empty.style.color = 'var(--text-muted)';
+      empty.style.padding = '40px';
+      empty.textContent = rt('revisor.empty', 'Nenhum chunk encontrado');
+      el.appendChild(empty);
       return;
     }
 
-    el.innerHTML = chunks.map(function(c) {
+    el.textContent = '';
+    chunks.forEach(function(c) {
       var sf = (c.source_file || '');
       var origin = sf.indexOf('instagram') >= 0 ? 'IG' : (sf.indexOf('whatsapp') >= 0 ? 'WA' : 'DOC');
-      var content = escapeHtml(c.content || '');
       var safeId = parseInt(c.id);
 
-      return '<div class="chunk" data-id="' + safeId + '">' +
-        '<div class="chunk-top">' +
-          '<div class="chunk-title">' + escapeHtml(c.title || '(sem titulo)') + '</div>' +
-          '<div class="chunk-meta">' +
-            '<span class="source-tag">' + origin + '</span>' +
-            '<span class="chunk-cat">' + escapeHtml(c.category) + '</span>' +
-            '<span class="chunk-chars">' + (parseInt(c.char_count) || content.length) + 'c</span>' +
-            '<span class="chunk-id">#' + safeId + '</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="chunk-content" onclick="this.classList.toggle(\'expanded\')">' + content + '</div>' +
-        '<div class="chunk-actions">' +
-          '<button class="btn-edit" onclick="openEdit(' + safeId + ')">' + rt('revisor.edit', 'Editar') + '</button>' +
-          '<button class="btn-delete" onclick="quickDelete(' + safeId + ')">' + rt('revisor.delete', 'Deletar') + '</button>' +
-        '</div>' +
-      '</div>';
-    }).join('');
+      var chunkEl = document.createElement('div');
+      chunkEl.className = 'chunk';
+      chunkEl.dataset.id = String(safeId);
+
+      var top = document.createElement('div');
+      top.className = 'chunk-top';
+
+      var title = document.createElement('div');
+      title.className = 'chunk-title';
+      title.textContent = c.title || '(sem titulo)';
+
+      var meta = document.createElement('div');
+      meta.className = 'chunk-meta';
+
+      var sourceTag = document.createElement('span');
+      sourceTag.className = 'source-tag';
+      sourceTag.textContent = origin;
+
+      var category = document.createElement('span');
+      category.className = 'chunk-cat';
+      category.textContent = c.category || '';
+
+      var chars = document.createElement('span');
+      chars.className = 'chunk-chars';
+      chars.textContent = (parseInt(c.char_count) || (c.content || '').length) + 'c';
+
+      var id = document.createElement('span');
+      id.className = 'chunk-id';
+      id.textContent = '#' + safeId;
+
+      meta.appendChild(sourceTag);
+      meta.appendChild(category);
+      meta.appendChild(chars);
+      meta.appendChild(id);
+      top.appendChild(title);
+      top.appendChild(meta);
+
+      var content = document.createElement('div');
+      content.className = 'chunk-content';
+      content.textContent = c.content || '';
+      content.addEventListener('click', function() {
+        content.classList.toggle('expanded');
+      });
+
+      var actions = document.createElement('div');
+      actions.className = 'chunk-actions';
+
+      var editBtn = document.createElement('button');
+      editBtn.className = 'btn-edit';
+      editBtn.type = 'button';
+      editBtn.textContent = rt('revisor.edit', 'Editar');
+      editBtn.addEventListener('click', function() {
+        openEdit(safeId);
+      });
+
+      var deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn-delete';
+      deleteBtn.type = 'button';
+      deleteBtn.textContent = rt('revisor.delete', 'Deletar');
+      deleteBtn.addEventListener('click', function() {
+        quickDelete(safeId);
+      });
+
+      actions.appendChild(editBtn);
+      actions.appendChild(deleteBtn);
+      chunkEl.appendChild(top);
+      chunkEl.appendChild(content);
+      chunkEl.appendChild(actions);
+      el.appendChild(chunkEl);
+    });
   }
 
   function renderPagination(total, totalPages) {
     var el = document.getElementById('pagination');
-    if (totalPages <= 1) { el.innerHTML = ''; return; }
+    el.textContent = '';
+    if (totalPages <= 1) { return; }
 
-    var html = '<button ' + (currentPage <= 1 ? 'disabled' : 'onclick="goPage(' + parseInt(currentPage-1) + ')"') + '>&laquo;</button>';
+    function addPageButton(label, page, disabled, active) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      if (disabled) button.disabled = true;
+      if (active) button.className = 'active';
+      if (!disabled) {
+        button.addEventListener('click', function() {
+          goPage(page);
+        });
+      }
+      el.appendChild(button);
+    }
+
+    addPageButton('«', currentPage - 1, currentPage <= 1, false);
     for (var i = 1; i <= totalPages; i++) {
-      if (i === 1 || i === totalPages || (i >= currentPage-2 && i <= currentPage+2)) {
-        html += '<button class="' + (i === currentPage ? 'active' : '') + '" onclick="goPage(' + parseInt(i) + ')">' + parseInt(i) + '</button>';
-      } else if (i === currentPage-3 || i === currentPage+3) {
-        html += '<span class="page-info">...</span>';
+      if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+        addPageButton(String(parseInt(i)), i, false, i === currentPage);
+      } else if (i === currentPage - 3 || i === currentPage + 3) {
+        var dots = document.createElement('span');
+        dots.className = 'page-info';
+        dots.textContent = '...';
+        el.appendChild(dots);
       }
     }
-    html += '<button ' + (currentPage >= totalPages ? 'disabled' : 'onclick="goPage(' + parseInt(currentPage+1) + ')"') + '>&raquo;</button>';
-    html += '<span class="page-info">' + parseInt(total) + ' chunks</span>';
-    el.innerHTML = html;
+    addPageButton('»', currentPage + 1, currentPage >= totalPages, false);
+
+    var info = document.createElement('span');
+    info.className = 'page-info';
+    info.textContent = parseInt(total) + ' chunks';
+    el.appendChild(info);
   }
 
-  window.goPage = function(p) { currentPage = p; loadChunks(); window.scrollTo(0,0); };
+  function goPage(p) { currentPage = p; loadChunks(); window.scrollTo(0,0); }
 
   // Filters
   var searchTimeout;
@@ -266,15 +369,12 @@
   window.openEdit = function(id) {
     editingId = parseInt(id);
     document.getElementById('modalTitle').textContent = 'Editar chunk #' + editingId;
-
-    // Find chunk in DOM
-    var chunkEl = document.querySelector('.chunk[data-id="' + editingId + '"]');
-    if (chunkEl) {
-      document.getElementById('editTitle').value = chunkEl.querySelector('.chunk-title').textContent;
-      document.getElementById('editCategory').value = chunkEl.querySelector('.chunk-cat').textContent;
-      var content = chunkEl.querySelector('.chunk-content').textContent;
-      document.getElementById('editContent').value = content;
-      document.getElementById('editTags').value = '';
+    var chunk = currentRenderedChunks.find(function(item) { return parseInt(item.id) === editingId; });
+    if (chunk) {
+      document.getElementById('editTitle').value = chunk.title || '';
+      document.getElementById('editCategory').value = chunk.category || '';
+      document.getElementById('editContent').value = chunk.content || '';
+      document.getElementById('editTags').value = (chunk.tags || []).join(', ');
     }
     document.getElementById('editModal').classList.add('active');
   };

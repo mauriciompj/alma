@@ -27,10 +27,11 @@
  */
 
 import { strict as assert } from 'assert';
+import { isHtmlResponse, safeJson, optionalEnv } from './test-utils.mjs';
 
-const BASE_URL = (process.env.TEST_URL || 'https://alma-demo.netlify.app').trim();
-const TEST_USER = (process.env.TEST_USER || 'Lucas').trim();
-const TEST_PASS = (process.env.TEST_PASS || 'demo123').trim();
+const BASE_URL = optionalEnv('TEST_URL', 'https://alma-demo.netlify.app');
+const TEST_USER = optionalEnv('TEST_USER', 'Lucas');
+const TEST_PASS = optionalEnv('TEST_PASS', 'demo123');
 
 let passCount = 0;
 let failCount = 0;
@@ -54,22 +55,6 @@ function skip(name, reason) {
   console.log(`  \u2298 ${name} (skipped: ${reason})`);
   skipCount++;
   return Promise.resolve();
-}
-
-// Helper: check if a response is HTML (Netlify password page) instead of JSON
-function isHtmlResponse(res) {
-  const ct = res.headers.get('content-type') || '';
-  return ct.includes('text/html');
-}
-
-// Helper: safe JSON parse (returns null if HTML/non-JSON)
-async function safeJson(res) {
-  if (isHtmlResponse(res)) return null;
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
 }
 
 // Helper: authenticated fetch
@@ -346,7 +331,7 @@ async function runTests() {
     });
 
     await test('Get persons endpoint returns person list', async () => {
-      const res = await fetch(`${BASE_URL}/.netlify/functions/memories?action=get_persons`);
+      const res = await authFetch(`${BASE_URL}/.netlify/functions/memories?action=get_persons`);
       const data = await res.json();
       assert.equal(res.status, 200);
       assert.ok(Array.isArray(data.persons), 'Should have persons array');

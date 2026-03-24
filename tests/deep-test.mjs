@@ -5,11 +5,30 @@
  * Usage: node tests/deep-test.mjs
  * Env: TEST_URL (default: https://projeto-alma.netlify.app)
  *       TEST_USER, TEST_PASS
+ *       Optional legacy checks:
+ *       LEGACY_PASSPHRASE_DAVI
+ *       LEGACY_PASSPHRASE_NOAH
+ *       LEGACY_PASSPHRASE_ISAAC
+ *       LEGACY_PASSPHRASE_NATHAN
+ *       LEGACY_PASSPHRASE_NIVALDA
+ *       LEGACY_PASSPHRASE_LESLEN
+ *       LEGACY_PASSPHRASE_CHRIS
  */
 
-const BASE = process.env.TEST_URL || 'https://projeto-alma.netlify.app';
-const USER = process.env.TEST_USER || 'Mauricio';
-const PASS = process.env.TEST_PASS || 'Alma@2026';
+import { optionalEnv } from './test-utils.mjs';
+
+const BASE = optionalEnv('TEST_URL', 'https://projeto-alma.netlify.app');
+const USER = optionalEnv('TEST_USER');
+const PASS = optionalEnv('TEST_PASS');
+const LEGACY_CASES = [
+  { env: 'LEGACY_PASSPHRASE_DAVI', label: 'Davi legacy_admin', accessLevel: 'legacy_admin', person: 'Davi', expectPersonalMessage: true, expectTechnicalNotes: true },
+  { env: 'LEGACY_PASSPHRASE_NOAH', label: 'Noah legacy_owner', accessLevel: 'legacy_owner', person: 'Noah' },
+  { env: 'LEGACY_PASSPHRASE_ISAAC', label: 'Isaac legacy_owner', accessLevel: 'legacy_owner', person: 'Isaac' },
+  { env: 'LEGACY_PASSPHRASE_NATHAN', label: 'Nathan legacy_owner', accessLevel: 'legacy_owner', person: 'Nathan' },
+  { env: 'LEGACY_PASSPHRASE_NIVALDA', label: 'Nivalda legacy_read', accessLevel: 'legacy_read', person: 'Nivalda' },
+  { env: 'LEGACY_PASSPHRASE_LESLEN', label: 'Leslen legacy_read', accessLevel: 'legacy_read', person: 'Leslen' },
+  { env: 'LEGACY_PASSPHRASE_CHRIS', label: 'Chris legacy_read', accessLevel: 'legacy_read', person: 'Chris' },
+];
 
 const results = [];
 function log(name, ok, detail) {
@@ -18,6 +37,11 @@ function log(name, ok, detail) {
 }
 
 async function run() {
+  if (!USER || !PASS) {
+    console.error('Missing TEST_USER/TEST_PASS. Set explicit credentials in env before running deep-test.');
+    process.exit(1);
+  }
+
   // --- LOGIN ---
   console.log('\n\u2500\u2500 Login & Session \u2500\u2500');
   const login = await fetch(BASE + '/api/auth', {
@@ -44,56 +68,32 @@ async function run() {
   const ld1 = await leg1.json();
   log('Wrong passphrase rejected', !ld1.unlocked);
 
-  const leg2 = await fetch(BASE + '/api/legacy', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passphrase: 'eu seguro irm\u00e3o' })
-  });
-  const ld2 = await leg2.json();
-  log('Davi legacy_admin', ld2.unlocked && ld2.accessLevel === 'legacy_admin', ld2.person);
-  log('Davi personal message', (ld2.personalMessage || '').length > 50, (ld2.personalMessage || '').length + ' chars');
-  log('Davi tech notes', (ld2.technicalNotes || '').length > 50, (ld2.technicalNotes || '').length + ' chars');
+  for (const legacyCase of LEGACY_CASES) {
+    const passphrase = process.env[legacyCase.env];
+    if (!passphrase) {
+      log(legacyCase.label, true, 'skipped (missing env ' + legacyCase.env + ')');
+      continue;
+    }
 
-  const leg3 = await fetch(BASE + '/api/legacy', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passphrase: 'o primog\u00eanito que mudou tudo' })
-  });
-  const ld3 = await leg3.json();
-  log('Noah legacy_owner', ld3.unlocked && ld3.accessLevel === 'legacy_owner', ld3.person);
+    const legacyRes = await fetch(BASE + '/api/legacy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passphrase })
+    });
+    const legacyData = await legacyRes.json();
+    log(
+      legacyCase.label,
+      legacyData.unlocked && legacyData.accessLevel === legacyCase.accessLevel,
+      legacyData.person
+    );
 
-  const leg4 = await fetch(BASE + '/api/legacy', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passphrase: 'zaquinho do pai' })
-  });
-  const ld4 = await leg4.json();
-  log('Isaac legacy_owner', ld4.unlocked && ld4.accessLevel === 'legacy_owner', ld4.person);
-
-  const leg5 = await fetch(BASE + '/api/legacy', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passphrase: 'o sil\u00eancio que processa' })
-  });
-  const ld5 = await leg5.json();
-  log('Nathan legacy_owner', ld5.unlocked && ld5.accessLevel === 'legacy_owner', ld5.person);
-
-  const leg6 = await fetch(BASE + '/api/legacy', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passphrase: 'oi nega' })
-  });
-  const ld6 = await leg6.json();
-  log('Nivalda legacy_read', ld6.unlocked && ld6.accessLevel === 'legacy_read', ld6.person);
-
-  const leg7 = await fetch(BASE + '/api/legacy', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passphrase: 'o foco \u00e9 a leslen e eu' })
-  });
-  const ld7 = await leg7.json();
-  log('Leslen legacy_read', ld7.unlocked && ld7.accessLevel === 'legacy_read', ld7.person);
-
-  const leg8 = await fetch(BASE + '/api/legacy', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passphrase: 'dois pais separados podem ser melhores' })
-  });
-  const ld8 = await leg8.json();
-  log('Chris legacy_read', ld8.unlocked && ld8.accessLevel === 'legacy_read', ld8.person);
+    if (legacyCase.expectPersonalMessage) {
+      log('Davi personal message', (legacyData.personalMessage || '').length > 50, (legacyData.personalMessage || '').length + ' chars');
+    }
+    if (legacyCase.expectTechnicalNotes) {
+      log('Davi tech notes', (legacyData.technicalNotes || '').length > 50, (legacyData.technicalNotes || '').length + ' chars');
+    }
+  }
 
   // --- INGEST ---
   console.log('\n\u2500\u2500 Ingest API \u2500\u2500');
@@ -141,14 +141,14 @@ async function run() {
   const sd4 = await s4.json();
   log('Categories endpoint', (sd4.categories || []).length > 10, (sd4.categories || []).length + ' categories');
 
-  const s5 = await fetch(BASE + '/api/memories?action=get_persons');
+  const s5 = await fetch(BASE + '/api/memories?action=get_persons', { headers: auth });
   const sd5 = await s5.json();
   log('Persons endpoint', (sd5.persons || []).length > 0, sd5.author + ' + ' + (sd5.persons || []).length + ' persons');
 
   // --- DIRECTIVES ---
   console.log('\n\u2500\u2500 Directives \u2500\u2500');
 
-  const dir1 = await fetch(BASE + '/api/memories?action=list_directives&person=_all');
+  const dir1 = await fetch(BASE + '/api/memories?action=list_directives&person=_all', { headers: auth });
   const dd1 = await dir1.json();
   log('List all directives', (dd1.directives || []).length > 0, (dd1.directives || []).length + ' directives');
 

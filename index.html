@@ -195,7 +195,7 @@
       }
 
       // --- Load persons from DB and render cards dynamically ---
-      fetch('/.netlify/functions/memories?action=get_persons')
+      fetch('/.netlify/functions/memories?action=get_persons', { headers: authHeaders() })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           // Set author name

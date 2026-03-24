@@ -152,6 +152,8 @@ async function handleLogin(sql, body) {
         name: user.name,
         type: user.type,
         admin: !!user.admin,
+        birthDate: user.birthDate || null,
+        displayName: user.displayName || user.name,
         token,
         expiresAt
       })}, NOW())
@@ -170,6 +172,8 @@ async function handleLogin(sql, body) {
         name: user.name,
         type: user.type,
         admin: !!user.admin,
+        birthDate: user.birthDate || null,
+        displayName: user.displayName || user.name,
         token,
         expiresAt
       })}, NOW())
@@ -216,6 +220,7 @@ async function handleVerifyToken(sql, body) {
       type: session.type,
       admin: !!session.admin,
       birthDate: session.birthDate || null,
+      displayName: session.displayName || session.name,
     });
   } catch (e) {
     return jsonResponse({ valid: false }, 401);

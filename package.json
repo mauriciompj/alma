@@ -9,9 +9,12 @@
     "seed": "node db/run-seed.mjs",
     "seed:demo": "node db/run-seed-demo.mjs",
     "backup": "node db/backup.mjs",
-    "test": "node tests/auth.test.mjs",
-    "test:prod": "node -e \"process.env.TEST_URL='https://projeto-alma.netlify.app'; import('./tests/auth.test.mjs')\"",
-    "test:demo": "node tests/auth.test.mjs"
+    "test": "npm run test:integration:demo",
+    "test:integration": "node tests/auth.test.mjs",
+    "test:integration:demo": "node tests/auth.test.mjs",
+    "test:integration:prod": "node -e \"process.env.TEST_URL='https://projeto-alma.netlify.app'; import('./tests/auth.test.mjs')\"",
+    "test:deep": "node tests/deep-test.mjs",
+    "test:deep:prod": "node -e \"process.env.TEST_URL='https://projeto-alma.netlify.app'; import('./tests/deep-test.mjs')\""
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.0",

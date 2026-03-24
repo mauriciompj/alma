@@ -82,20 +82,36 @@
 
     var flags = { 'pt-BR': '🇧🇷', 'en': '🇺🇸', 'es': '🇪🇸' };
     var labels = { 'pt-BR': 'PT', 'en': 'EN', 'es': 'ES' };
+    container.textContent = '';
 
-    var html = '<div style="display:flex;gap:6px;justify-content:center;align-items:center;">';
+    var wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+    wrapper.style.gap = '6px';
+    wrapper.style.justifyContent = 'center';
+    wrapper.style.alignItems = 'center';
+
     SUPPORTED.forEach(function(lang) {
       var isActive = lang === currentLang;
-      html += '<button onclick="switchLang(\'' + lang + '\')" style="' +
-        'background:' + (isActive ? 'rgba(216,170,50,0.2)' : 'transparent') + ';' +
-        'border:1px solid ' + (isActive ? 'rgba(216,170,50,0.5)' : 'rgba(255,255,255,0.15)') + ';' +
-        'color:' + (isActive ? '#d8aa32' : 'rgba(255,255,255,0.5)') + ';' +
-        'border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:' + (isActive ? '700' : '400') + ';' +
-        'font-family:inherit;transition:all 0.2s;">' +
-        flags[lang] + ' ' + labels[lang] + '</button>';
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = flags[lang] + ' ' + labels[lang];
+      button.style.background = isActive ? 'rgba(216,170,50,0.2)' : 'transparent';
+      button.style.border = '1px solid ' + (isActive ? 'rgba(216,170,50,0.5)' : 'rgba(255,255,255,0.15)');
+      button.style.color = isActive ? '#d8aa32' : 'rgba(255,255,255,0.5)';
+      button.style.borderRadius = '6px';
+      button.style.padding = '4px 10px';
+      button.style.cursor = 'pointer';
+      button.style.fontSize = '12px';
+      button.style.fontWeight = isActive ? '700' : '400';
+      button.style.fontFamily = 'inherit';
+      button.style.transition = 'all 0.2s';
+      button.addEventListener('click', function() {
+        switchLang(lang);
+      });
+      wrapper.appendChild(button);
     });
-    html += '</div>';
-    container.innerHTML = html;
+
+    container.appendChild(wrapper);
   };
 
   // Switch language and reload page

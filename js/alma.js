@@ -27,6 +27,8 @@
   let currentAudioButton = null;
   let voiceNoticeShown = false;
   const voiceCache = new Map();
+  const currentDirectiveEntries = [];
+  const CORRECTION_ICON_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
 
   // --- HTML escaping helper ---
   function escapeHtml(str) {
@@ -91,7 +93,7 @@
     }
 
     // Load author name from DB, then set placeholders
-    fetch('/.netlify/functions/memories?action=get_persons')
+    fetch('/.netlify/functions/memories?action=get_persons', { headers: authHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.author) authorLabel = data.author;
@@ -130,16 +132,19 @@
           tt('chat.suggestions.whyAlma', null, 'Por que você fez o ALMA?'),
         ];
       }
-      suggestionsEl.innerHTML = sugList.map(function(s) {
-        return '<button class="suggestion-btn" data-text="' + s + '">"' + s + '"</button>';
-      }).join('');
-      // Re-bind suggestion events
-      suggestionsEl.querySelectorAll('.suggestion-btn').forEach(function (btn) {
+      suggestionsEl.textContent = '';
+      sugList.forEach(function(s) {
+        var btn = document.createElement('button');
+        btn.className = 'suggestion-btn';
+        btn.type = 'button';
+        btn.setAttribute('data-text', s);
+        btn.textContent = '"' + s + '"';
         btn.addEventListener('click', function () {
-          chatInput.value = btn.getAttribute('data-text');
+          chatInput.value = s;
           handleInputChange();
           handleSend();
         });
+        suggestionsEl.appendChild(btn);
       });
     }
 
@@ -398,7 +403,8 @@
     if (type === 'alma' && conversationHistory.length > 0 && !window.ALMA_HIDE_CORRECTIONS) {
       var corrBtn = document.createElement('button');
       corrBtn.className = 'btn-correct';
-      corrBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> ' + tt('correction.correctButton', null, 'Corrigir');
+      corrBtn.appendChild(createIconFragment(CORRECTION_ICON_SVG));
+      corrBtn.appendChild(document.createTextNode(' ' + tt('correction.correctButton', null, 'Corrigir')));
       corrBtn.title = tt('correction.correctButton', null, 'Corrigir');
       corrBtn.addEventListener('click', function () {
         openCorrectionModal(text, lastQuestion);
@@ -638,31 +644,95 @@
     var overlay = document.createElement('div');
     overlay.id = 'correctionOverlay';
     overlay.className = 'correction-overlay';
-    overlay.innerHTML = [
-      '<div class="correction-modal">',
-      '  <div class="correction-header">',
-      '    <h3>' + tt('correction.title', null, 'Corrigir / Nova diretriz') + '</h3>',
-      '    <button class="correction-close" id="correctionClose">&times;</button>',
-      '  </div>',
-      '  <div class="correction-body">',
-      '    <div class="correction-original">',
-      '      <label>' + tt('correction.originalLabel', null, 'Resposta original:') + '</label>',
-      '      <div class="correction-original-text" id="correctionOriginal"></div>',
-      '    </div>',
-      '    <div class="correction-input-group">',
-      '      <label for="correctionText">' + tt('correction.inputLabel', null, 'O que está errado? Ou que diretriz quer adicionar?') + '</label>',
-      '      <textarea id="correctionText" class="correction-textarea" rows="3" maxlength="2000" placeholder="' + tt('correction.inputPlaceholder', null, 'Ex: Essa resposta ficou fria demais, fale com mais calor...') + '"></textarea>',
-      '      <span class="correction-char-count" id="correctionCharCount">0/2000</span>',
-      '    </div>',
-      '    <div id="classifyResult" style="display:none;margin-top:14px;"></div>',
-      '  </div>',
-      '  <div class="correction-footer">',
-      '    <button class="correction-btn-cancel" id="correctionCancel">' + tt('correction.cancelButton', null, 'Cancelar') + '</button>',
-      '    <button class="correction-btn-save" id="correctionAnalyze" style="background:var(--blue);border:none;border-radius:8px;color:white;padding:10px 20px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit;">' + tt('correction.analyzeButton', null, 'Analisar') + '</button>',
-      '    <button class="correction-btn-save" id="correctionSave" style="display:none;">' + tt('correction.saveButton', null, 'Salvar') + '</button>',
-      '  </div>',
-      '</div>'
-    ].join('\n');
+    var modal = document.createElement('div');
+    modal.className = 'correction-modal';
+    var header = document.createElement('div');
+    header.className = 'correction-header';
+    var title = document.createElement('h3');
+    title.textContent = tt('correction.title', null, 'Corrigir / Nova diretriz');
+    var close = document.createElement('button');
+    close.className = 'correction-close';
+    close.id = 'correctionClose';
+    close.type = 'button';
+    close.textContent = '×';
+    header.appendChild(title);
+    header.appendChild(close);
+
+    var body = document.createElement('div');
+    body.className = 'correction-body';
+    var originalWrap = document.createElement('div');
+    originalWrap.className = 'correction-original';
+    var originalLabel = document.createElement('label');
+    originalLabel.textContent = tt('correction.originalLabel', null, 'Resposta original:');
+    var originalTextEl = document.createElement('div');
+    originalTextEl.className = 'correction-original-text';
+    originalTextEl.id = 'correctionOriginal';
+    originalWrap.appendChild(originalLabel);
+    originalWrap.appendChild(originalTextEl);
+
+    var inputGroup = document.createElement('div');
+    inputGroup.className = 'correction-input-group';
+    var inputLabel = document.createElement('label');
+    inputLabel.htmlFor = 'correctionText';
+    inputLabel.textContent = tt('correction.inputLabel', null, 'O que está errado? Ou que diretriz quer adicionar?');
+    var textarea = document.createElement('textarea');
+    textarea.id = 'correctionText';
+    textarea.className = 'correction-textarea';
+    textarea.rows = 3;
+    textarea.maxLength = 2000;
+    textarea.placeholder = tt('correction.inputPlaceholder', null, 'Ex: Essa resposta ficou fria demais, fale com mais calor...');
+    var charCountEl = document.createElement('span');
+    charCountEl.className = 'correction-char-count';
+    charCountEl.id = 'correctionCharCount';
+    charCountEl.textContent = '0/2000';
+    inputGroup.appendChild(inputLabel);
+    inputGroup.appendChild(textarea);
+    inputGroup.appendChild(charCountEl);
+
+    var classifyResult = document.createElement('div');
+    classifyResult.id = 'classifyResult';
+    classifyResult.style.display = 'none';
+    classifyResult.style.marginTop = '14px';
+
+    body.appendChild(originalWrap);
+    body.appendChild(inputGroup);
+    body.appendChild(classifyResult);
+
+    var footer = document.createElement('div');
+    footer.className = 'correction-footer';
+    var cancel = document.createElement('button');
+    cancel.className = 'correction-btn-cancel';
+    cancel.id = 'correctionCancel';
+    cancel.type = 'button';
+    cancel.textContent = tt('correction.cancelButton', null, 'Cancelar');
+    var analyze = document.createElement('button');
+    analyze.className = 'correction-btn-save';
+    analyze.id = 'correctionAnalyze';
+    analyze.type = 'button';
+    analyze.style.background = 'var(--blue)';
+    analyze.style.border = 'none';
+    analyze.style.borderRadius = '8px';
+    analyze.style.color = 'white';
+    analyze.style.padding = '10px 20px';
+    analyze.style.fontSize = '0.88rem';
+    analyze.style.fontWeight = '600';
+    analyze.style.cursor = 'pointer';
+    analyze.style.fontFamily = 'inherit';
+    analyze.textContent = tt('correction.analyzeButton', null, 'Analisar');
+    var save = document.createElement('button');
+    save.className = 'correction-btn-save';
+    save.id = 'correctionSave';
+    save.type = 'button';
+    save.style.display = 'none';
+    save.textContent = tt('correction.saveButton', null, 'Salvar');
+    footer.appendChild(cancel);
+    footer.appendChild(analyze);
+    footer.appendChild(save);
+
+    modal.appendChild(header);
+    modal.appendChild(body);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
 
     document.body.appendChild(overlay);
 
@@ -675,8 +745,6 @@
       if (e.target === overlay) closeCorrectionModal();
     });
 
-    var textarea = document.getElementById('correctionText');
-    var charCountEl = document.getElementById('correctionCharCount');
     textarea.addEventListener('input', function () {
       charCountEl.textContent = textarea.value.length + '/2000';
     });
@@ -708,7 +776,7 @@
     textarea.value = '';
     charCountEl.textContent = '0/2000';
     classifyEl.style.display = 'none';
-    classifyEl.innerHTML = '';
+    classifyEl.textContent = '';
     analyzeBtn.style.display = '';
     saveBtn.style.display = 'none';
 
@@ -735,7 +803,7 @@
     analyzeBtn.disabled = true;
     analyzeBtn.textContent = tt('correction.analyzing', null, 'Analisando...');
     classifyEl.style.display = '';
-    classifyEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px 0;">' + tt('correction.analyzingAI', null, 'Analisando com IA...') + '</div>';
+    setStatusBlock(classifyEl, tt('correction.analyzingAI', null, 'Analisando com IA...'), 'var(--text-muted)');
 
     try {
       var response = await fetch('/.netlify/functions/memories', {
@@ -757,11 +825,11 @@
         renderClassification(result.classification, text);
       } else {
         // Fallback: treat as correction
-        classifyEl.innerHTML = '<div style="color:#f87171;font-size:0.82rem;padding:8px 0;">' + tt('correction.classifyFailed', null, 'Não consegui classificar. Escolha manualmente:') + '</div>';
+        setStatusBlock(classifyEl, tt('correction.classifyFailed', null, 'Não consegui classificar. Escolha manualmente:'), '#f87171');
         renderManualChoice(text);
       }
     } catch (err) {
-      classifyEl.innerHTML = '<div style="color:#f87171;font-size:0.82rem;padding:8px 0;">' + tt('correction.networkError', null, 'Erro de rede. Escolha manualmente:') + '</div>';
+      setStatusBlock(classifyEl, tt('correction.networkError', null, 'Erro de rede. Escolha manualmente:'), '#f87171');
       renderManualChoice(text);
     }
 
@@ -787,22 +855,81 @@
     var typeColor = typeColors[cls.type] || '#8A8A9A';
     var personLabel = cls.person || 'todos';
 
-    classifyEl.innerHTML =
-      '<div style="background:var(--bg);border-radius:10px;padding:14px;border-left:3px solid ' + typeColor + ';">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
-          '<span style="font-size:0.75rem;background:' + typeColor + '22;color:' + typeColor + ';padding:2px 10px;border-radius:4px;font-weight:600;">' + typeLabel + '</span>' +
-          (cls.person ? '<span style="font-size:0.72rem;color:var(--text-muted);">para ' + escapeHtml(cls.person) + '</span>' : '') +
-        '</div>' +
-        '<div style="font-size:0.85rem;color:var(--text);line-height:1.5;margin-bottom:8px;">' +
-          '<strong>' + tt('correction.refinedText', null, 'Texto refinado:') + '</strong> ' + escapeHtmlSafe(cls.refined_text || originalText) +
-        '</div>' +
-        '<div style="font-size:0.78rem;color:var(--text-soft);font-style:italic;">' + escapeHtmlSafe(cls.explanation || '') + '</div>' +
-        '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">' +
-          '<button class="corr-type-btn" data-type="correction" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #D94A4A33;background:#D94A4A15;color:#D94A4A;cursor:pointer;font-family:inherit;' + (cls.type === 'correction' ? 'border-color:#D94A4A;font-weight:700;' : '') + '">' + typeLabels['correction'] + '</button>' +
-          '<button class="corr-type-btn" data-type="directive_individual" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #4A90D933;background:#4A90D915;color:#4A90D9;cursor:pointer;font-family:inherit;' + (cls.type === 'directive_individual' ? 'border-color:#4A90D9;font-weight:700;' : '') + '">' + typeLabels['directive_individual'] + ' ' + personLabel + '</button>' +
-          '<button class="corr-type-btn" data-type="directive_global" style="font-size:0.72rem;padding:4px 10px;border-radius:5px;border:1px solid #E8C54733;background:#E8C54715;color:#E8C547;cursor:pointer;font-family:inherit;' + (cls.type === 'directive_global' ? 'border-color:#E8C547;font-weight:700;' : '') + '">' + typeLabels['directive_global'] + '</button>' +
-        '</div>' +
-      '</div>';
+    classifyEl.textContent = '';
+    var card = document.createElement('div');
+    card.style.background = 'var(--bg)';
+    card.style.borderRadius = '10px';
+    card.style.padding = '14px';
+    card.style.borderLeft = '3px solid ' + typeColor;
+    var header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.gap = '8px';
+    header.style.marginBottom = '8px';
+    var badge = document.createElement('span');
+    badge.style.fontSize = '0.75rem';
+    badge.style.background = typeColor + '22';
+    badge.style.color = typeColor;
+    badge.style.padding = '2px 10px';
+    badge.style.borderRadius = '4px';
+    badge.style.fontWeight = '600';
+    badge.textContent = typeLabel;
+    header.appendChild(badge);
+    if (cls.person) {
+      var person = document.createElement('span');
+      person.style.fontSize = '0.72rem';
+      person.style.color = 'var(--text-muted)';
+      person.textContent = 'para ' + cls.person;
+      header.appendChild(person);
+    }
+    var refined = document.createElement('div');
+    refined.style.fontSize = '0.85rem';
+    refined.style.color = 'var(--text)';
+    refined.style.lineHeight = '1.5';
+    refined.style.marginBottom = '8px';
+    var refinedStrong = document.createElement('strong');
+    refinedStrong.textContent = tt('correction.refinedText', null, 'Texto refinado:');
+    refined.appendChild(refinedStrong);
+    refined.appendChild(document.createTextNode(' ' + (cls.refined_text || originalText)));
+    var explanation = document.createElement('div');
+    explanation.style.fontSize = '0.78rem';
+    explanation.style.color = 'var(--text-soft)';
+    explanation.style.fontStyle = 'italic';
+    explanation.textContent = cls.explanation || '';
+    var actions = document.createElement('div');
+    actions.style.marginTop = '10px';
+    actions.style.display = 'flex';
+    actions.style.gap = '6px';
+    actions.style.flexWrap = 'wrap';
+    [
+      { type: 'correction', color: '#D94A4A', label: typeLabels.correction },
+      { type: 'directive_individual', color: '#4A90D9', label: typeLabels.directive_individual + ' ' + personLabel },
+      { type: 'directive_global', color: '#E8C547', label: typeLabels.directive_global }
+    ].forEach(function(item) {
+      var btn = document.createElement('button');
+      btn.className = 'corr-type-btn';
+      btn.dataset.type = item.type;
+      btn.type = 'button';
+      btn.style.fontSize = '0.72rem';
+      btn.style.padding = '4px 10px';
+      btn.style.borderRadius = '5px';
+      btn.style.border = '1px solid ' + item.color + '33';
+      btn.style.background = item.color + '15';
+      btn.style.color = item.color;
+      btn.style.cursor = 'pointer';
+      btn.style.fontFamily = 'inherit';
+      if (cls.type === item.type) {
+        btn.style.borderColor = item.color;
+        btn.style.fontWeight = '700';
+      }
+      btn.textContent = item.label;
+      actions.appendChild(btn);
+    });
+    card.appendChild(header);
+    card.appendChild(refined);
+    card.appendChild(explanation);
+    card.appendChild(actions);
+    classifyEl.appendChild(card);
 
     // Type toggle buttons
     classifyEl.querySelectorAll('.corr-type-btn').forEach(function(btn) {
@@ -826,6 +953,20 @@
   function escapeHtmlSafe(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function setStatusBlock(container, text, color) {
+    container.textContent = '';
+    var block = document.createElement('div');
+    block.style.color = color;
+    block.style.fontSize = '0.82rem';
+    block.style.padding = '8px 0';
+    block.textContent = text;
+    container.appendChild(block);
+  }
+
+  function createIconFragment(svg) {
+    return document.createRange().createContextualFragment(svg);
   }
 
   async function saveFinalResult() {
@@ -1040,29 +1181,69 @@
       var listEl = document.getElementById('chatDirectivesList');
       if (!listEl) return;
       listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem;">' + tt('directives.loading', null, 'Carregando...') + '</div>';
+      currentDirectiveEntries.length = 0;
 
-      fetch('/.netlify/functions/memories?action=list_directives&person=' + encodeURIComponent(personName))
+      fetch('/.netlify/functions/memories?action=list_directives&person=' + encodeURIComponent(personName), { headers: authHeaders() })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (!data.directives || data.directives.length === 0) {
             listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem;text-align:center;padding:12px 0;">' + tt('directives.empty', null, 'Nenhuma diretriz ainda.') + '</div>';
             return;
           }
-          var html = '';
+          listEl.textContent = '';
           data.directives.forEach(function(dir) {
+            currentDirectiveEntries.push(dir);
             var isGlobal = !dir.person;
             var tagColor = isGlobal ? '#E8C547' : '#4A90D9';
-            var tagLabel = isGlobal ? 'Global' : escapeHtml(dir.person);
+            var tagLabel = isGlobal ? 'Global' : (dir.person || '');
             var safeId = parseInt(dir.id, 10);
-            html += '<div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:2px solid ' + tagColor + ';display:flex;align-items:flex-start;gap:8px;">' +
-              '<div style="flex:1;">' +
-                '<span style="font-size:0.62rem;color:' + tagColor + ';font-weight:600;">' + tagLabel + '</span>' +
-                '<div style="font-size:0.82rem;color:var(--text);line-height:1.4;margin-top:2px;">' + escapeHtmlSafe(dir.directive_text) + '</div>' +
-              '</div>' +
-              '<button onclick="window._deleteDirective(' + safeId + ')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;padding:0 2px;line-height:1;" title="' + tt('directives.removeConfirm', null, 'Remover') + '">&times;</button>' +
-            '</div>';
+
+            var row = document.createElement('div');
+            row.style.background = 'var(--bg)';
+            row.style.borderRadius = '8px';
+            row.style.padding = '10px 12px';
+            row.style.borderLeft = '2px solid ' + tagColor;
+            row.style.display = 'flex';
+            row.style.alignItems = 'flex-start';
+            row.style.gap = '8px';
+
+            var left = document.createElement('div');
+            left.style.flex = '1';
+
+            var label = document.createElement('span');
+            label.style.fontSize = '0.62rem';
+            label.style.color = tagColor;
+            label.style.fontWeight = '600';
+            label.textContent = tagLabel;
+
+            var text = document.createElement('div');
+            text.style.fontSize = '0.82rem';
+            text.style.color = 'var(--text)';
+            text.style.lineHeight = '1.4';
+            text.style.marginTop = '2px';
+            text.textContent = dir.directive_text || '';
+
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.style.background = 'none';
+            del.style.border = 'none';
+            del.style.color = 'var(--text-muted)';
+            del.style.cursor = 'pointer';
+            del.style.fontSize = '0.9rem';
+            del.style.padding = '0 2px';
+            del.style.lineHeight = '1';
+            del.title = tt('directives.removeConfirm', null, 'Remover');
+            del.textContent = '×';
+            del.addEventListener('click', function() {
+              deleteDirective(safeId);
+            });
+
+            left.appendChild(label);
+            left.appendChild(text);
+            row.appendChild(left);
+            row.appendChild(del);
+            listEl.appendChild(row);
           });
-          listEl.innerHTML = html;
         })
         .catch(function() {
           listEl.innerHTML = '<div style="color:#f87171;font-size:0.78rem;">' + tt('directives.loadError', null, 'Erro ao carregar') + '</div>';
@@ -1070,7 +1251,7 @@
     }
 
     // Delete directive from chat panel
-    window._deleteDirective = function(id) {
+    function deleteDirective(id) {
       if (!confirm(tt('directives.removeConfirm', null, 'Remover esta diretriz?'))) return;
       fetch('/.netlify/functions/memories', {
         method: 'POST',
@@ -1079,7 +1260,7 @@
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) loadDirectivesList();
       });
-    };
+    }
 
     // Add directive from chat panel
     var addBtn = document.getElementById('chatAddDirBtn');

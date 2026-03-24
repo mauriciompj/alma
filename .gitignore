@@ -5,7 +5,10 @@ node_modules/
 # Environment variables (secrets!)
 .env
 .env.local
+.env.development
 .env.production
+.env.test
+.env.*.local
 
 
 # Netlify build artifacts
@@ -28,6 +31,10 @@ desktop.ini
 # Logs
 *.log
 npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+gcm-diagnose.log
 
 
 # Deploy artifacts (temporary zip files)
@@ -42,6 +49,9 @@ docs/postagens_x/
 **/SENHAS*
 **/KEYS*
 **/SECRET*
+**/*credential*
+**/*passphrase*
+**/*token*
 
 
 # Personal data (reports, private documents)
@@ -52,4 +62,10 @@ data/
 db/backups/
 db/import-prod-*.sql
 db/import-*.json
+
+
+# Local test artifacts
+test-results/
+playwright-report/
+coverage/
 

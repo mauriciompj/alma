@@ -171,10 +171,10 @@ export default async function handler(req) {
 
     // --- Auth gate for sensitive GET endpoints ---
     const ADMIN_GET_ACTIONS = new Set([
-      'admin_chunks', 'admin_corrections', 'get_config',
+      'admin_chunks', 'admin_corrections', 'get_config', 'list_directives',
     ]);
     const AUTH_GET_ACTIONS = new Set([
-      'get_history',
+      'get_history', 'get_persons',
     ]);
     if (ADMIN_GET_ACTIONS.has(action)) {
       const session = await verifySession(sql, req);
