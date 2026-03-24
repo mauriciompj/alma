@@ -31,6 +31,11 @@
   to = "/.netlify/functions/ingest"
   status = 200
 
+[[redirects]]
+  from = "/api/legacy"
+  to = "/.netlify/functions/legacy"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

@@ -98,6 +98,19 @@ CREATE TABLE IF NOT EXISTS alma_directives (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Legacy access (inheritance keys — passphrases unlock admin after author's death)
+CREATE TABLE IF NOT EXISTS alma_legacy (
+  id SERIAL PRIMARY KEY,
+  person VARCHAR(100) NOT NULL,
+  passphrase_hash TEXT NOT NULL,
+  access_level VARCHAR(20) NOT NULL,
+  personal_message TEXT,
+  technical_notes TEXT,
+  unlocked_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- =============================================================================
 -- Initial data: Create your first user
 -- =============================================================================

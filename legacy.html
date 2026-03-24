@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALMA</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: Georgia, 'Times New Roman', serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .legacy-container {
+      max-width: 520px;
+      width: 90%;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .legacy-prompt {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      color: #888;
+      margin-bottom: 48px;
+      font-style: italic;
+    }
+
+    .legacy-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #333;
+      color: #e0e0e0;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.2rem;
+      text-align: center;
+      padding: 16px 0;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    .legacy-input:focus {
+      border-bottom-color: #E8C547;
+    }
+
+    .legacy-input::placeholder {
+      color: #444;
+      font-style: italic;
+    }
+
+    /* After unlock — personal message */
+    .legacy-message {
+      display: none;
+      text-align: left;
+      line-height: 2;
+      font-size: 1.05rem;
+      color: #ccc;
+      white-space: pre-wrap;
+      margin-bottom: 40px;
+      padding: 30px;
+      border-left: 2px solid #E8C547;
+    }
+
+    .legacy-person {
+      display: none;
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .legacy-enter {
+      display: none;
+      margin-top: 40px;
+      padding: 16px 48px;
+      background: #E8C547;
+      color: #0a0a0a;
+      border: none;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+
+    .legacy-enter:hover {
+      background: #d4a017;
+    }
+
+    .legacy-signature {
+      display: none;
+      margin-top: 40px;
+      font-style: italic;
+      color: #666;
+      font-size: 0.95rem;
+    }
+
+    /* Fade in animation */
+    .fade-in {
+      animation: fadeIn 1.5s ease-in forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Technical notes (admin only) */
+    .legacy-tech {
+      display: none;
+      text-align: left;
+      margin-top: 30px;
+      padding: 20px;
+      background: #111;
+      border: 1px solid #222;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      color: #999;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    .legacy-tech-title {
+      display: none;
+      text-align: left;
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 30px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="legacy-container">
+    <!-- Phase 1: Input -->
+    <div id="inputPhase">
+      <p class="legacy-prompt">
+        Se voce esta aqui, e porque chegou a hora.<br>
+        Digite a frase que o Mauricio te deixou.
+      </p>
+      <input type="text" id="passphraseInput" class="legacy-input" placeholder="" autocomplete="off" spellcheck="false">
+    </div>
+
+    <!-- Phase 2: Message (shown after unlock) -->
+    <div id="messagePhase">
+      <div class="legacy-person" id="legacyPerson"></div>
+      <div class="legacy-message" id="legacyMessage"></div>
+      <div class="legacy-signature" id="legacySignature">Com amor — e com proposito — Pai</div>
+      <div class="legacy-tech-title" id="techTitle">Instrucoes tecnicas</div>
+      <div class="legacy-tech" id="legacyTech"></div>
+      <button class="legacy-enter" id="enterBtn" onclick="enterAlma()">Acessar o ALMA</button>
+    </div>
+  </div>
+
+  <script>
+    var token = null;
+    var isAdmin = false;
+
+    var input = document.getElementById('passphraseInput');
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') tryUnlock();
+    });
+
+    // Auto-focus
+    setTimeout(function() { input.focus(); }, 500);
+
+    function tryUnlock() {
+      var passphrase = input.value.trim();
+      if (!passphrase) return;
+
+      // Disable input during check
+      input.disabled = true;
+
+      fetch('/api/legacy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passphrase: passphrase })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.unlocked) {
+          showMessage(data);
+        } else {
+          // Silent rejection — just clear and re-enable
+          input.value = '';
+          input.disabled = false;
+          input.focus();
+        }
+      })
+      .catch(function() {
+        input.value = '';
+        input.disabled = false;
+        input.focus();
+      });
+    }
+
+    function showMessage(data) {
+      token = data.token;
+      isAdmin = data.admin;
+
+      // Hide input phase
+      document.getElementById('inputPhase').style.display = 'none';
+
+      // Show message phase
+      var phase = document.getElementById('messagePhase');
+
+      var personEl = document.getElementById('legacyPerson');
+      personEl.textContent = 'Para ' + data.person;
+      personEl.style.display = 'block';
+      personEl.classList.add('fade-in');
+
+      setTimeout(function() {
+        var msgEl = document.getElementById('legacyMessage');
+        msgEl.textContent = data.personalMessage;
+        msgEl.style.display = 'block';
+        msgEl.classList.add('fade-in');
+      }, 800);
+
+      setTimeout(function() {
+        var sigEl = document.getElementById('legacySignature');
+        sigEl.style.display = 'block';
+        sigEl.classList.add('fade-in');
+      }, 1600);
+
+      // Technical notes (admin only)
+      if (data.technicalNotes) {
+        setTimeout(function() {
+          var titleEl = document.getElementById('techTitle');
+          titleEl.style.display = 'block';
+          titleEl.classList.add('fade-in');
+          var techEl = document.getElementById('legacyTech');
+          techEl.textContent = data.technicalNotes;
+          techEl.style.display = 'block';
+          techEl.classList.add('fade-in');
+        }, 2200);
+      }
+
+      setTimeout(function() {
+        var btn = document.getElementById('enterBtn');
+        btn.style.display = 'inline-block';
+        btn.classList.add('fade-in');
+      }, data.technicalNotes ? 3000 : 2400);
+    }
+
+    function enterAlma() {
+      // Store session and redirect
+      localStorage.setItem('alma_token', token);
+      localStorage.setItem('alma_admin', isAdmin ? '1' : '0');
+      localStorage.setItem('alma_legacy', '1');
+
+      if (isAdmin) {
+        window.location.href = 'index.html';
+      } else {
+        window.location.href = 'chat.html';
+      }
+    }
+  </script>
+</body>
+</html>
