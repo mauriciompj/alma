@@ -24,6 +24,7 @@
       <button class="tab" data-tab="importar">Importar</button>
       <button class="tab" data-tab="diretrizes">Diretrizes</button>
       <button class="tab" data-tab="exportar">Exportar</button>
+      <button class="tab" data-tab="herdeiros">Herdeiros</button>
     </nav>
 
     <!-- Tab: Conhecimentos -->
@@ -198,6 +199,64 @@
         </div>
 
         <div id="exportLog" style="margin-top:20px; font-size:0.8rem; color:var(--text-soft);"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Herdeiros (Dead Man's Switch) -->
+    <div class="tab-panel" id="tab-herdeiros">
+      <div class="import-section">
+        <h3 class="import-title">Dead Man's Switch — Herdeiros</h3>
+        <p class="import-desc">Gerencie os herdeiros do ALMA. Cada um recebe uma frase-chave pessoal e uma carta. Quando o check-in expirar, eles serao notificados.</p>
+
+        <div style="display:flex;gap:12px;align-items:center;margin:16px 0;flex-wrap:wrap;">
+          <div id="heartbeatStatus" style="font-size:0.85rem;color:var(--text-soft);"></div>
+          <button class="admin-btn" id="doCheckinBtn" style="font-size:0.8rem;">Fazer check-in agora</button>
+        </div>
+
+        <div id="heirsList" style="margin-top:16px;"></div>
+
+        <button class="admin-btn admin-btn-accent" id="addHeirBtn" style="margin-top:16px;">+ Novo herdeiro</button>
+      </div>
+
+      <!-- Heir edit form (inline) -->
+      <div id="heirForm" style="display:none;margin-top:20px;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <h4 id="heirFormTitle" style="color:var(--accent);margin:0 0 16px 0;">Novo herdeiro</h4>
+        <input type="hidden" id="heirId">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="import-desc" style="display:block;margin-bottom:4px;">Nome</label>
+            <input type="text" id="heirPerson" class="admin-input" placeholder="Ex: Noah">
+          </div>
+          <div>
+            <label class="import-desc" style="display:block;margin-bottom:4px;">Nivel de acesso</label>
+            <select id="heirAccess" class="admin-select" style="width:100%;">
+              <option value="legacy_admin">Admin (tecnico)</option>
+              <option value="legacy_owner">Owner (filho/herdeiro)</option>
+              <option value="legacy_read">Leitura</option>
+            </select>
+          </div>
+          <div>
+            <label class="import-desc" style="display:block;margin-bottom:4px;">Email (para notificacao)</label>
+            <input type="email" id="heirEmail" class="admin-input" placeholder="email@exemplo.com">
+          </div>
+          <div>
+            <label class="import-desc" style="display:block;margin-bottom:4px;">Frase-chave (deixe vazio pra manter)</label>
+            <input type="text" id="heirPassphrase" class="admin-input" placeholder="frase secreta pessoal">
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <label class="import-desc" style="display:block;margin-bottom:4px;">Carta pessoal</label>
+          <textarea id="heirMessage" class="admin-input" rows="4" style="width:100%;resize:vertical;" placeholder="A carta que esta pessoa vai ler quando chegar a hora..."></textarea>
+        </div>
+        <div style="margin-top:12px;">
+          <label class="import-desc" style="display:block;margin-bottom:4px;">Notas tecnicas (so aparece pra legacy_admin)</label>
+          <textarea id="heirTechNotes" class="admin-input" rows="3" style="width:100%;resize:vertical;" placeholder="Instrucoes tecnicas de manutencao do sistema..."></textarea>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:12px;">
+          <button class="admin-btn admin-btn-accent" id="saveHeirBtn">Salvar</button>
+          <button class="admin-btn" id="cancelHeirBtn">Cancelar</button>
+        </div>
+        <div id="heirStatus" style="margin-top:8px;font-size:0.8rem;color:var(--text-soft);"></div>
       </div>
     </div>
 
@@ -1024,6 +1083,162 @@
     document.getElementById('exportChunksBtn').addEventListener('click', function() { exportAllData(true); });
 
     // --- Init ---
+    loadChunks(1);
+
+    // ===========================
+    // HEIRS TAB (Dead Man's Switch)
+    // ===========================
+    function loadHeartbeatStatus() {
+      fetch('/api/legacy', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'heartbeat_status' })
+      }).then(function(r) { return r.json(); }).then(function(hb) {
+        var el = document.getElementById('heartbeatStatus');
+        if (hb.lastCheckin) {
+          var icon = hb.overdue ? '⚠️' : '♥';
+          el.innerHTML = icon + ' Ultimo check-in: <strong>' + hb.daysSince + ' dias atras</strong> (intervalo: ' + hb.intervalDays + 'd)';
+          if (hb.overdue) el.style.color = '#D94A4A';
+        } else {
+          el.innerHTML = '⚠️ <strong>Nenhum check-in registrado</strong>';
+          el.style.color = '#D94A4A';
+        }
+      });
+    }
+
+    document.getElementById('doCheckinBtn').addEventListener('click', function() {
+      this.disabled = true;
+      this.textContent = 'Enviando...';
+      var btn = this;
+      fetch('/api/legacy', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ action: 'heartbeat' })
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        btn.textContent = d.success ? 'Check-in #' + d.count + ' OK!' : 'Erro';
+        btn.disabled = false;
+        loadHeartbeatStatus();
+        setTimeout(function() { btn.textContent = 'Fazer check-in agora'; }, 3000);
+      }).catch(function() { btn.textContent = 'Erro'; btn.disabled = false; });
+    });
+
+    function loadHeirs() {
+      var el = document.getElementById('heirsList');
+      el.innerHTML = '<div style="color:var(--text-soft);font-size:0.85rem;">Carregando...</div>';
+      fetch('/api/legacy', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ action: 'list_heirs' })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (!data.heirs || data.heirs.length === 0) {
+          el.innerHTML = '<div style="color:var(--text-soft);">Nenhum herdeiro configurado.</div>';
+          return;
+        }
+        var html = '';
+        data.heirs.forEach(function(h) {
+          var levelLabel = { legacy_admin: 'Admin', legacy_owner: 'Owner', legacy_read: 'Leitura' }[h.access_level] || h.access_level;
+          var emailInfo = h.email ? h.email : '<span style="color:#D94A4A;">sem email</span>';
+          var phraseInfo = h.has_passphrase ? '✓ configurada' : '<span style="color:#D94A4A;">sem frase</span>';
+          var unlockInfo = h.unlocked_at ? '🔓 ' + new Date(h.unlocked_at).toLocaleDateString('pt-BR') : '';
+          html += '<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+            '<div>' +
+              '<strong style="color:var(--accent);font-size:1rem;">' + h.person + '</strong>' +
+              ' <span style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px;font-size:0.75rem;">' + levelLabel + '</span>' +
+              (unlockInfo ? ' <span style="font-size:0.75rem;color:var(--text-soft);">' + unlockInfo + '</span>' : '') +
+              '<div style="font-size:0.8rem;color:var(--text-soft);margin-top:4px;">Email: ' + emailInfo + ' · Frase: ' + phraseInfo + '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;">' +
+              '<button class="admin-btn" style="font-size:0.8rem;" onclick="editHeir(' + h.id + ')">Editar</button>' +
+              '<button class="admin-btn" style="font-size:0.8rem;color:#D94A4A;" onclick="deleteHeir(' + h.id + ',\'' + h.person + '\')">Remover</button>' +
+            '</div>' +
+          '</div>';
+        });
+        el.innerHTML = html;
+      });
+    }
+
+    window.editHeir = function(id) {
+      // Fetch heir data
+      fetch('/api/legacy', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ action: 'list_heirs' })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        var heir = data.heirs.find(function(h) { return h.id === id; });
+        if (!heir) return;
+        document.getElementById('heirId').value = heir.id;
+        document.getElementById('heirPerson').value = heir.person || '';
+        document.getElementById('heirAccess').value = heir.access_level || 'legacy_read';
+        document.getElementById('heirEmail').value = heir.email || '';
+        document.getElementById('heirPassphrase').value = '';
+        document.getElementById('heirMessage').value = heir.personal_message || '';
+        document.getElementById('heirTechNotes').value = heir.technical_notes || '';
+        document.getElementById('heirFormTitle').textContent = 'Editar: ' + heir.person;
+        document.getElementById('heirForm').style.display = '';
+        document.getElementById('heirStatus').textContent = '';
+      });
+    };
+
+    window.deleteHeir = function(id, name) {
+      if (!confirm('Remover herdeiro "' + name + '"? Isso apaga a frase-chave e a carta.')) return;
+      fetch('/api/legacy', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ action: 'delete_heir', id: id })
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success) loadHeirs();
+      });
+    };
+
+    document.getElementById('addHeirBtn').addEventListener('click', function() {
+      document.getElementById('heirId').value = '';
+      document.getElementById('heirPerson').value = '';
+      document.getElementById('heirAccess').value = 'legacy_read';
+      document.getElementById('heirEmail').value = '';
+      document.getElementById('heirPassphrase').value = '';
+      document.getElementById('heirMessage').value = '';
+      document.getElementById('heirTechNotes').value = '';
+      document.getElementById('heirFormTitle').textContent = 'Novo herdeiro';
+      document.getElementById('heirForm').style.display = '';
+      document.getElementById('heirStatus').textContent = '';
+    });
+
+    document.getElementById('cancelHeirBtn').addEventListener('click', function() {
+      document.getElementById('heirForm').style.display = 'none';
+    });
+
+    document.getElementById('saveHeirBtn').addEventListener('click', function() {
+      var statusEl = document.getElementById('heirStatus');
+      var id = document.getElementById('heirId').value;
+      var payload = {
+        action: 'save_heir',
+        person: document.getElementById('heirPerson').value.trim(),
+        access_level: document.getElementById('heirAccess').value,
+        email: document.getElementById('heirEmail').value.trim() || null,
+        personal_message: document.getElementById('heirMessage').value,
+        technical_notes: document.getElementById('heirTechNotes').value,
+      };
+      if (id) payload.id = parseInt(id);
+      var pass = document.getElementById('heirPassphrase').value.trim();
+      if (pass) payload.passphrase = pass;
+
+      if (!payload.person) { statusEl.textContent = 'Nome obrigatorio'; return; }
+
+      statusEl.textContent = 'Salvando...';
+      fetch('/api/legacy', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify(payload)
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success) {
+          statusEl.textContent = 'Salvo!';
+          document.getElementById('heirForm').style.display = 'none';
+          loadHeirs();
+        } else {
+          statusEl.textContent = 'Erro: ' + (d.error || 'desconhecido');
+        }
+      }).catch(function() { statusEl.textContent = 'Erro de conexao'; });
+    });
+
+    // Load heirs when tab is clicked
+    document.querySelector('[data-tab="herdeiros"]').addEventListener('click', function() {
+      loadHeartbeatStatus();
+      loadHeirs();
+    });
+
     loadChunks(1);
   })();
   </script>
