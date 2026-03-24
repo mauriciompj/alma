@@ -137,6 +137,12 @@ export default async function handler(req) {
         if (ADMIN_ACTIONS.has(action) && !session.admin) {
           return jsonResponse({ error: 'Admin access required' }, 403);
         }
+        // Non-admin users can only save/clear their own history
+        if (!session.admin && (action === 'save_history' || action === 'clear_history')) {
+          if (body.person && body.person !== session.name) {
+            return jsonResponse({ error: 'Access denied' }, 403);
+          }
+        }
       }
 
       switch (action) {
@@ -165,7 +171,10 @@ export default async function handler(req) {
 
     // --- Auth gate for sensitive GET endpoints ---
     const ADMIN_GET_ACTIONS = new Set([
-      'admin_chunks', 'admin_corrections', 'get_config', 'get_history',
+      'admin_chunks', 'admin_corrections', 'get_config',
+    ]);
+    const AUTH_GET_ACTIONS = new Set([
+      'get_history',
     ]);
     if (ADMIN_GET_ACTIONS.has(action)) {
       const session = await verifySession(sql, req);
@@ -174,6 +183,18 @@ export default async function handler(req) {
       }
       if (!session.admin) {
         return jsonResponse({ error: 'Admin access required' }, 403);
+      }
+    } else if (AUTH_GET_ACTIONS.has(action)) {
+      const session = await verifySession(sql, req);
+      if (!session) {
+        return jsonResponse({ error: 'Authentication required' }, 401);
+      }
+      // Non-admin users can only access their own history
+      if (!session.admin) {
+        const requestedPerson = url.searchParams.get('person') || '';
+        if (requestedPerson !== session.name) {
+          return jsonResponse({ error: 'Access denied' }, 403);
+        }
       }
     }
 
