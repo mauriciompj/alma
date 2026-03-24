@@ -38,6 +38,7 @@ npm-debug.log*
 SENHAS_USUARIOS.txt
 _DADOS_APIS_ENV.txt
 tools/MANUAL_TERMUX.md
+docs/postagens_x/
 **/SENHAS*
 **/KEYS*
 **/SECRET*
