@@ -1,0 +1,177 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ============================================================================
+# termux-file-receiver — Recebe arquivos compartilhados de qualquer app
+# ============================================================================
+# Quando voce compartilha um arquivo (PDF, DOCX, TXT, audio) e escolhe
+# Termux, este script extrai o texto e envia pro ALMA.
+#
+# INSTALACAO:
+#   pkg install poppler    # pra PDF
+#   pip install python-docx  # pra DOCX (opcional)
+#   mkdir -p ~/bin
+#   cp termux-file-receiver ~/bin/termux-file-receiver
+#   chmod +x ~/bin/termux-file-receiver
+#
+# FORMATOS SUPORTADOS:
+#   .txt .md .csv .json  — texto direto
+#   .pdf                 — extrai texto via pdftotext
+#   .docx                — extrai texto via python-docx
+#   .m4a .ogg .opus .mp3 — audio (transcreve via mic ou salva referencia)
+#
+# ============================================================================
+
+set -e
+
+ENV_FILE="$HOME/.alma-env"
+if [ -f "$ENV_FILE" ]; then source "$ENV_FILE"; fi
+
+ALMA_URL="${ALMA_URL:-https://projeto-alma.netlify.app}"
+ALMA_USER="${ALMA_USER:-}"
+ALMA_PASS="${ALMA_PASS:-}"
+
+# O arquivo compartilhado vem como argumento $1
+FILE="$1"
+
+if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
+  termux-toast -g bottom "ALMA: Arquivo nao encontrado"
+  exit 1
+fi
+
+FILENAME=$(basename "$FILE")
+EXT="${FILENAME##*.}"
+EXT=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE" 2>/dev/null || echo "0")
+
+termux-toast -g middle "ALMA: Processando $FILENAME ($FILESIZE bytes)"
+
+# ============================================================
+# Extrair texto baseado no formato
+# ============================================================
+TEXT=""
+
+case "$EXT" in
+  txt|md|csv|json|log)
+    TEXT=$(cat "$FILE")
+    ;;
+
+  pdf)
+    if command -v pdftotext &>/dev/null; then
+      TEXT=$(pdftotext "$FILE" - 2>/dev/null)
+    else
+      termux-toast -g bottom "ALMA: Instale poppler (pkg install poppler) pra processar PDF"
+      exit 1
+    fi
+    ;;
+
+  docx)
+    if command -v python3 &>/dev/null && python3 -c "import docx" 2>/dev/null; then
+      TEXT=$(python3 -c "
+import docx
+doc = docx.Document('$FILE')
+for p in doc.paragraphs:
+    print(p.text)
+" 2>/dev/null)
+    else
+      # Fallback: extrair XML interno do DOCX (eh um ZIP)
+      TEXT=$(unzip -p "$FILE" word/document.xml 2>/dev/null | sed 's/<[^>]*>//g' | tr -s ' \n' || echo "")
+      if [ -z "$TEXT" ]; then
+        termux-toast -g bottom "ALMA: Nao consegui extrair texto do DOCX"
+        exit 1
+      fi
+    fi
+    ;;
+
+  m4a|ogg|opus|mp3|wav|aac)
+    termux-toast -g middle "ALMA: Audio recebido. Abrindo transcricao..."
+    # Usar dialog pra transcrever manualmente via mic do teclado
+    DIALOG=$(termux-dialog text -t "ALMA — Transcreva o audio" -i "Ouca o audio e digite/dite o conteudo aqui" 2>/dev/null || echo '{"text":""}')
+    TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
+    if [ -z "$TEXT" ]; then
+      termux-toast -g bottom "ALMA: Transcricao vazia, cancelado"
+      exit 0
+    fi
+    ;;
+
+  jpg|jpeg|png|gif|webp)
+    termux-toast -g middle "ALMA: Imagem recebida. Descreva o conteudo..."
+    DIALOG=$(termux-dialog text -t "ALMA — Descreva a imagem" -i "O que esta nessa foto?" 2>/dev/null || echo '{"text":""}')
+    TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
+    if [ -z "$TEXT" ]; then
+      termux-toast -g bottom "ALMA: Descricao vazia, cancelado"
+      exit 0
+    fi
+    TEXT="[Imagem: $FILENAME] $TEXT"
+    ;;
+
+  *)
+    termux-toast -g bottom "ALMA: Formato .$EXT nao suportado"
+    exit 1
+    ;;
+esac
+
+if [ -z "$TEXT" ]; then
+  termux-toast -g bottom "ALMA: Nenhum texto extraido de $FILENAME"
+  exit 1
+fi
+
+CHAR_COUNT=${#TEXT}
+termux-toast -g middle "ALMA: $CHAR_COUNT chars extraidos. Escolha categoria..."
+
+# ============================================================
+# Categoria
+# ============================================================
+DIALOG=$(termux-dialog sheet -t "ALMA — Categoria" -v "Salvar como memoria,Salvar como valores,Salvar como fe,Salvar como paternidade,Salvar como relacionamentos,Cancelar" 2>/dev/null || echo '{"index":-1}')
+INDEX=$(echo "$DIALOG" | jq -r '.index // -1')
+
+case "$INDEX" in
+  0) CATEGORY="memorias_pessoais" ;;
+  1) CATEGORY="valores" ;;
+  2) CATEGORY="fe" ;;
+  3) CATEGORY="paternidade" ;;
+  4) CATEGORY="relacionamentos" ;;
+  *) termux-toast -g bottom "Cancelado."; exit 0 ;;
+esac
+
+# ============================================================
+# Enviar
+# ============================================================
+termux-toast -g middle "ALMA: Enviando..."
+
+TOKEN=$(curl -s --max-time 10 -X POST "$ALMA_URL/api/auth" \
+  -H "Content-Type: application/json" \
+  -d "{\"action\":\"login\",\"username\":\"$ALMA_USER\",\"password\":\"$ALMA_PASS\"}" \
+  | jq -r '.token // empty')
+
+if [ -z "$TOKEN" ]; then
+  termux-toast -g bottom "ALMA: Login falhou"
+  exit 1
+fi
+
+DATE_STR=$(date +"%Y-%m-%d %H:%M")
+TITLE="$FILENAME — $DATE_STR"
+
+CONTENT_JSON=$(echo "$TEXT" | jq -Rs .)
+TITLE_JSON=$(echo "$TITLE" | jq -Rs .)
+
+RESP=$(curl -s --max-time 30 -X POST "$ALMA_URL/api/ingest" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d "{
+    \"content\": $CONTENT_JSON,
+    \"title\": $TITLE_JSON,
+    \"category\": \"$CATEGORY\",
+    \"tags\": [\"$CATEGORY\", \"arquivo\", \"$EXT\"],
+    \"source\": \"android_share_file\"
+  }")
+
+SUCCESS=$(echo "$RESP" | jq -r '.success // empty')
+
+if [ "$SUCCESS" = "true" ]; then
+  CHUNKS=$(echo "$RESP" | jq -r '.chunks_created')
+  termux-vibrate -d 200
+  termux-toast -g bottom "ALMA salvo! $FILENAME ($CHUNKS chunks)"
+  termux-notification --id alma_file --title "ALMA — Arquivo importado" --content "$FILENAME ($CHAR_COUNT chars, $CHUNKS chunks)" --group alma
+else
+  ERROR=$(echo "$RESP" | jq -r '.error // "erro"')
+  termux-toast -g bottom "ALMA erro: $ERROR"
+fi

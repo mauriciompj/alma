@@ -1,0 +1,110 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ============================================================================
+# termux-url-opener — Recebe texto/links compartilhados de qualquer app
+# ============================================================================
+# Quando voce toca "Compartilhar" em qualquer app e escolhe Termux,
+# este script recebe o texto e envia pro ALMA.
+#
+# INSTALACAO:
+#   mkdir -p ~/bin
+#   cp termux-url-opener ~/bin/termux-url-opener
+#   chmod +x ~/bin/termux-url-opener
+#
+# USO:
+#   1. Em qualquer app (WhatsApp, Chrome, ChatGPT, etc.)
+#   2. Selecione texto ou toque "Compartilhar"
+#   3. Escolha "Termux" na lista de apps
+#   4. O texto vai direto pro banco do ALMA
+#
+# ============================================================================
+
+set -e
+
+ENV_FILE="$HOME/.alma-env"
+if [ -f "$ENV_FILE" ]; then source "$ENV_FILE"; fi
+
+ALMA_URL="${ALMA_URL:-https://projeto-alma.netlify.app}"
+ALMA_USER="${ALMA_USER:-}"
+ALMA_PASS="${ALMA_PASS:-}"
+
+# O texto/URL compartilhado vem como argumento $1
+SHARED="$1"
+
+if [ -z "$SHARED" ]; then
+  termux-toast -g bottom "ALMA: Nada recebido"
+  exit 0
+fi
+
+CHAR_COUNT=${#SHARED}
+
+# Se for uma URL, avisar
+if [[ "$SHARED" =~ ^https?:// ]]; then
+  termux-toast -g middle "ALMA: URL recebida ($CHAR_COUNT chars)"
+else
+  termux-toast -g middle "ALMA: Texto recebido ($CHAR_COUNT chars)"
+fi
+
+# Perguntar titulo e categoria
+DIALOG=$(termux-dialog sheet -t "ALMA — Salvar memoria" -v "Salvar como memoria,Salvar como valores,Salvar como fe,Salvar como paternidade,Salvar como relacionamentos,Cancelar" 2>/dev/null || echo '{"index":-1}')
+INDEX=$(echo "$DIALOG" | jq -r '.index // -1')
+
+case "$INDEX" in
+  0) CATEGORY="memorias_pessoais" ;;
+  1) CATEGORY="valores" ;;
+  2) CATEGORY="fe" ;;
+  3) CATEGORY="paternidade" ;;
+  4) CATEGORY="relacionamentos" ;;
+  *) termux-toast -g bottom "Cancelado."; exit 0 ;;
+esac
+
+# Perguntar titulo (opcional)
+TITLE_DIALOG=$(termux-dialog text -t "Titulo (opcional)" -i "" 2>/dev/null || echo '{"text":""}')
+CUSTOM_TITLE=$(echo "$TITLE_DIALOG" | jq -r '.text // empty')
+
+# Login
+termux-toast -g middle "ALMA: Enviando..."
+
+TOKEN=$(curl -s --max-time 10 -X POST "$ALMA_URL/api/auth" \
+  -H "Content-Type: application/json" \
+  -d "{\"action\":\"login\",\"username\":\"$ALMA_USER\",\"password\":\"$ALMA_PASS\"}" \
+  | jq -r '.token // empty')
+
+if [ -z "$TOKEN" ]; then
+  termux-toast -g bottom "ALMA: Login falhou"
+  exit 1
+fi
+
+# Montar titulo
+if [ -n "$CUSTOM_TITLE" ]; then
+  TITLE="$CUSTOM_TITLE"
+else
+  DATE_STR=$(date +"%Y-%m-%d %H:%M")
+  PREVIEW=$(echo "$SHARED" | head -c 50 | tr '\n' ' ')
+  TITLE="Compartilhado $DATE_STR — $PREVIEW..."
+fi
+
+CONTENT_JSON=$(echo "$SHARED" | jq -Rs .)
+TITLE_JSON=$(echo "$TITLE" | jq -Rs .)
+
+RESP=$(curl -s --max-time 15 -X POST "$ALMA_URL/api/ingest" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d "{
+    \"content\": $CONTENT_JSON,
+    \"title\": $TITLE_JSON,
+    \"category\": \"$CATEGORY\",
+    \"tags\": [\"$CATEGORY\", \"compartilhado\"],
+    \"source\": \"android_share\"
+  }")
+
+SUCCESS=$(echo "$RESP" | jq -r '.success // empty')
+
+if [ "$SUCCESS" = "true" ]; then
+  CHUNKS=$(echo "$RESP" | jq -r '.chunks_created')
+  termux-vibrate -d 200
+  termux-toast -g bottom "ALMA salvo! ${CHAR_COUNT} chars (${CHUNKS} chunks)"
+  termux-notification --id alma_share --title "ALMA — Memoria compartilhada" --content "$TITLE" --group alma
+else
+  ERROR=$(echo "$RESP" | jq -r '.error // "erro"')
+  termux-toast -g bottom "ALMA erro: $ERROR"
+fi
