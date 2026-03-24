@@ -68,6 +68,10 @@ export default async function handler(req) {
       return await handleVerifyToken(sql, body);
     }
 
+    if (action === 'logout') {
+      return await handleLogout(sql, body);
+    }
+
     return jsonResponse({ error: 'Unknown action' }, 400);
   } catch (error) {
     console.error('[ALMA Auth] Error:', error.message);
@@ -212,6 +216,18 @@ async function handleVerifyToken(sql, body) {
     });
   } catch (e) {
     return jsonResponse({ valid: false }, 401);
+  }
+}
+
+async function handleLogout(sql, body) {
+  const { token } = body;
+  if (!token) return jsonResponse({ error: 'Missing token' }, 400);
+
+  try {
+    await sql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
+    return jsonResponse({ success: true });
+  } catch (e) {
+    return jsonResponse({ success: true }); // Don't leak errors on logout
   }
 }
 

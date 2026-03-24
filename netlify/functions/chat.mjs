@@ -118,47 +118,47 @@ export default async function handler(req) {
     });
   }
 
-  // --- Auth gate: verify session before consuming Anthropic API ---
-  const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
-  if (dbUrl) {
-    const authHeader = req.headers.get('authorization') || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-    if (!token) {
-      return new Response(JSON.stringify({ error: 'Authentication required' }), {
-        status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-      });
-    }
-    try {
-      const authSql = neon(dbUrl);
-      const rows = await authSql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
-      if (rows.length === 0) {
-        return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
-          status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-        });
-      }
-      const session = JSON.parse(rows[0].value);
-      if (new Date(session.expiresAt) < new Date()) {
-        await authSql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
-        return new Response(JSON.stringify({ error: 'Session expired' }), {
-          status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-        });
-      }
-    } catch (e) {
-      console.error('[ALMA Chat] Auth check error:', e.message);
-      return new Response(JSON.stringify({ error: 'Authentication service unavailable' }), {
-        status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-      });
-    }
-  }
-
   // Validate required env vars early
+  const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
   if (!process.env.ANTHROPIC_API_KEY) {
     return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
       status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
     });
   }
-  if (!process.env.NETLIFY_DATABASE_URL && !process.env.DATABASE_URL) {
+  if (!dbUrl) {
     return new Response(JSON.stringify({ error: 'DATABASE_URL not configured' }), {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+    });
+  }
+
+  // Single DB connection for the entire request
+  const sql = neon(dbUrl);
+
+  // --- Auth gate: verify session before consuming Anthropic API ---
+  const authHeader = req.headers.get('authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+    });
+  }
+  try {
+    const rows = await sql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
+    if (rows.length === 0) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+        status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+      });
+    }
+    const session = JSON.parse(rows[0].value);
+    if (new Date(session.expiresAt) < new Date()) {
+      await sql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
+      return new Response(JSON.stringify({ error: 'Session expired' }), {
+        status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+      });
+    }
+  } catch (e) {
+    console.error('[ALMA Chat] Auth check error:', e.message);
+    return new Response(JSON.stringify({ error: 'Authentication service unavailable' }), {
       status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
     });
   }
@@ -179,20 +179,20 @@ export default async function handler(req) {
     }
 
     // 0. Load system prompt + person contexts (DB first, fallback to hardcoded)
-    const systemPromptBase = await getSystemPromptBase();
-    const personContexts = await getPersonContexts();
+    const systemPromptBase = await getSystemPromptBase(sql);
+    const personContexts = await getPersonContexts(sql);
 
     // 1. Search for relevant memories from Neon DB
-    const memories = await searchMemories(message, personName, lang);
+    const memories = await searchMemories(sql, message, personName, lang);
 
     // 2. Fetch active corrections (scoped: sons share all, others get individual)
-    const corrections = await getCorrections(personName, personContexts);
+    const corrections = await getCorrections(sql, personName, personContexts);
 
     // 3. Fetch tone configuration
-    const toneConfig = await getToneConfig();
+    const toneConfig = await getToneConfig(sql);
 
     // 4. Fetch directives (per-person + global)
-    const directives = await getDirectives(personName);
+    const directives = await getDirectives(sql, personName);
 
     // 5. Build system prompt with retrieved memories + corrections + tone + directives
     const systemPrompt = buildSystemPrompt(systemPromptBase, memories, corrections, personName, toneConfig, directives, lang, birthDate, personContexts);
@@ -226,10 +226,7 @@ export default async function handler(req) {
   }
 }
 
-async function searchMemories(query, personName, lang = 'pt-BR') {
-  // personName parameter: person's name / child's name — used to personalize memory search
-  // lang parameter: user's UI language — used to boost memories in that language
-  const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
+async function searchMemories(sql, query, personName, lang = 'pt-BR') {
 
   // Parse and clean search query: lowercase, remove special chars, split into terms
   const searchTerms = query
@@ -377,9 +374,8 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
   }
 }
 
-async function getCorrections(personName, personContexts = {}) {
+async function getCorrections(sql, personName, personContexts = {}) {
   try {
-    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
     // Determine children dynamically from person contexts
     const CHILDREN = Object.entries(personContexts)
       .filter(([_, v]) => v.role === 'filho')
@@ -414,10 +410,9 @@ async function getCorrections(personName, personContexts = {}) {
   }
 }
 
-async function getSystemPromptBase() {
+async function getSystemPromptBase(sql) {
   // Try to load from DB first (allows customization without code changes)
   try {
-    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
     const rows = await sql`SELECT value FROM alma_config WHERE key = 'system_prompt_base' LIMIT 1`;
     if (rows.length > 0 && rows[0].value && rows[0].value.trim().length > 50) {
       return rows[0].value;
@@ -432,8 +427,7 @@ async function getSystemPromptBase() {
 // If no person_contexts key exists, the system will build contexts from users_json
 const PERSON_CONTEXT_FALLBACK = {};
 
-async function getPersonContexts() {
-  const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
+async function getPersonContexts(sql) {
 
   // Try explicit person_contexts config first
   try {
@@ -464,10 +458,9 @@ async function getPersonContexts() {
   return PERSON_CONTEXT_FALLBACK;
 }
 
-async function getToneConfig() {
+async function getToneConfig(sql) {
   // Fetch global tone override set by Maurício in admin panel
   try {
-    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
     const rows = await sql`
       SELECT value FROM alma_config WHERE key = 'tone_global' LIMIT 1
     `;
@@ -478,10 +471,9 @@ async function getToneConfig() {
   }
 }
 
-async function getDirectives(personName) {
+async function getDirectives(sql, personName) {
   // Fetch behavior directives: instructions Maurício sets for ALMA's responses in specific contexts
   try {
-    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
 
     // Try new alma_directives table first (preferred schema)
     try {
