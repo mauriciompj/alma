@@ -20,7 +20,7 @@
     <!-- Tabs -->
     <nav class="admin-tabs">
       <button class="tab active" data-tab="conhecimentos">Conhecimentos</button>
-      <button class="tab" data-tab="correcoes">Correcoes</button>
+      <button class="tab" data-tab="correcoes">Correções</button>
       <button class="tab" data-tab="importar">Importar</button>
       <button class="tab" data-tab="diretrizes">Diretrizes</button>
       <button class="tab" data-tab="exportar">Exportar</button>
@@ -33,7 +33,7 @@
         <div class="search-bar">
           <input type="text" id="chunkSearch" placeholder="Buscar nos conhecimentos..." class="admin-input">
           <select id="chunkCategory" class="admin-select">
-            <option value="">Todas categorias</option>
+            <option value="">Todas as categorias</option>
           </select>
           <button class="admin-btn" id="chunkSearchBtn">Buscar</button>
         </div>
@@ -48,16 +48,16 @@
     <div class="tab-panel" id="tab-correcoes">
       <!-- Tone config -->
       <div class="admin-tone-config">
-        <h3 class="admin-section-title">Tom e conteudo das respostas</h3>
-        <p class="admin-section-desc">Defina como o ALMA deve responder. Essas instrucoes tem prioridade alta no sistema.</p>
-        <textarea id="adminToneInput" class="admin-textarea" rows="4" maxlength="2000" placeholder="Ex: Fale com amor, sem vitimismo. O ALMA existe por legado, nao por medo. Eu amo ser pai..."></textarea>
+        <h3 class="admin-section-title">Tom e conteúdo das respostas</h3>
+        <p class="admin-section-desc">Defina como o ALMA deve responder. Essas instruções têm prioridade alta no sistema.</p>
+        <textarea id="adminToneInput" class="admin-textarea" rows="4" maxlength="2000" placeholder="Ex: Fale com amor, sem vitimismo. O ALMA existe por legado, não por medo. Eu amo ser pai..."></textarea>
         <div class="admin-tone-footer">
           <button class="admin-btn admin-btn-accent" id="adminToneSaveBtn">Salvar tom</button>
           <span class="admin-tone-status" id="adminToneStatus"></span>
         </div>
       </div>
 
-      <h3 class="admin-section-title" style="margin-top:28px">Historico de correcoes</h3>
+      <h3 class="admin-section-title" style="margin-top:28px">Histórico de correções</h3>
       <div class="corrections-list" id="correctionsList"></div>
     </div>
 
@@ -65,13 +65,13 @@
     <div class="tab-panel" id="tab-importar">
       <div class="import-section">
         <h3 class="import-title">Importar novo conhecimento</h3>
-        <p class="import-desc">Cole texto diretamente ou envie um arquivo .docx/.pdf. O conteudo sera minerado, dividido em pedacos e salvo no banco.</p>
+        <p class="import-desc">Cole texto diretamente ou envie um arquivo `.docx`/`.pdf`. O conteúdo será minerado, dividido em pedaços e salvo no banco.</p>
 
         <div class="import-form">
           <div class="form-row">
             <div class="form-group">
-              <label>Nome/Titulo do documento</label>
-              <input type="text" id="importTitle" class="admin-input" placeholder="Ex: Carta para Noah, Reflexao sobre fe...">
+              <label>Nome/Título do documento</label>
+              <input type="text" id="importTitle" class="admin-input" placeholder="Ex: Carta para Noah, Reflexão sobre fé...">
             </div>
             <div class="form-group">
               <label>Categoria</label>
@@ -95,7 +95,7 @@
           </div>
 
           <div class="form-group">
-            <label>Tags (separadas por virgula)</label>
+            <label>Tags (separadas por vírgula)</label>
             <input type="text" id="importTags" class="admin-input" placeholder="Ex: paternidade, noah, legado">
           </div>
 
@@ -111,18 +111,18 @@
           <div class="import-divider">ou cole o texto abaixo</div>
 
           <div class="form-group">
-            <label>Conteudo (texto completo)</label>
+            <label>Conteúdo (texto completo)</label>
             <textarea id="importContent" class="admin-textarea" rows="12" placeholder="Cole aqui o texto que deseja importar como conhecimento..."></textarea>
           </div>
 
           <div class="import-preview" id="importPreview" style="display:none">
-            <h4>Pre-visualizacao</h4>
+            <h4>Pré-visualização</h4>
             <div class="import-preview-stats" id="importPreviewStats"></div>
             <div class="import-preview-chunks" id="importPreviewChunks"></div>
           </div>
 
           <div class="import-actions">
-            <button class="admin-btn" id="importPreviewBtn">Pre-visualizar chunks</button>
+            <button class="admin-btn" id="importPreviewBtn">Pré-visualizar chunks</button>
             <button class="admin-btn admin-btn-accent" id="importSaveBtn" disabled>Salvar no banco</button>
           </div>
 
@@ -135,7 +135,7 @@
     <div class="tab-panel" id="tab-diretrizes">
       <div class="directives-section">
         <h3 class="admin-section-title">Diretrizes individuais</h3>
-        <p class="admin-section-desc">Cada diretriz e uma instrucao especifica de como o ALMA deve se comportar. Podem ser globais (todas as pessoas) ou individuais.</p>
+        <p class="admin-section-desc">Cada diretriz é uma instrução específica de como o ALMA deve se comportar. Podem ser globais (todas as pessoas) ou individuais.</p>
 
         <div class="directives-person-tabs" id="directivesTabs">
           <button class="dir-tab active" data-person="_all">Todas</button>
@@ -160,7 +160,7 @@
               <option value="Leslen">Leslen</option>
               <option value="Nivalda">Nivalda</option>
             </select>
-            <input type="text" id="newDirText" class="admin-input" style="flex:1;min-width:200px;" placeholder="Nova diretriz... Ex: Nunca compare Noah com os irmaos">
+            <input type="text" id="newDirText" class="admin-input" style="flex:1;min-width:200px;" placeholder="Nova diretriz... Ex: Nunca compare Noah com os irmãos">
             <button class="admin-btn admin-btn-accent" id="addDirBtn" style="white-space:nowrap;">+ Adicionar</button>
           </div>
         </div>
@@ -170,7 +170,7 @@
 
         <!-- Migration button (one-time) -->
         <div style="margin-top:24px;text-align:center;">
-          <button class="admin-btn" id="migrateDirBtn" style="font-size:0.75rem;opacity:0.6;">Migrar diretrizes antigas (texto unico - individuais)</button>
+          <button class="admin-btn" id="migrateDirBtn" style="font-size:0.75rem;opacity:0.6;">Migrar diretrizes antigas (texto único - individuais)</button>
           <span id="migrateStatus" style="font-size:0.75rem;color:var(--text-soft);margin-left:8px;"></span>
         </div>
       </div>
@@ -180,19 +180,19 @@
     <div class="tab-panel" id="tab-exportar">
       <div class="import-section">
         <h3 class="import-title">Exportar banco de dados</h3>
-        <p class="import-desc">Faca backup completo do seu banco ALMA. O arquivo JSON contera todos os conhecimentos, correcoes e configuracoes.</p>
+        <p class="import-desc">Faça backup completo do seu banco ALMA. O arquivo JSON conterá todos os conhecimentos, correções e configurações.</p>
 
         <div class="export-cards" style="display:flex; flex-direction:column; gap:16px; margin-top:20px;">
           <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px;">
             <h4 style="color:var(--accent); margin:0 0 8px 0; font-size:1rem;">Backup completo (JSON)</h4>
-            <p style="color:var(--text-soft); font-size:0.85rem; margin:0 0 16px 0;">Exporta todos os chunks, correcoes e config em um unico arquivo JSON que pode ser re-importado.</p>
+            <p style="color:var(--text-soft); font-size:0.85rem; margin:0 0 16px 0;">Exporta todos os chunks, correções e config em um único arquivo JSON que pode ser reimportado.</p>
             <button class="admin-btn admin-btn-accent" id="exportFullBtn" style="min-width:200px;">Exportar tudo</button>
             <span id="exportStatus" style="color:var(--text-soft); font-size:0.8rem; margin-left:12px;"></span>
           </div>
 
           <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px;">
             <h4 style="color:var(--accent); margin:0 0 8px 0; font-size:1rem;">Apenas conhecimentos (JSON)</h4>
-            <p style="color:var(--text-soft); font-size:0.85rem; margin:0 0 16px 0;">Exporta somente os chunks de conhecimento, sem correcoes ou config.</p>
+            <p style="color:var(--text-soft); font-size:0.85rem; margin:0 0 16px 0;">Exporta somente os chunks de conhecimento, sem correções ou config.</p>
             <button class="admin-btn" id="exportChunksBtn" style="min-width:200px;">Exportar conhecimentos</button>
             <span id="exportChunksStatus" style="color:var(--text-soft); font-size:0.8rem; margin-left:12px;"></span>
           </div>
@@ -206,7 +206,7 @@
     <div class="tab-panel" id="tab-herdeiros">
       <div class="import-section">
         <h3 class="import-title">Dead Man's Switch — Herdeiros</h3>
-        <p class="import-desc">Gerencie os herdeiros do ALMA. Cada um recebe uma frase-chave pessoal e uma carta. Quando o check-in expirar, eles serao notificados.</p>
+        <p class="import-desc">Gerencie os herdeiros do ALMA. Cada um recebe uma frase-chave pessoal e uma carta. Quando o check-in expirar, eles serão notificados.</p>
 
         <div style="display:flex;gap:12px;align-items:center;margin:16px 0;flex-wrap:wrap;">
           <div id="heartbeatStatus" style="font-size:0.85rem;color:var(--text-soft);"></div>
@@ -228,22 +228,22 @@
             <input type="text" id="heirPerson" class="admin-input" placeholder="Ex: Noah">
           </div>
           <div>
-            <label class="import-desc" style="display:block;margin-bottom:4px;">Nivel de acesso</label>
+            <label class="import-desc" style="display:block;margin-bottom:4px;">Nível de acesso</label>
             <select id="heirAccess" class="admin-select" style="width:100%;">
-              <option value="legacy_admin">Admin (tecnico)</option>
+              <option value="legacy_admin">Admin (técnico)</option>
               <option value="legacy_owner">Owner (filho/herdeiro)</option>
               <option value="legacy_read">Leitura</option>
             </select>
           </div>
           <div>
-            <label class="import-desc" style="display:block;margin-bottom:4px;">Email (para notificacao)</label>
+            <label class="import-desc" style="display:block;margin-bottom:4px;">Email (para notificação)</label>
             <input type="email" id="heirEmail" class="admin-input" placeholder="email@exemplo.com">
             <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:0.8rem;color:var(--text-soft);cursor:pointer;">
-              <input type="checkbox" id="heirNotify" checked> Enviar notificacoes
+              <input type="checkbox" id="heirNotify" checked> Enviar notificações
             </label>
           </div>
           <div>
-            <label class="import-desc" style="display:block;margin-bottom:4px;">Frase-chave (deixe vazio pra manter)</label>
+            <label class="import-desc" style="display:block;margin-bottom:4px;">Frase-chave (deixe vazio para manter)</label>
             <input type="text" id="heirPassphrase" class="admin-input" placeholder="frase secreta pessoal">
           </div>
         </div>
@@ -252,8 +252,8 @@
           <textarea id="heirMessage" class="admin-input" rows="4" style="width:100%;resize:vertical;" placeholder="A carta que esta pessoa vai ler quando chegar a hora..."></textarea>
         </div>
         <div style="margin-top:12px;">
-          <label class="import-desc" style="display:block;margin-bottom:4px;">Notas tecnicas (so aparece pra legacy_admin)</label>
-          <textarea id="heirTechNotes" class="admin-input" rows="3" style="width:100%;resize:vertical;" placeholder="Instrucoes tecnicas de manutencao do sistema..."></textarea>
+          <label class="import-desc" style="display:block;margin-bottom:4px;">Notas técnicas (só aparece para legacy_admin)</label>
+          <textarea id="heirTechNotes" class="admin-input" rows="3" style="width:100%;resize:vertical;" placeholder="Instruções técnicas de manutenção do sistema..."></textarea>
         </div>
         <div style="margin-top:16px;display:flex;gap:12px;">
           <button class="admin-btn admin-btn-accent" id="saveHeirBtn">Salvar</button>
@@ -272,7 +272,7 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Titulo</label>
+            <label>Título</label>
             <input type="text" id="editTitle" class="admin-input">
           </div>
           <div class="form-group">
@@ -284,7 +284,7 @@
             <input type="text" id="editTags" class="admin-input">
           </div>
           <div class="form-group">
-            <label>Conteudo</label>
+            <label>Conteúdo</label>
             <textarea id="editContent" class="admin-textarea" rows="10"></textarea>
           </div>
         </div>
@@ -334,7 +334,7 @@
 
     // --- Load stats + heartbeat ---
     fetch(API + '?action=stats').then(r => r.json()).then(function(data) {
-      var statsText = data.chunks + ' memorias · ' + data.corrections + ' correcoes';
+      var statsText = data.chunks + ' memórias · ' + data.corrections + ' correções';
       // Check dead man's switch
       fetch('/api/legacy', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -452,7 +452,7 @@
           document.getElementById('editContent').value = chunk.content || '';
           openModal();
         } else {
-          alert('Chunk #' + id + ' nao encontrado na pagina atual.');
+          alert('Chunk #' + id + ' não encontrado na página atual.');
         }
       });
     };
@@ -477,7 +477,7 @@
       var tags = document.getElementById('editTags').value.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
       var content = document.getElementById('editContent').value.trim();
 
-      if (!content || !title) { alert('Titulo e conteudo sao obrigatorios'); return; }
+      if (!content || !title) { alert('Título e conteúdo são obrigatórios'); return; }
 
       var body;
       if (isNewChunk) {
@@ -682,12 +682,12 @@
         } else if (ext === 'txt' || ext === 'md') {
           text = await file.text();
         } else {
-          nameEl.textContent = 'Formato nao suportado: .' + ext;
+          nameEl.textContent = 'Formato não suportado: .' + ext;
           return;
         }
 
         document.getElementById('importContent').value = text;
-        nameEl.textContent = file.name + ' — ' + text.length + ' caracteres extraidos';
+        nameEl.textContent = file.name + ' — ' + text.length + ' caracteres extraídos';
       } catch (err) {
         nameEl.textContent = 'Erro ao processar: ' + err.message;
       }
@@ -755,7 +755,7 @@
     // Preview
     document.getElementById('importPreviewBtn').addEventListener('click', function() {
       var content = document.getElementById('importContent').value.trim();
-      if (!content) { alert('Cole ou importe algum conteudo primeiro'); return; }
+      if (!content) { alert('Cole ou importe algum conteúdo primeiro'); return; }
 
       importChunksData = chunkText(content);
 
@@ -764,7 +764,7 @@
       var chunksEl = document.getElementById('importPreviewChunks');
 
       var totalChars = importChunksData.reduce(function(s, c) { return s + c.length; }, 0);
-      statsEl.textContent = importChunksData.length + ' chunks · ' + totalChars + ' caracteres total';
+      statsEl.textContent = importChunksData.length + ' chunks · ' + totalChars + ' caracteres no total';
 
       var html = '';
       importChunksData.forEach(function(chunk, idx) {
@@ -821,7 +821,7 @@
           // Reload stats
           fetch(API + '?action=stats').then(r => r.json()).then(function(d) {
             document.getElementById('adminStats').textContent =
-              d.chunks + ' chunks · ' + d.documents + ' docs · ' + d.corrections + ' correcoes';
+              d.chunks + ' chunks · ' + d.documents + ' docs · ' + d.corrections + ' correções';
           });
         } else {
           statusEl.innerHTML = '<span style="color:#f87171">Erro: ' + escapeHtml(data.error || 'desconhecido') + '</span>';

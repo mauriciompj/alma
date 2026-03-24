@@ -116,7 +116,7 @@
     "otherOption": "Outro",
     "step3Title": "Revisar e Salvar",
     "step3Subtitle": "Isso é o que o ALMA vai saber sobre você. Você pode mudar depois no painel admin.",
-    "promptLabel": "System Prompt Gerado",
+    "promptLabel": "Prompt do sistema gerado",
     "personsLabel": "Contextos das Pessoas",
     "saveButton": "Salvar no ALMA",
     "saving": "Salvando...",
@@ -131,10 +131,10 @@
     "error": "Erro ao carregar",
     "empty": "Nenhum chunk encontrado",
     "edit": "Editar",
-    "delete": "Deletar",
+    "delete": "Excluir",
     "save": "Salvar",
     "cancel": "Cancelar",
-    "confirmDelete": "Deletar chunk #{id}?",
+    "confirmDelete": "Excluir chunk #{id}?",
     "saved": "Salvo!",
     "deleted": "Deletado!"
   }

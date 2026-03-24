@@ -39,7 +39,7 @@
 
     <!-- Footer -->
     <footer class="page-footer">
-      <p>Painel do Admin — escolha um usuario para conversar como ele</p>
+      <p>Painel do Admin — escolha um usuário para conversar como ele</p>
       <div class="nav-links">
         <a href="admin.html">Banco de Dados</a>
         <a href="revisor.html">Revisor</a>
@@ -174,8 +174,8 @@
         .then(function(data) {
           var el = document.getElementById('almaStats');
           if (el && data.chunks) {
-            var text = '<span>' + data.chunks + ' memorias</span>';
-            if (data.corrections > 0) text += ' · <span>' + data.corrections + ' correcoes</span>';
+            var text = '<span>' + data.chunks + ' memórias</span>';
+            if (data.corrections > 0) text += ' · <span>' + data.corrections + ' correções</span>';
             el.innerHTML = text;
           }
         })
