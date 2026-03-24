@@ -1,0 +1,161 @@
+/**
+ * ALMA Dead Man's Switch — Scheduled heartbeat checker
+ * Runs daily via Netlify Scheduled Functions.
+ *
+ * Checks if the author has made a recent check-in.
+ * If overdue: records alert in DB + optionally sends email via Resend.
+ *
+ * Schedule: daily at 08:00 UTC
+ *
+ * Email alerts:
+ *   - 1x interval (30d): email to primary heir (Davi / legacy_admin)
+ *   - 2x interval (60d): email to all heirs
+ *   - Alerts are sent once per threshold (not repeated daily)
+ *
+ * Env vars (optional):
+ *   RESEND_API_KEY — Resend.com API key for email delivery
+ *   HEARTBEAT_NOTIFY_EMAILS — comma-separated fallback emails
+ */
+
+import { neon } from '@neondatabase/serverless';
+
+export const config = {
+  schedule: "0 8 * * *"  // Every day at 08:00 UTC
+};
+
+export default async function handler() {
+  const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.log('[Heartbeat] No database configured');
+    return new Response('No DB', { status: 200 });
+  }
+
+  const sql = neon(dbUrl);
+
+  try {
+    // Get last check-in
+    const lastRow = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_last' LIMIT 1`;
+    if (lastRow.length === 0) {
+      console.log('[Heartbeat] No check-in ever recorded — skipping');
+      return new Response('No heartbeat yet', { status: 200 });
+    }
+
+    const lastCheckin = new Date(lastRow[0].value);
+    const daysSince = Math.floor((Date.now() - lastCheckin.getTime()) / 86400000);
+
+    // Get interval
+    const intervalRow = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_interval_days' LIMIT 1`;
+    const interval = intervalRow.length > 0 ? parseInt(intervalRow[0].value) : 30;
+
+    console.log(`[Heartbeat] Last check-in: ${daysSince} days ago (interval: ${interval}d)`);
+
+    if (daysSince <= interval) {
+      console.log('[Heartbeat] OK — within interval');
+      return new Response('OK', { status: 200 });
+    }
+
+    // --- OVERDUE ---
+    const severity = daysSince >= interval * 2 ? 'critical' : 'warning';
+
+    // Check if we already sent alert for this threshold
+    const alertKey = `heartbeat_alert_${severity}`;
+    const alertRow = await sql`SELECT value FROM alma_config WHERE key = ${alertKey} LIMIT 1`;
+    if (alertRow.length > 0) {
+      const lastAlert = JSON.parse(alertRow[0].value);
+      const alertAge = Math.floor((Date.now() - new Date(lastAlert.sentAt).getTime()) / 86400000);
+      if (alertAge < interval) {
+        console.log(`[Heartbeat] ${severity} alert already sent ${alertAge}d ago — skipping`);
+        return new Response('Alert already sent', { status: 200 });
+      }
+    }
+
+    // Record alert in DB
+    await sql`
+      INSERT INTO alma_config (key, value, updated_at)
+      VALUES (${alertKey}, ${JSON.stringify({
+        severity,
+        daysSince,
+        lastCheckin: lastCheckin.toISOString(),
+        sentAt: new Date().toISOString(),
+      })}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    `;
+
+    // Record visible alert for legacy page
+    await sql`
+      INSERT INTO alma_config (key, value, updated_at)
+      VALUES ('heartbeat_overdue', ${JSON.stringify({
+        overdue: true,
+        daysSince,
+        severity,
+        checkedAt: new Date().toISOString(),
+      })}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    `;
+
+    console.log(`[Heartbeat] ALERT: ${severity} — ${daysSince} days since last check-in`);
+
+    // --- Send email if Resend API key is configured ---
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      // Get heir emails
+      let emails = [];
+
+      if (severity === 'critical') {
+        // Get all heir emails
+        const emailConfig = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_notify_emails' LIMIT 1`;
+        if (emailConfig.length > 0) {
+          emails = emailConfig[0].value.split(',').map(e => e.trim());
+        }
+      } else {
+        // Get primary heir (legacy_admin) email only
+        const emailConfig = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_notify_primary' LIMIT 1`;
+        if (emailConfig.length > 0) {
+          emails = [emailConfig[0].value.trim()];
+        }
+      }
+
+      // Fallback to env var
+      if (emails.length === 0 && process.env.HEARTBEAT_NOTIFY_EMAILS) {
+        emails = process.env.HEARTBEAT_NOTIFY_EMAILS.split(',').map(e => e.trim());
+      }
+
+      if (emails.length > 0) {
+        const subject = severity === 'critical'
+          ? `ALMA — URGENTE: ${daysSince} dias sem check-in`
+          : `ALMA — Aviso: ${daysSince} dias sem check-in`;
+
+        const body = severity === 'critical'
+          ? `O autor do ALMA nao faz check-in ha ${daysSince} dias.\n\nIsso pode significar que algo aconteceu.\n\nAcesse ${process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app'}/legacy para verificar.\n\nSe voce recebeu uma frase-chave do autor, pode ser a hora de usa-la.`
+          : `O autor do ALMA nao faz check-in ha ${daysSince} dias (intervalo configurado: ${interval} dias).\n\nIsso pode ser apenas esquecimento, mas vale verificar.\n\nSe necessario, entre em contato com o autor diretamente.`;
+
+        for (const email of emails) {
+          try {
+            await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendKey}` },
+              body: JSON.stringify({
+                from: 'ALMA <noreply@resend.dev>',
+                to: email,
+                subject,
+                text: body,
+              }),
+            });
+            console.log(`[Heartbeat] Email sent to ${email}`);
+          } catch (e) {
+            console.error(`[Heartbeat] Failed to email ${email}:`, e.message);
+          }
+        }
+      } else {
+        console.log('[Heartbeat] No emails configured — alert saved to DB only');
+      }
+    } else {
+      console.log('[Heartbeat] No RESEND_API_KEY — alert saved to DB only');
+    }
+
+    return new Response(`Alert: ${severity}`, { status: 200 });
+  } catch (e) {
+    console.error('[Heartbeat] Error:', e.message);
+    return new Response('Error', { status: 500 });
+  }
+}

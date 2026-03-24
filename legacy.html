@@ -189,6 +189,19 @@
       if (e.key === 'Enter') tryUnlock();
     });
 
+    // Check heartbeat status — show subtle indicator if overdue
+    fetch('/api/legacy', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'heartbeat_status' })
+    }).then(function(r) { return r.json(); }).then(function(hb) {
+      if (hb.overdue) {
+        var notice = document.createElement('p');
+        notice.style.cssText = 'color:#666;font-size:0.75rem;margin-top:24px;letter-spacing:1px;';
+        notice.textContent = hb.daysSince + ' dias';
+        document.getElementById('inputPhase').appendChild(notice);
+      }
+    }).catch(function() {});
+
     // Auto-focus
     setTimeout(function() { input.focus(); }, 500);
 
