@@ -155,7 +155,12 @@
           sessionStorage.removeItem('alma_admin_view');
           window.location.href = 'index.html';
         } else {
-          // Normal user logs out
+          // Normal user logs out — invalidate token on server
+          var token = localStorage.getItem('alma_token');
+          if (token) {
+            fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'logout', token: token }) }).catch(function() {});
+          }
           localStorage.removeItem('alma_token');
           localStorage.removeItem('alma_user');
           localStorage.removeItem('alma_type');

@@ -42,7 +42,7 @@ CATEGORY="memorias_pessoais"
 TAGS=""
 SOURCE="termux_audio"
 KEEP_AUDIO=0
-AUDIO_FILE="/data/data/com.termux/files/home/alma_capture_$(date +%Y%m%d_%H%M%S).m4a"
+AUDIO_FILE="$HOME/alma_capture_$(date +%Y%m%d_%H%M%S).m4a"
 
 # Parse args
 while [[ $# -gt 0 ]]; do

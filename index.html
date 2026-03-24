@@ -235,6 +235,11 @@
       // --- Logout ---
       document.getElementById('btnLogoutIndex').addEventListener('click', function(e) {
         e.preventDefault();
+        var token = localStorage.getItem('alma_token');
+        if (token) {
+          fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'logout', token: token }) }).catch(function() {});
+        }
         localStorage.removeItem('alma_token');
         localStorage.removeItem('alma_user');
         localStorage.removeItem('alma_type');

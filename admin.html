@@ -359,30 +359,23 @@
       document.getElementById('modalTitle').textContent = 'Editar conhecimento #' + id;
       document.getElementById('modalDelete').style.display = '';
 
-      // Fetch chunk content
-      fetch(API + '?action=admin_chunks&q=&page=1&per_page=1').then(r => r.json()); // dummy
-      // Actually find the chunk in the current list
-      fetch(API + '?action=admin_chunks&page=1&per_page=1&q=').then(function() {
-        // Just get from DOM or re-fetch
-        var cards = document.querySelectorAll('.chunk-card');
-        // Better: fetch single chunk by searching
-      });
-
-      // Use search by ID approach - fetch all then find
+      // Search current page for the chunk, fallback to dedicated search
       var q = document.getElementById('chunkSearch').value.trim();
       var cat = document.getElementById('chunkCategory').value;
       var url = API + '?action=admin_chunks&page=' + currentPage + '&per_page=15';
       if (q) url += '&q=' + encodeURIComponent(q);
       if (cat) url += '&category=' + encodeURIComponent(cat);
 
-      fetch(url).then(r => r.json()).then(function(data) {
-        var chunk = data.chunks.find(function(c) { return c.id === id; });
+      fetch(url, { headers: authHeaders() }).then(r => r.json()).then(function(data) {
+        var chunk = data.chunks && data.chunks.find(function(c) { return c.id === id; });
         if (chunk) {
           document.getElementById('editTitle').value = chunk.title || '';
           document.getElementById('editCategory').value = chunk.category || '';
           document.getElementById('editTags').value = (chunk.tags || []).join(', ');
           document.getElementById('editContent').value = chunk.content || '';
           openModal();
+        } else {
+          alert('Chunk #' + id + ' nao encontrado na pagina atual.');
         }
       });
     };

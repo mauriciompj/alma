@@ -22,7 +22,17 @@ EXT="${FILE##*.}"
 EXT=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
 case "$EXT" in
 txt|md|csv|json) alma-send -f "$FILE" ;;
-pdf) pdftotext "$FILE" - | alma-send -t "$(basename "$FILE")" ;;
-docx|doc|odt|rtf) pandoc "$FILE" -t plain | alma-send -t "$(basename "$FILE")" ;;
+pdf)
+  if ! command -v pdftotext &>/dev/null; then
+    termux-toast "pdftotext nao instalado. Rode: pkg install poppler"
+    exit 1
+  fi
+  pdftotext "$FILE" - | alma-send -t "$(basename "$FILE")" ;;
+docx|doc|odt|rtf)
+  if ! command -v pandoc &>/dev/null; then
+    termux-toast "pandoc nao instalado. Rode: pkg install pandoc"
+    exit 1
+  fi
+  pandoc "$FILE" -t plain | alma-send -t "$(basename "$FILE")" ;;
 *) termux-toast "Formato .$EXT nao suportado" ;;
 esac
