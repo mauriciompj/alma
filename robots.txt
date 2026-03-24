@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /login.html
+Allow: /sobre.html
+Disallow: /admin.html
+Disallow: /revisor.html
+Disallow: /setup.html
+Disallow: /chat.html
+Disallow: /index.html
+Disallow: /legacy.html
+Disallow: /api/
+
+Sitemap: https://projeto-alma.netlify.app/sitemap.xml

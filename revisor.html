@@ -97,9 +97,9 @@
     <label>Tags (separadas por virgula)</label>
     <input type="text" id="editTags">
     <div class="modal-btns">
-      <button style="background:var(--bg);color:var(--text-muted);" onclick="closeModal()">Cancelar</button>
-      <button style="background:#D94A4A;color:white;" id="modalDeleteBtn" onclick="deleteChunk()">Deletar</button>
-      <button style="background:var(--accent);color:#0D0D0D;" onclick="saveChunk()">Salvar</button>
+      <button style="background:var(--bg);color:var(--text-muted);" id="btnCancel">Cancelar</button>
+      <button style="background:#D94A4A;color:white;" id="modalDeleteBtn">Deletar</button>
+      <button style="background:var(--accent);color:#0D0D0D;" id="btnSave">Salvar</button>
     </div>
   </div>
 </div>
@@ -330,6 +330,9 @@
   document.getElementById('editModal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
   });
+  document.getElementById('btnCancel').addEventListener('click', closeModal);
+  document.getElementById('modalDeleteBtn').addEventListener('click', deleteChunk);
+  document.getElementById('btnSave').addEventListener('click', saveChunk);
 })();
 </script>
 </body>

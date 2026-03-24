@@ -64,7 +64,7 @@ const ADMIN_ACTIONS = new Set([
   'save_config', 'update_chunk', 'delete_chunk', 'create_chunk', 'import_chunks',
   'promote_correction', 'delete_correction', 'reactivate_correction',
   'add_directive', 'update_directive', 'delete_directive',
-  'migrate_directives', 'classify_input',
+  'classify_input',
 ]);
 // Actions that require any valid session (not necessarily admin)
 const AUTH_ACTIONS = new Set([
@@ -155,7 +155,6 @@ export default async function handler(req) {
         case 'update_directive': return await handleUpdateDirective(sql, body);
         case 'delete_directive': return await handleDeleteDirective(sql, body);
         case 'classify_input': return await handleClassifyInput(sql, body);
-        case 'migrate_directives': return await handleMigrateDirectives(sql, body);
         default: return jsonResponse({ error: 'Unknown POST action' }, 400);
       }
     }
@@ -714,48 +713,6 @@ Responda APENAS em JSON válido (sem markdown):
   } catch (e) {
     return jsonResponse({ error: 'Classification failed: ' + e.message }, 500);
   }
-}
-
-// One-time migration: parses existing alma_config directive texts into individual alma_directives entries.
-// Reads configuration keys for each person and splits them into separate directive records.
-async function handleMigrateDirectives(sql, body) {
-  await ensureDirectivesTable(sql);
-
-  const persons = ['Noah', 'Nathan', 'Isaac', 'Chris', 'Leslen', 'Nivalda', '_global'];
-  let migrated = 0;
-
-  for (const person of persons) {
-    const key = person === '_global' ? 'directives_global' : 'directives_' + person;
-    try {
-      const rows = await sql`SELECT value FROM alma_config WHERE key = ${key} LIMIT 1`;
-      if (rows.length > 0 && rows[0].value && rows[0].value.trim()) {
-        const text = rows[0].value.trim();
-        // Split by newlines to create individual directives
-        const lines = text.split(/\n+/).map(l => l.trim()).filter(l => l.length > 5);
-        const personVal = person === '_global' ? null : person;
-
-        for (const line of lines) {
-          // Check if already exists (avoid duplicate migration)
-          const existing = await sql`
-            SELECT id FROM alma_directives
-            WHERE directive_text = ${line} AND (person = ${personVal} OR (person IS NULL AND ${personVal} IS NULL))
-            LIMIT 1
-          `;
-          if (existing.length === 0) {
-            await sql`
-              INSERT INTO alma_directives (person, directive_text, source)
-              VALUES (${personVal}, ${line}, 'migrated')
-            `;
-            migrated++;
-          }
-        }
-      }
-    } catch (e) {
-      // Skip if config doesn't exist
-    }
-  }
-
-  return jsonResponse({ success: true, migrated });
 }
 
 // --- Conversation History ---

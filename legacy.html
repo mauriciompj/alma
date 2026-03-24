@@ -157,7 +157,7 @@
       <div class="legacy-signature" id="legacySignature">Com amor — e com proposito — Pai</div>
       <div class="legacy-tech-title" id="techTitle">Instrucoes tecnicas</div>
       <div class="legacy-tech" id="legacyTech"></div>
-      <button class="legacy-enter" id="enterBtn" onclick="enterAlma()">Acessar o ALMA</button>
+      <button class="legacy-enter" id="enterBtn">Acessar o ALMA</button>
     </div>
   </div>
 
@@ -270,18 +270,12 @@
       }, data.technicalNotes ? 3000 : 2400);
     }
 
-    function enterAlma() {
-      // Store session and redirect
+    document.getElementById('enterBtn').addEventListener('click', function() {
       localStorage.setItem('alma_token', token);
       localStorage.setItem('alma_admin', isAdmin ? '1' : '0');
       localStorage.setItem('alma_legacy', '1');
-
-      if (isAdmin) {
-        window.location.href = 'index.html';
-      } else {
-        window.location.href = 'chat.html';
-      }
-    }
+      window.location.href = isAdmin ? 'index.html' : 'chat.html';
+    });
   </script>
 </body>
 </html>
