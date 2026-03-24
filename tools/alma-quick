@@ -51,9 +51,12 @@ termux-toast -g middle "ALMA ouvindo..."
 termux-vibrate -d 200
 
 # ============================================================
-# PASSO 2: Capturar voz via Android Speech Engine
+# PASSO 2: Capturar via dialog nativo do Android
+# Abre um input onde voce pode usar o mic do teclado (PT-BR)
+# ou digitar texto direto
 # ============================================================
-TEXT=$(termux-speech-to-text 2>/dev/null || echo "")
+DIALOG_RESULT=$(termux-dialog text -t "ALMA — Fale ou digite" -i "Toque no mic do teclado e fale" 2>/dev/null || echo "{}")
+TEXT=$(echo "$DIALOG_RESULT" | jq -r '.text // empty')
 
 if [ -z "$TEXT" ]; then
   termux-toast -g bottom "ALMA: Nada capturado"
