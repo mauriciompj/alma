@@ -167,7 +167,9 @@ alma/
 │   └── functions/
 │       ├── auth.mjs        # Auth with bcrypt + auto-migration
 │       ├── chat.mjs        # RAG chat engine with person-aware reranking
-│       └── memories.mjs    # Memory CRUD + corrections + directives + moderation
+│       ├── memories.mjs    # Memory CRUD + corrections + directives + moderation
+│       ├── ingest.mjs      # Quick capture API (mobile/Termux/scripts)
+│       └── alma-voice.mjs  # ElevenLabs text-to-speech
 ├── locales/
 │   ├── en.json             # English
 │   ├── es.json             # Spanish
@@ -177,7 +179,13 @@ alma/
 │   ├── run-seed.mjs        # Schema runner
 │   ├── seed-demo.sql       # Demo data (fictional)
 │   ├── run-seed-demo.mjs   # Demo seeder
+│   ├── import-json.mjs     # Bulk JSON import with deduplication
 │   └── backup.mjs          # Database backup to JSON
+├── tools/
+│   ├── alma-send           # Termux: send text/files to ALMA
+│   ├── alma-quick          # Termux: 1-tap voice capture widget
+│   ├── alma-record         # Termux: record audio + transcribe + send
+│   └── alma-voice          # Termux: speak-to-text + send
 ├── docs/
 │   └── banner.svg          # README banner
 ├── netlify.toml            # Netlify config (redirects, headers, security)
@@ -205,6 +213,62 @@ ALMA takes data protection seriously:
 - **Content moderation** — All corrections and directives pass through AI moderation before saving
 - **Sensitive data removed from code** — Children's psychological profiles stored in DB only, not in source code
 - **Database isolation** — Demo and production use completely separate databases
+
+---
+
+## Mobile Capture (Termux)
+
+ALMA includes tools for capturing memories directly from your Android phone via [Termux](https://termux.dev). Speak a thought, paste a conversation, or send a file — it goes straight to your production database in real-time.
+
+### Setup (10 minutes)
+
+```bash
+# In Termux on your Android phone:
+pkg install jq curl termux-api
+
+# Download scripts
+curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-send -o $PREFIX/bin/alma-send
+curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-quick -o $PREFIX/bin/alma-quick
+chmod +x $PREFIX/bin/alma-send $PREFIX/bin/alma-quick
+
+# Configure credentials
+cat > ~/.alma-env << 'EOF'
+ALMA_URL=https://your-alma-site.netlify.app
+ALMA_USER=YourName
+ALMA_PASS=YourPassword
+EOF
+
+# Create home screen widget (requires Termux:Widget app)
+mkdir -p ~/.shortcuts
+cp $PREFIX/bin/alma-quick ~/.shortcuts/ALMA
+```
+
+### Usage
+
+| What you want | Command |
+|---|---|
+| Quick thought | `alma-send "I realized courage isn't the absence of fear"` |
+| Paste from clipboard | `termux-clipboard-get \| alma-send` |
+| Send a file | `alma-send -f conversation.txt -c values` |
+| **1-tap voice capture** | **Tap ALMA widget on home screen** |
+| Voice with options | `alma-quick faith` (sets category) |
+
+### How it works
+
+```
+Tap widget → Android dialog opens → Tap mic on keyboard → Speak
+    → Text captured → POST /api/ingest → Chunked + stored in Neon DB
+        → Available in RAG search immediately
+```
+
+The `/api/ingest` endpoint accepts text or base64-encoded files, auto-chunks large texts at paragraph boundaries (~2000 chars), generates titles, and registers imports in `alma_documents`. Requires admin authentication.
+
+### Available scripts
+
+- **`alma-send`** — Send text or files. Supports `-f file`, `-t title`, `-c category`, `-g tags`, stdin/pipe.
+- **`alma-quick`** — 1-tap capture for Termux:Widget. Opens Android dialog, speaks, sends. No confirmation needed.
+- **`alma-record`** — Records audio via `termux-microphone-record`, transcribes, sends.
+- **`alma-voice`** — Opens Android speech-to-text, transcribes, confirms, sends.
 
 ---
 
@@ -257,10 +321,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Age-aware responses (adapts tone to child's current age)
 - [x] Conversation history (persistent, saved per person)
 - [x] PWA support (installable, offline-capable)
+- [x] ElevenLabs voice synthesis (hear ALMA speak)
+- [x] Mobile capture via Termux (1-tap voice → database)
+- [x] Ingest API for scripts and automation (`/api/ingest`)
+- [x] Security hardening (CSP, HSTS, XSS fixes, auth bypass fix)
+- [ ] Photo/media support in chat responses
+- [ ] Cloud storage sync (OneDrive, Google Drive)
+- [ ] Audio transcription pipeline (Whisper)
 - [ ] Self-hosted AI mode (Ollama/LM Studio) — [see proposal](docs/issue-ollama-integration.md)
-- [ ] Voice synthesis (hear ALMA in the author's actual voice)
-- [ ] One-click setup wizard
-- [ ] Import from journals, WhatsApp exports, voice memos
 - [ ] "Letter mode" — scheduled messages for future dates
 
 ---
