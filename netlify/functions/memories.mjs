@@ -5,7 +5,7 @@
 import { neon } from '@neondatabase/serverless';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
-const MODERATION_MODEL = 'claude-haiku-3-5-20241022'; // Fast + cheap for moderation
+const MODERATION_MODEL = 'claude-haiku-4-5-20251001'; // Fast + cheap for moderation
 
 /**
  * Content moderation — checks if text is offensive, harmful, or inappropriate
@@ -163,6 +163,20 @@ export default async function handler(req) {
     // Handle GET requests
     const action = url.searchParams.get('action') || 'stats';
     let result;
+
+    // --- Auth gate for sensitive GET endpoints ---
+    const ADMIN_GET_ACTIONS = new Set([
+      'admin_chunks', 'admin_corrections', 'get_config', 'get_history',
+    ]);
+    if (ADMIN_GET_ACTIONS.has(action)) {
+      const session = await verifySession(sql, req);
+      if (!session) {
+        return jsonResponse({ error: 'Authentication required' }, 401);
+      }
+      if (!session.admin) {
+        return jsonResponse({ error: 'Admin access required' }, 403);
+      }
+    }
 
     switch (action) {
       case 'stats': {
@@ -676,7 +690,7 @@ Responda APENAS em JSON válido (sem markdown):
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6-20250514',
         max_tokens: 500,
         system: systemPrompt,
         messages: [{ role: 'user', content: text }],

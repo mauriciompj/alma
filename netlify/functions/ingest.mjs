@@ -176,7 +176,21 @@ export default async function handler(req) {
     // Chunk the content
     const chunks = chunkText(text);
 
-    // Insert chunks
+    // Register in alma_documents FIRST to get document_id
+    let documentId = null;
+    try {
+      const docResult = await sql`
+        INSERT INTO alma_documents (source_file, title, category, total_chunks)
+        VALUES (${sourceFile}, ${title}, ${category}, ${chunks.length})
+        ON CONFLICT (source_file) DO UPDATE SET total_chunks = alma_documents.total_chunks + ${chunks.length}
+        RETURNING id
+      `;
+      documentId = docResult[0]?.id || null;
+    } catch (e) {
+      // Not critical — chunks will be inserted without document_id
+    }
+
+    // Insert chunks with document_id
     let created = 0;
     for (let i = 0; i < chunks.length; i++) {
       const chunkTitle = chunks.length === 1
@@ -184,21 +198,10 @@ export default async function handler(req) {
         : `${title} (${i + 1}/${chunks.length})`;
 
       await sql`
-        INSERT INTO alma_chunks (source_file, title, category, chunk_index, content, tags)
-        VALUES (${sourceFile}, ${chunkTitle}, ${category}, ${i + 1}, ${chunks[i]}, ${tags}::TEXT[])
+        INSERT INTO alma_chunks (document_id, source_file, title, category, chunk_index, content, tags)
+        VALUES (${documentId}, ${sourceFile}, ${chunkTitle}, ${category}, ${i + 1}, ${chunks[i]}, ${tags}::TEXT[])
       `;
       created++;
-    }
-
-    // Register in alma_documents
-    try {
-      await sql`
-        INSERT INTO alma_documents (source_file, title, category, total_chunks)
-        VALUES (${sourceFile}, ${title}, ${category}, ${created})
-        ON CONFLICT (source_file) DO UPDATE SET total_chunks = alma_documents.total_chunks + ${created}
-      `;
-    } catch (e) {
-      // Not critical
     }
 
     return json({
