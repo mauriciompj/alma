@@ -49,19 +49,37 @@ It's not a chatbot. It's not a memorial page. It's a living archive of who you a
 
 ---
 
-## The Story Behind ALMA
+## Why ALMA Exists
 
-ALMA was built by a father.
+> *"Almost 20 years. And I still wish I could talk to him when I need to make a hard decision."*
 
-Mauricio grew up with an absent father in Brazil. He broke the cycle. Became a police chief. Raised three sons with the kind of presence he never received.
+That's what Marila said. Her father died twenty years ago. She's a grown woman now. She makes hard choices. She opens her phone. And silence answers.
 
-But presence has an expiration date. So he started writing. Over 16 months, he produced 74 documents — more than 100,000 words — documenting everything: his values, his mistakes, his faith, his fears, what he learned about love, about pain, about being a man. Raw. Unfiltered. Real.
+She doesn't have his voice explaining how he thought. She doesn't have his mistakes documented, his faith recorded, his reasoning preserved. Her father left before anyone thought to save those things.
 
-Then he built ALMA — a system where his sons can ask him anything, anytime, and get answers rooted in his actual words and memories. Not generic AI responses. His voice.
+**He arrived too late. ALMA arrived too late for him.**
 
-Then he decided to give it to the world.
+But not for everyone.
+
+---
+
+ALMA was built by a father — a police chief in Brazil who grew up with an absent, alcoholic father and broke the cycle. He raised three sons with a kind of presence he never received. Then he realized: **presence has an expiration date.**
+
+So he started writing. Over 16 months, he produced 74 documents — more than 100,000 words — documenting everything: his values, his mistakes, his faith, his fears, what he learned about love, about pain, about being a man. Raw. Unfiltered. Real.
+
+Then he built ALMA — a system where his sons can ask him anything, anytime, and get answers rooted in his actual words and memories. Not generic AI responses. **His voice.**
+
+Then he gave it to the world.
+
+> ALMA is not an archive. It's not a diary. It's not technology.
+>
+> **ALMA is presence that doesn't die.**
+>
+> It's the specific father — with his words, his errors, his faith, his way of thinking — available when his daughter needs to make a hard choice and has no one left to ask.
 
 **ALMA is free. ALMA is open source. Because every father, every mother, every person who wants to leave something real behind deserves the tools to do it.**
+
+**Don't wait until it's too late.**
 
 ---
 
@@ -341,17 +359,22 @@ MIT License — free for everyone, forever. See [LICENSE](LICENSE).
 
 ## A Final Word
 
+> *"She opens her phone. And silence answers."*
+
+Someone you love will one day need your voice and won't have it. Your way of thinking. Your mistakes. Your faith. Your hard-earned wisdom about love, pain, money, God, relationships, failure.
+
+Most people only realize this when it's too late. When the person is gone. When the silence is permanent.
+
+**ALMA exists so you can do something about it while you're still here.**
+
+You don't need to be a writer. You don't need to be technical. You just need to care enough to start. One memory at a time. One value. One mistake you learned from. One story your kids need to hear.
+
 > *"I fix what I inherited. I deliver what I never received."*
-
-ALMA started as one father's promise to his three sons. It became something bigger — an invitation for anyone who wants to leave behind more than photos and possessions.
-
-Your voice matters. Your story matters. Your mistakes and your love and your values — they matter.
-
-ALMA gives you the tools to make sure they're never lost.
 
 ---
 
 <p align="center">
   Built with love by <a href="https://github.com/mauriciompj">Mauricio Maciel Pereira Junior</a><br>
-  Police Chief. Father of three. Patch that fixed the broken code.
+  Police Chief. Father of three. The patch that fixed the broken code.<br><br>
+  <em>Com amor — e com propósito — Pai</em>
 </p>
