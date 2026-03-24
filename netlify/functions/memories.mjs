@@ -190,7 +190,7 @@ export default async function handler(req) {
         return jsonResponse({ error: 'Authentication required' }, 401);
       }
       // Non-admin users can only access their own history
-      if (!session.admin) {
+      if (!session.admin && action === 'get_history') {
         const requestedPerson = url.searchParams.get('person') || '';
         if (requestedPerson !== session.name) {
           return jsonResponse({ error: 'Access denied' }, 403);
