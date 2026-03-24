@@ -137,6 +137,9 @@ async function handleLogin(sql, body) {
     }
   }
 
+  // Cleanup expired sessions on every login (lightweight, bounded by session count)
+  cleanupExpiredSessions(sql).catch(() => {});
+
   // Generate simple session token
   const token = generateToken();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
@@ -231,28 +234,28 @@ async function handleLogout(sql, body) {
   }
 }
 
-// Remove all expired sessions from database (runs periodically)
+// Remove all expired sessions from database (runs on every login)
 async function cleanupExpiredSessions(sql) {
   try {
     const sessions = await sql`
       SELECT key, value FROM alma_config WHERE key LIKE 'session_%'
     `;
     const now = new Date();
-    let cleaned = 0;
+    const expiredKeys = [];
     for (const row of sessions) {
       try {
         const sess = JSON.parse(row.value);
         if (sess.expiresAt && new Date(sess.expiresAt) < now) {
-          await sql`DELETE FROM alma_config WHERE key = ${row.key}`;
-          cleaned++;
+          expiredKeys.push(row.key);
         }
       } catch (e) {
-        // Malformed session — delete it
-        await sql`DELETE FROM alma_config WHERE key = ${row.key}`;
-        cleaned++;
+        expiredKeys.push(row.key); // Malformed session — delete it
       }
     }
-    if (cleaned > 0) console.log(`[ALMA] Cleaned ${cleaned} expired sessions`);
+    if (expiredKeys.length > 0) {
+      await sql`DELETE FROM alma_config WHERE key = ANY(${expiredKeys})`;
+      console.log(`[ALMA] Cleaned ${expiredKeys.length} expired sessions`);
+    }
   } catch (e) {
     console.error('[ALMA] Session cleanup error:', e.message);
   }

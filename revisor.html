@@ -161,7 +161,7 @@
 
     document.getElementById('chunkList').innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">Carregando...</div>';
 
-    fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    fetch(url, { headers: authHeaders() }).then(function(r) { return r.json(); }).then(function(data) {
       var chunks = data.chunks || [];
 
       // Client-side source filter
@@ -257,19 +257,16 @@
     editingId = parseInt(id);
     document.getElementById('modalTitle').textContent = 'Editar chunk #' + editingId;
 
-    // Fetch chunk data
-    fetch(API + '?action=admin_chunks&q=&page=1&per_page=1').then(function() {
-      // Find chunk in DOM
-      var chunkEl = document.querySelector('.chunk[data-id="' + editingId + '"]');
-      if (chunkEl) {
-        document.getElementById('editTitle').value = chunkEl.querySelector('.chunk-title').textContent;
-        document.getElementById('editCategory').value = chunkEl.querySelector('.chunk-cat').textContent;
-        var content = chunkEl.querySelector('.chunk-content').textContent;
-        document.getElementById('editContent').value = content;
-        document.getElementById('editTags').value = '';
-      }
-      document.getElementById('editModal').classList.add('active');
-    });
+    // Find chunk in DOM
+    var chunkEl = document.querySelector('.chunk[data-id="' + editingId + '"]');
+    if (chunkEl) {
+      document.getElementById('editTitle').value = chunkEl.querySelector('.chunk-title').textContent;
+      document.getElementById('editCategory').value = chunkEl.querySelector('.chunk-cat').textContent;
+      var content = chunkEl.querySelector('.chunk-content').textContent;
+      document.getElementById('editContent').value = content;
+      document.getElementById('editTags').value = '';
+    }
+    document.getElementById('editModal').classList.add('active');
   };
 
   window.closeModal = function() {

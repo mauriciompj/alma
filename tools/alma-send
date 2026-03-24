@@ -121,6 +121,10 @@ if [ -z "$ALMA_USER" ] || [ -z "$ALMA_PASS" ]; then
 fi
 
 CHAR_COUNT=${#CONTENT}
+if [ $CHAR_COUNT -gt 500000 ]; then
+  echo "ERRO: Conteudo muito grande ($CHAR_COUNT chars, max 500000)" >&2
+  exit 1
+fi
 echo "ALMA Send — $CHAR_COUNT chars"
 
 if [ $DRY_RUN -eq 1 ]; then
@@ -161,18 +165,31 @@ echo "Enviando..."
 CONTENT_JSON=$(echo "$CONTENT" | jq -Rs .)
 TITLE_JSON=$(echo "${TITLE:-}" | jq -Rs .)
 
-INGEST_RESPONSE=$(curl -s -X POST "$ALMA_URL/api/ingest" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d "{
-    \"content\": $CONTENT_JSON,
-    \"title\": $TITLE_JSON,
-    \"category\": \"$CATEGORY\",
-    \"tags\": $TAGS_JSON,
-    \"source\": \"$SOURCE\"
-  }")
+# Retry up to 3 times on network failure
+RETRY=0
+MAX_RETRY=3
+SUCCESS=""
+while [ $RETRY -lt $MAX_RETRY ]; do
+  INGEST_RESPONSE=$(curl -s --max-time 30 -X POST "$ALMA_URL/api/ingest" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN" \
+    -d "{
+      \"content\": $CONTENT_JSON,
+      \"title\": $TITLE_JSON,
+      \"category\": \"$CATEGORY\",
+      \"tags\": $TAGS_JSON,
+      \"source\": \"$SOURCE\"
+    }")
 
-SUCCESS=$(echo "$INGEST_RESPONSE" | jq -r '.success // empty')
+  SUCCESS=$(echo "$INGEST_RESPONSE" | jq -r '.success // empty')
+  if [ "$SUCCESS" = "true" ]; then break; fi
+
+  RETRY=$((RETRY + 1))
+  if [ $RETRY -lt $MAX_RETRY ]; then
+    echo "Tentativa $RETRY falhou, tentando novamente em ${RETRY}s..."
+    sleep $RETRY
+  fi
+done
 
 if [ "$SUCCESS" = "true" ]; then
   CHUNKS=$(echo "$INGEST_RESPONSE" | jq -r '.chunks_created')

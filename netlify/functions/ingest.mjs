@@ -170,7 +170,7 @@ export default async function handler(req) {
     const source = body.source || 'mobile_capture';
     const category = body.category || 'memorias_pessoais';
     const tags = body.tags || [category, source];
-    const sourceFile = source + '_' + new Date().toISOString().slice(0, 10);
+    const sourceFile = source + '_' + new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
     const title = body.title || autoTitle(text, source);
 
     // Chunk the content

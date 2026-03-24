@@ -299,7 +299,7 @@
 
       document.getElementById('chunksList').innerHTML = '<div class="loading">Carregando...</div>';
 
-      fetch(url).then(r => r.json()).then(function(data) {
+      fetch(url, { headers: authHeaders() }).then(r => r.json()).then(function(data) {
         renderChunks(data.chunks, data.total);
         renderPagination(data.page, data.totalPages);
       }).catch(function() {
@@ -441,7 +441,7 @@
     // --- Corrections ---
     // --- Admin Tone Config ---
     function loadAdminTone() {
-      fetch(API + '?action=get_config&key=tone_global').then(r => r.json()).then(function(data) {
+      fetch(API + '?action=get_config&key=tone_global', { headers: authHeaders() }).then(r => r.json()).then(function(data) {
         if (data.value) document.getElementById('adminToneInput').value = data.value;
       }).catch(function() {});
     }
@@ -472,7 +472,7 @@
       var el = document.getElementById('correctionsList');
       el.innerHTML = '<div class="loading">Carregando...</div>';
 
-      fetch(API + '?action=admin_corrections').then(r => r.json()).then(function(data) {
+      fetch(API + '?action=admin_corrections', { headers: authHeaders() }).then(r => r.json()).then(function(data) {
         if (!data.corrections || data.corrections.length === 0) {
           el.innerHTML = '<div class="loading">Nenhuma correcao ainda</div>';
           return;
@@ -780,7 +780,7 @@
         url += '&person=' + encodeURIComponent(currentDirFilter);
       }
 
-      fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+      fetch(url, { headers: authHeaders() }).then(function(r) { return r.json(); }).then(function(data) {
         if (!data.directives || data.directives.length === 0) {
           listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:20px;">Nenhuma diretriz ainda. Adicione acima.</div>';
           return;
@@ -932,7 +932,7 @@
         var page = 1;
         var totalPages = 1;
         while (page <= totalPages) {
-          var res = await fetch(API + '?action=admin_chunks&page=' + page + '&per_page=50');
+          var res = await fetch(API + '?action=admin_chunks&page=' + page + '&per_page=50', { headers: authHeaders() });
           var data = await res.json();
           allChunks = allChunks.concat(data.chunks);
           totalPages = data.totalPages;
@@ -945,7 +945,7 @@
 
         if (!chunksOnly) {
           // Export corrections
-          var corrRes = await fetch(API + '?action=admin_corrections');
+          var corrRes = await fetch(API + '?action=admin_corrections', { headers: authHeaders() });
           var corrData = await corrRes.json();
           exportData.corrections = corrData.corrections || [];
           logEl.textContent += '\nCorrecoes carregadas: ' + exportData.corrections.length;
@@ -972,7 +972,7 @@
           var configs = {};
           for (var i = 0; i < configKeys.length; i++) {
             try {
-              var cfgRes = await fetch(API + '?action=get_config&key=' + encodeURIComponent(configKeys[i]));
+              var cfgRes = await fetch(API + '?action=get_config&key=' + encodeURIComponent(configKeys[i]), { headers: authHeaders() });
               var cfgData = await cfgRes.json();
               if (cfgData.value) configs[configKeys[i]] = cfgData.value;
             } catch (e) {}
