@@ -1,0 +1,28 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ============================================================================
+# termux-file-editor — Android Share → Termux → ALMA
+# ============================================================================
+# When you share a file to Termux (Share → Termux → EDIT), this script
+# converts the file to plain text and sends it to ALMA via alma-send.
+#
+# Supported formats:
+#   .txt, .md, .csv, .json  — sent directly
+#   .pdf                     — converted via pdftotext
+#   .docx, .doc, .odt, .rtf — converted via pandoc
+#
+# INSTALL:
+#   cp termux-file-editor ~/bin/termux-file-editor
+#   chmod +x ~/bin/termux-file-editor
+#   pkg install pandoc poppler  # for docx/pdf support
+# ============================================================================
+
+FILE="$1"
+if [ -z "$FILE" ]; then exit 1; fi
+EXT="${FILE##*.}"
+EXT=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+case "$EXT" in
+txt|md|csv|json) alma-send -f "$FILE" ;;
+pdf) pdftotext "$FILE" - | alma-send -t "$(basename "$FILE")" ;;
+docx|doc|odt|rtf) pandoc "$FILE" -t plain | alma-send -t "$(basename "$FILE")" ;;
+*) termux-toast "Formato .$EXT nao suportado" ;;
+esac

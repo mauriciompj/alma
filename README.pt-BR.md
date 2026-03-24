@@ -199,13 +199,23 @@ alma/
 │   ├── alma-record         # Termux: gravar audio + transcrever + enviar
 │   ├── alma-voice          # Termux: fala-pra-texto + enviar
 │   ├── termux-url-opener   # Android Share: receber texto de qualquer app
-│   └── termux-file-receiver # Android Share: receber arquivos
+│   ├── termux-file-receiver # Android Share: receber arquivos (legado)
+│   └── termux-file-editor  # Android Share: receber + converter arquivos (PDF, DOCX, ODT, RTF)
 ├── db/
 │   ├── seed.sql            # Schema do banco
 │   ├── run-seed.mjs        # Executor do schema
 │   ├── seed-demo.sql       # Dados ficticios (demo)
+│   ├── seed-demo-i18n.sql  # Dados ficticios (versao i18n)
 │   ├── import-json.mjs     # Importacao em lote com deduplicacao
 │   └── backup.mjs          # Backup do banco pra JSON
+├── tests/
+│   ├── auth.test.mjs       # Testes de autenticacao
+│   └── deep-test.mjs       # Validacao end-to-end de 38 pontos
+├── docs/
+│   ├── banner.svg          # Banner do README
+│   ├── CONTRIBUTING.md     # Diretrizes de contribuicao
+│   ├── DEMO_SETUP.md       # Setup do ambiente demo
+│   └── screenshots/        # Screenshots da interface
 ├── locales/
 │   ├── en.json             # Ingles
 │   ├── es.json             # Espanhol
@@ -280,7 +290,10 @@ Veja [CONTRIBUTING.md](docs/CONTRIBUTING.md) para diretrizes.
 - [x] API de ingestao para scripts e automacao (`/api/ingest`)
 - [x] Hardening de seguranca (CSP, HSTS, XSS, auth bypass)
 - [x] Modo legado — heranca digital com frases-chave pessoais
-- [x] Android Share Intent — compartilhar de qualquer app pro ALMA
+- [x] Android Share Intent — compartilhar arquivos (PDF, DOCX, TXT) de qualquer app pro ALMA
+- [x] Revisor visual de chunks (`revisor.html`)
+- [x] Wizard de configuracao inicial (`setup.html`)
+- [x] Suite de testes end-to-end (validacao de 38 pontos)
 - [ ] Fotos/midia nas respostas do chat
 - [ ] Sync com cloud storage (OneDrive, Google Drive)
 - [ ] Pipeline de transcricao de audio (Whisper)

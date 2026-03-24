@@ -175,6 +175,10 @@ alma/
 ├── chat.html               # Chat interface
 ├── admin.html              # Admin panel (memories, corrections, directives)
 ├── login.html              # Authentication with i18n
+├── revisor.html            # Visual chunk reviewer
+├── setup.html              # Initial setup wizard
+├── sobre.html              # About ALMA page
+├── legacy.html             # Inheritance access (passphrase unlock)
 ├── css/
 │   ├── style.css           # Main styles
 │   └── admin.css           # Admin panel styles
@@ -187,7 +191,16 @@ alma/
 │       ├── chat.mjs        # RAG chat engine with person-aware reranking
 │       ├── memories.mjs    # Memory CRUD + corrections + directives + moderation
 │       ├── ingest.mjs      # Quick capture API (mobile/Termux/scripts)
-│       └── alma-voice.mjs  # ElevenLabs text-to-speech
+│       ├── alma-voice.mjs  # ElevenLabs text-to-speech
+│       └── legacy.mjs      # Passphrase verification for inheritance access
+├── tools/
+│   ├── alma-send           # Termux: send text/files to ALMA
+│   ├── alma-quick          # Termux: 1-tap voice capture widget
+│   ├── alma-record         # Termux: record audio + transcribe + send
+│   ├── alma-voice          # Termux: speak-to-text + send
+│   ├── termux-url-opener   # Android Share: receive text from any app
+│   ├── termux-file-receiver # Android Share: receive files (legacy)
+│   └── termux-file-editor  # Android Share: receive + convert files (PDF, DOCX, ODT, RTF)
 ├── locales/
 │   ├── en.json             # English
 │   ├── es.json             # Spanish
@@ -196,19 +209,18 @@ alma/
 │   ├── seed.sql            # Database schema
 │   ├── run-seed.mjs        # Schema runner
 │   ├── seed-demo.sql       # Demo data (fictional)
+│   ├── seed-demo-i18n.sql  # Demo data (i18n version)
 │   ├── run-seed-demo.mjs   # Demo seeder
 │   ├── import-json.mjs     # Bulk JSON import with deduplication
 │   └── backup.mjs          # Database backup to JSON
-├── legacy.html             # Inheritance access (passphrase unlock)
-├── tools/
-│   ├── alma-send           # Termux: send text/files to ALMA
-│   ├── alma-quick          # Termux: 1-tap voice capture widget
-│   ├── alma-record         # Termux: record audio + transcribe + send
-│   ├── alma-voice          # Termux: speak-to-text + send
-│   ├── termux-url-opener   # Android Share: receive text from any app
-│   └── termux-file-receiver # Android Share: receive files (PDF, DOCX, audio)
+├── tests/
+│   ├── auth.test.mjs       # Authentication tests
+│   └── deep-test.mjs       # 38-point end-to-end validation
 ├── docs/
-│   └── banner.svg          # README banner
+│   ├── banner.svg          # README banner
+│   ├── CONTRIBUTING.md     # Contribution guidelines
+│   ├── DEMO_SETUP.md       # Demo environment setup
+│   └── screenshots/        # UI screenshots
 ├── netlify.toml            # Netlify config (redirects, headers, security)
 └── package.json
 ```
@@ -346,6 +358,11 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
 - [x] Mobile capture via Termux (1-tap voice → database)
 - [x] Ingest API for scripts and automation (`/api/ingest`)
 - [x] Security hardening (CSP, HSTS, XSS fixes, auth bypass fix)
+- [x] Legacy Mode — inheritance access with personal passphrases
+- [x] Android Share Intent — share files (PDF, DOCX, TXT) from any app to ALMA
+- [x] Visual chunk reviewer (`revisor.html`)
+- [x] Setup wizard for first-time configuration
+- [x] End-to-end test suite (38-point deep validation)
 - [ ] Photo/media support in chat responses
 - [ ] Cloud storage sync (OneDrive, Google Drive)
 - [ ] Audio transcription pipeline (Whisper)
