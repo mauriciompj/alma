@@ -37,6 +37,7 @@ npm-debug.log*
 # Sensitive files
 SENHAS_USUARIOS.txt
 _DADOS_APIS_ENV.txt
+tools/MANUAL_TERMUX.md
 **/SENHAS*
 **/KEYS*
 **/SECRET*
