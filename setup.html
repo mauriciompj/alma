@@ -95,7 +95,14 @@
 
   </div>
 
+  <script src="js/i18n.js"></script>
   <script>
+    // i18n helper
+    function st(key, fallback) {
+      if (typeof t === 'function') { var v = t(key); return (v && !v.startsWith('setup.')) ? v : fallback; }
+      return fallback;
+    }
+
     // --- Auth guard: admin only ---
     (function() {
       var token = localStorage.getItem('alma_token');
@@ -239,6 +246,30 @@
         status.textContent = 'Error: ' + e.message;
       });
     }
+
+    // i18n: translate static elements
+    (function() {
+      var map = {
+        'step1 .setup-title': 'step1Title',
+        'step1 .setup-subtitle': 'step1Subtitle',
+        'step2 .setup-title': 'step2Title',
+        'step2 .setup-subtitle': 'step2Subtitle',
+        'step3 .setup-title': 'step3Title',
+        'step3 .setup-subtitle': 'step3Subtitle'
+      };
+      for (var sel in map) {
+        var el = document.querySelector('#' + sel.replace(' ', ' #') || '#' + sel);
+        if (!el) { el = document.querySelector('#' + sel.split(' ')[0] + ' ' + sel.split(' ')[1]); }
+        if (el) { var v = st('setup.' + map[sel], ''); if (v) el.textContent = v; }
+      }
+      // Translate labels
+      var labels = document.querySelectorAll('.setup-label');
+      var labelKeys = ['nameLabel', 'bioLabel', 'valuesLabel'];
+      for (var i = 0; i < Math.min(labels.length, labelKeys.length); i++) {
+        var v = st('setup.' + labelKeys[i], '');
+        if (v) labels[i].textContent = v;
+      }
+    })();
 
     // Init
     renderPeople();

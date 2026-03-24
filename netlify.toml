@@ -62,3 +62,9 @@
   for = "/css/*"
   [headers.values]
     Cache-Control = "public, max-age=300"
+
+# Catch-all: redirect unknown routes to login (must be LAST redirect)
+[[redirects]]
+  from = "/*"
+  to = "/login.html"
+  status = 302

@@ -104,6 +104,7 @@
   </div>
 </div>
 
+<script src="js/i18n.js"></script>
 <script>
 (function() {
   'use strict';
@@ -112,6 +113,15 @@
     var d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
+  }
+
+  // i18n helper with fallback
+  function rt(key, fallback) {
+    if (typeof t === 'function') {
+      var val = t(key);
+      return (val && !val.startsWith('revisor.')) ? val : fallback;
+    }
+    return fallback;
   }
 
   var token = localStorage.getItem('alma_token');
@@ -159,7 +169,7 @@
     if (q) url += '&q=' + encodeURIComponent(q);
     if (cat) url += '&category=' + encodeURIComponent(cat);
 
-    document.getElementById('chunkList').innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">Carregando...</div>';
+    document.getElementById('chunkList').innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">' + rt('revisor.loading', 'Carregando...') + '</div>';
 
     fetch(url, { headers: authHeaders() }).then(function(r) { return r.json(); }).then(function(data) {
       var chunks = data.chunks || [];
@@ -183,14 +193,14 @@
       renderChunks(chunks);
       renderPagination(data.total || 0, data.totalPages || 1);
     }).catch(function() {
-      document.getElementById('chunkList').innerHTML = '<div style="text-align:center;color:#D94A4A;padding:40px;">Erro ao carregar</div>';
+      document.getElementById('chunkList').innerHTML = '<div style="text-align:center;color:#D94A4A;padding:40px;">' + rt('revisor.error', 'Erro ao carregar') + '</div>';
     });
   }
 
   function renderChunks(chunks) {
     var el = document.getElementById('chunkList');
     if (chunks.length === 0) {
-      el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">Nenhum chunk encontrado</div>';
+      el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">' + rt('revisor.empty', 'Nenhum chunk encontrado') + '</div>';
       return;
     }
 
@@ -212,8 +222,8 @@
         '</div>' +
         '<div class="chunk-content" onclick="this.classList.toggle(\'expanded\')">' + content + '</div>' +
         '<div class="chunk-actions">' +
-          '<button class="btn-edit" onclick="openEdit(' + safeId + ')">Editar</button>' +
-          '<button class="btn-delete" onclick="quickDelete(' + safeId + ')">Deletar</button>' +
+          '<button class="btn-edit" onclick="openEdit(' + safeId + ')">' + rt('revisor.edit', 'Editar') + '</button>' +
+          '<button class="btn-delete" onclick="quickDelete(' + safeId + ')">' + rt('revisor.delete', 'Deletar') + '</button>' +
         '</div>' +
       '</div>';
     }).join('');
