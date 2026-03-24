@@ -59,27 +59,29 @@ export default async function handler(req) {
   const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
   if (!dbUrl) return json({ error: 'Service unavailable' }, 503);
 
-  // Rate limit
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-  if (!checkRate(ip)) {
-    return json({ unlocked: false }, 200); // Silent — no indication of rate limit
-  }
 
   try {
     const sql = neon(dbUrl);
     const body = await req.json();
 
-    // --- Heartbeat: dead man's switch check-in ---
-    if (body.action === 'heartbeat') {
-      // Requires admin auth
+    // --- Admin helper ---
+    async function requireAdmin() {
       const authHeader = req.headers.get('authorization') || '';
       const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-      if (!token) return json({ error: 'Auth required' }, 401);
-
+      if (!token) return null;
       const sess = await sql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
-      if (sess.length === 0) return json({ error: 'Invalid session' }, 401);
+      if (sess.length === 0) return null;
       const session = JSON.parse(sess[0].value);
-      if (!session.admin) return json({ error: 'Admin only' }, 403);
+      if (!session.admin) return null;
+      if (new Date(session.expiresAt) < new Date()) return null;
+      return session;
+    }
+
+    // --- Heartbeat: dead man's switch check-in ---
+    if (body.action === 'heartbeat') {
+      const session = await requireAdmin();
+      if (!session) return json({ error: 'Admin auth required' }, 401);
 
       await sql`
         INSERT INTO alma_config (key, value, updated_at)
@@ -115,6 +117,87 @@ export default async function handler(req) {
         intervalDays: interval,
         overdue: days > interval,
       });
+    }
+
+    // --- Admin: list all legacy entries (without hashes) ---
+    if (body.action === 'list_heirs') {
+      const session = await requireAdmin();
+      if (!session) return json({ error: 'Admin auth required' }, 401);
+
+      const rows = await sql`
+        SELECT id, person, access_level, personal_message, technical_notes, email,
+               passphrase_hash IS NOT NULL as has_passphrase, unlocked_at, created_at
+        FROM alma_legacy ORDER BY id
+      `;
+      return json({ heirs: rows });
+    }
+
+    // --- Admin: add/update heir ---
+    if (body.action === 'save_heir') {
+      const session = await requireAdmin();
+      if (!session) return json({ error: 'Admin auth required' }, 401);
+
+      const { id, person, access_level, personal_message, technical_notes, email, passphrase } = body;
+      if (!person) return json({ error: 'Missing person' }, 400);
+
+      if (id) {
+        // Update existing
+        await sql`UPDATE alma_legacy SET person = ${person}, access_level = ${access_level || 'legacy_read'},
+          personal_message = ${personal_message || ''}, technical_notes = ${technical_notes || ''},
+          email = ${email || null}, updated_at = NOW() WHERE id = ${id}`;
+
+        // Update passphrase only if provided (non-empty)
+        if (passphrase && passphrase.trim()) {
+          const bcryptHash = await bcrypt.hash(passphrase.trim(), 12);
+          await sql`UPDATE alma_legacy SET passphrase_hash = ${bcryptHash}, updated_at = NOW() WHERE id = ${id}`;
+        }
+        return json({ success: true, id });
+      } else {
+        // Insert new
+        let passphraseHash = null;
+        if (passphrase && passphrase.trim()) {
+          passphraseHash = await bcrypt.hash(passphrase.trim(), 12);
+        }
+        const result = await sql`
+          INSERT INTO alma_legacy (person, access_level, personal_message, technical_notes, email, passphrase_hash)
+          VALUES (${person}, ${access_level || 'legacy_read'}, ${personal_message || ''}, ${technical_notes || ''}, ${email || null}, ${passphraseHash})
+          RETURNING id
+        `;
+        return json({ success: true, id: result[0].id });
+      }
+    }
+
+    // --- Admin: delete heir ---
+    if (body.action === 'delete_heir') {
+      const session = await requireAdmin();
+      if (!session) return json({ error: 'Admin auth required' }, 401);
+      if (!body.id) return json({ error: 'Missing id' }, 400);
+      await sql`DELETE FROM alma_legacy WHERE id = ${body.id}`;
+      return json({ success: true });
+    }
+
+    // --- Activation status: is the system in legacy mode? ---
+    if (body.action === 'activation_status') {
+      const lastRow = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_last' LIMIT 1`;
+      if (lastRow.length === 0) return json({ activated: false, reason: 'no_heartbeat' });
+
+      const last = new Date(lastRow[0].value);
+      const days = Math.floor((Date.now() - last.getTime()) / 86400000);
+      const intervalRow = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_interval_days' LIMIT 1`;
+      const interval = intervalRow.length > 0 ? parseInt(intervalRow[0].value) : 30;
+      const activationThreshold = interval * 3; // 3x interval = activated
+
+      return json({
+        activated: days >= activationThreshold,
+        daysSince: days,
+        threshold: activationThreshold,
+        intervalDays: interval,
+      });
+    }
+
+    // --- Passphrase unlock (rate limited) ---
+    if (!checkRate(ip)) {
+      return json({ unlocked: false }, 200);
     }
 
     const passphrase = String(body.passphrase || '').trim();

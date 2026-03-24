@@ -95,55 +95,67 @@ export default async function handler() {
 
     console.log(`[Heartbeat] ALERT: ${severity} — ${daysSince} days since last check-in`);
 
+    // --- Activate legacy mode if critical (3x interval) ---
+    const activationThreshold = interval * 3;
+    if (daysSince >= activationThreshold) {
+      await sql`
+        INSERT INTO alma_config (key, value, updated_at)
+        VALUES ('legacy_mode_active', ${JSON.stringify({
+          activated: true,
+          activatedAt: new Date().toISOString(),
+          daysSince,
+        })}, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+      `;
+      console.log(`[Heartbeat] LEGACY MODE ACTIVATED — ${daysSince} days`);
+    }
+
     // --- Send email if Resend API key is configured ---
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
-      // Get heir emails
+      // Get heir emails from alma_legacy table
       let emails = [];
 
       if (severity === 'critical') {
-        // Get all heir emails
-        const emailConfig = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_notify_emails' LIMIT 1`;
-        if (emailConfig.length > 0) {
-          emails = emailConfig[0].value.split(',').map(e => e.trim());
-        }
+        const heirs = await sql`SELECT person, email FROM alma_legacy WHERE email IS NOT NULL AND email != ''`;
+        emails = heirs.map(h => ({ email: h.email, person: h.person }));
       } else {
-        // Get primary heir (legacy_admin) email only
-        const emailConfig = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_notify_primary' LIMIT 1`;
-        if (emailConfig.length > 0) {
-          emails = [emailConfig[0].value.trim()];
-        }
+        // Warning: only primary heir (legacy_admin)
+        const primary = await sql`SELECT person, email FROM alma_legacy WHERE access_level = 'legacy_admin' AND email IS NOT NULL LIMIT 1`;
+        if (primary.length > 0) emails = [{ email: primary[0].email, person: primary[0].person }];
       }
 
       // Fallback to env var
       if (emails.length === 0 && process.env.HEARTBEAT_NOTIFY_EMAILS) {
-        emails = process.env.HEARTBEAT_NOTIFY_EMAILS.split(',').map(e => e.trim());
+        emails = process.env.HEARTBEAT_NOTIFY_EMAILS.split(',').map(e => ({ email: e.trim(), person: 'Herdeiro' }));
       }
 
       if (emails.length > 0) {
-        const subject = severity === 'critical'
-          ? `ALMA — URGENTE: ${daysSince} dias sem check-in`
-          : `ALMA — Aviso: ${daysSince} dias sem check-in`;
+        const siteUrl = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
 
-        const body = severity === 'critical'
-          ? `O autor do ALMA nao faz check-in ha ${daysSince} dias.\n\nIsso pode significar que algo aconteceu.\n\nAcesse ${process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app'}/legacy para verificar.\n\nSe voce recebeu uma frase-chave do autor, pode ser a hora de usa-la.`
-          : `O autor do ALMA nao faz check-in ha ${daysSince} dias (intervalo configurado: ${interval} dias).\n\nIsso pode ser apenas esquecimento, mas vale verificar.\n\nSe necessario, entre em contato com o autor diretamente.`;
+        for (const heir of emails) {
+          const subject = severity === 'critical'
+            ? `ALMA — ${heir.person}, chegou a hora`
+            : `ALMA — Aviso para ${heir.person}`;
 
-        for (const email of emails) {
+          const body = severity === 'critical'
+            ? `${heir.person},\n\nO autor do ALMA nao faz check-in ha ${daysSince} dias.\n\nIsso pode significar que algo aconteceu.\n\nSe voce recebeu uma frase-chave pessoal, acesse:\n${siteUrl}/legacy\n\nDigite a frase que ele te deixou.\n\nCom amor — ALMA`
+            : `${heir.person},\n\nO autor do ALMA nao faz check-in ha ${daysSince} dias (intervalo normal: ${interval} dias).\n\nIsso pode ser apenas esquecimento. Tente entrar em contato diretamente.\n\nSe necessario, voce sabe onde encontra-lo: ${siteUrl}/legacy\n\n— ALMA`;
+
           try {
             await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendKey}` },
               body: JSON.stringify({
                 from: 'ALMA <noreply@resend.dev>',
-                to: email,
+                to: heir.email,
                 subject,
                 text: body,
               }),
             });
-            console.log(`[Heartbeat] Email sent to ${email}`);
+            console.log(`[Heartbeat] Email sent to ${heir.person} (${heir.email})`);
           } catch (e) {
-            console.error(`[Heartbeat] Failed to email ${email}:`, e.message);
+            console.error(`[Heartbeat] Failed to email ${heir.person}:`, e.message);
           }
         }
       } else {
