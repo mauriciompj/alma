@@ -143,7 +143,7 @@
   <div class="legacy-container">
     <!-- Phase 1: Input -->
     <div id="inputPhase">
-      <p class="legacy-prompt">
+      <p class="legacy-prompt" id="legacyPrompt">
         Se voce esta aqui, e porque chegou a hora.<br>
         Digite a frase que o Mauricio te deixou.
       </p>
@@ -161,9 +161,28 @@
     </div>
   </div>
 
+  <script src="js/i18n.js"></script>
   <script>
     var token = null;
     var isAdmin = false;
+
+    // i18n: update hardcoded strings
+    if (typeof t === 'function') {
+      var promptEl = document.getElementById('legacyPrompt');
+      var promptText = t('legacy.prompt', { authorName: t('labels.authorName') });
+      if (promptText && !promptText.startsWith('legacy.')) {
+        promptEl.innerHTML = promptText.replace(/\n/g, '<br>');
+      }
+      var sigEl = document.getElementById('legacySignature');
+      var sigText = t('legacy.signature');
+      if (sigText && !sigText.startsWith('legacy.')) sigEl.textContent = sigText;
+      var techTitleEl = document.getElementById('techTitle');
+      var techText = t('legacy.techTitle');
+      if (techText && !techText.startsWith('legacy.')) techTitleEl.textContent = techText;
+      var enterBtn = document.getElementById('enterBtn');
+      var enterText = t('legacy.enterButton');
+      if (enterText && !enterText.startsWith('legacy.')) enterBtn.textContent = enterText;
+    }
 
     var input = document.getElementById('passphraseInput');
     input.addEventListener('keydown', function(e) {

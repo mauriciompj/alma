@@ -156,7 +156,7 @@
         if (input) uploadPhoto(input);
 
         // Load existing photo
-        fetch('/.netlify/functions/memories?action=get_config&key=photo_' + name)
+        fetch('/.netlify/functions/memories?action=get_config&key=photo_' + name, { headers: authHeaders() })
           .then(function(r) { return r.json(); })
           .then(function(data) { if (data.value) setPhotoPreview(name, data.value); })
           .catch(function() {});
@@ -178,7 +178,7 @@
         .catch(function() {});
 
       // --- Load ALMA admin photo ---
-      fetch('/.netlify/functions/memories?action=get_config&key=photo_alma')
+      fetch('/.netlify/functions/memories?action=get_config&key=photo_alma', { headers: authHeaders() })
         .then(function(r) { return r.json(); })
         .then(function(data) { if (data.value) setPhotoPreview('Alma', data.value); })
         .catch(function() {});

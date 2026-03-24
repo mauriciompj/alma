@@ -95,5 +95,24 @@
   "labels": {
     "father": "Pai",
     "authorName": "Maurício"
+  },
+  "legacy": {
+    "prompt": "Se você está aqui, é porque chegou a hora.\nDigite a frase que o {authorName} te deixou.",
+    "signature": "Com amor — e com propósito — Pai",
+    "techTitle": "Instruções técnicas",
+    "enterButton": "Acessar o ALMA",
+    "forPerson": "Para {name}"
+  },
+  "revisor": {
+    "loading": "Carregando...",
+    "error": "Erro ao carregar",
+    "empty": "Nenhum chunk encontrado",
+    "edit": "Editar",
+    "delete": "Deletar",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "confirmDelete": "Deletar chunk #{id}?",
+    "saved": "Salvo!",
+    "deleted": "Deletado!"
   }
 }

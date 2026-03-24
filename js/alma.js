@@ -203,7 +203,7 @@
     // Suggestion button events already bound above in centralized suggestion block
 
     // Load person photo
-    fetch('/.netlify/functions/memories?action=get_config&key=photo_' + personName)
+    fetch('/.netlify/functions/memories?action=get_config&key=photo_' + personName, { headers: authHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.value) {
@@ -219,7 +219,7 @@
       .catch(function() {});
 
     // Load ALMA photo (for ALMA message avatars)
-    fetch('/.netlify/functions/memories?action=get_config&key=photo_alma')
+    fetch('/.netlify/functions/memories?action=get_config&key=photo_alma', { headers: authHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.value) {
@@ -1121,7 +1121,7 @@
   var _saveHistoryTimer = null;
 
   function loadHistoryFromDB(person) {
-    return fetch('/.netlify/functions/memories?action=get_history&person=' + encodeURIComponent(person))
+    return fetch('/.netlify/functions/memories?action=get_history&person=' + encodeURIComponent(person), { headers: authHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) { return data.history || []; });
   }

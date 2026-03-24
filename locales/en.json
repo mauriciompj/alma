@@ -95,5 +95,24 @@
   "labels": {
     "father": "Dad",
     "authorName": "Maurício"
+  },
+  "legacy": {
+    "prompt": "If you're here, it's because the time has come.\nType the phrase that {authorName} left for you.",
+    "signature": "With love — and with purpose — Dad",
+    "techTitle": "Technical instructions",
+    "enterButton": "Enter ALMA",
+    "forPerson": "For {name}"
+  },
+  "revisor": {
+    "loading": "Loading...",
+    "error": "Failed to load",
+    "empty": "No chunks found",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirmDelete": "Delete chunk #{id}?",
+    "saved": "Saved!",
+    "deleted": "Deleted!"
   }
 }
