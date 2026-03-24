@@ -1,0 +1,99 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ============================================================================
+# alma-voice — Fala direto pro ALMA (sem gravar arquivo)
+# ============================================================================
+#
+# USO:
+#   alma-voice                        # fala, transcreve, envia
+#   alma-voice -t "Reflexao noturna"  # com titulo
+#   alma-voice -c fe                  # com categoria
+#
+# Mais rapido que alma-record: abre o microfone do Android direto,
+# transcreve em tempo real, e manda pro banco.
+#
+# ============================================================================
+
+set -e
+
+ENV_FILE="$HOME/.alma-env"
+if [ -f "$ENV_FILE" ]; then source "$ENV_FILE"; fi
+
+ALMA_URL="${ALMA_URL:-https://projeto-alma.netlify.app}"
+ALMA_USER="${ALMA_USER:-}"
+ALMA_PASS="${ALMA_PASS:-}"
+
+TITLE=""
+CATEGORY="memorias_pessoais"
+TAGS=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -t) TITLE="$2"; shift 2 ;;
+    -c) CATEGORY="$2"; shift 2 ;;
+    -g) TAGS="$2"; shift 2 ;;
+    -h) echo "alma-voice [-t titulo] [-c categoria] [-g tags]"; exit 0 ;;
+    *) shift ;;
+  esac
+done
+
+if [ -z "$ALMA_USER" ] || [ -z "$ALMA_PASS" ]; then
+  echo "Configure ~/.alma-env primeiro" >&2; exit 1
+fi
+
+echo ""
+echo "=== ALMA Voice ==="
+echo "Fale agora... (o Android vai transcrever)"
+echo ""
+
+# Transcrever direto via Android speech engine
+TEXT=$(termux-speech-to-text 2>/dev/null || echo "")
+
+if [ -z "$TEXT" ]; then
+  echo "Nada capturado. Tente de novo ou use alma-send pra colar texto." >&2
+  exit 1
+fi
+
+echo "Voce disse:"
+echo "---"
+echo "$TEXT"
+echo "---"
+echo ""
+
+read -p "Enviar? [S/n] " OK
+OK=${OK:-S}
+[[ ! "$OK" =~ ^[SsYy]$ ]] && echo "Cancelado." && exit 0
+
+# Login
+TOKEN=$(curl -s -X POST "$ALMA_URL/api/auth" \
+  -H "Content-Type: application/json" \
+  -d "{\"action\":\"login\",\"username\":\"$ALMA_USER\",\"password\":\"$ALMA_PASS\"}" | jq -r '.token // empty')
+
+[ -z "$TOKEN" ] && echo "Login falhou" >&2 && exit 1
+
+# Auto title
+if [ -z "$TITLE" ]; then
+  TITLE="Voz $(date +%Y-%m-%d\ %H:%M) — $(echo "$TEXT" | head -c 50)..."
+fi
+
+# Tags
+TAGS_JSON="[\"termux_voice\", \"voz\"]"
+if [ -n "$TAGS" ]; then
+  EXTRA=$(echo "$TAGS" | tr ',' '\n' | jq -R . | jq -s .)
+  TAGS_JSON=$(echo "[$EXTRA, [\"termux_voice\", \"voz\"]]" | jq -s 'flatten')
+fi
+
+# Enviar
+CONTENT_JSON=$(echo "$TEXT" | jq -Rs .)
+TITLE_JSON=$(echo "$TITLE" | jq -Rs .)
+
+RESP=$(curl -s -X POST "$ALMA_URL/api/ingest" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d "{\"content\":$CONTENT_JSON,\"title\":$TITLE_JSON,\"category\":\"$CATEGORY\",\"tags\":$TAGS_JSON,\"source\":\"termux_voice\"}")
+
+if [ "$(echo "$RESP" | jq -r '.success')" = "true" ]; then
+  echo ""
+  echo "ALMA — Salvo! ($(echo "$RESP" | jq -r '.chunks_created') chunks, ${#TEXT} chars)"
+else
+  echo "ERRO: $(echo "$RESP" | jq -r '.error')" >&2
+fi
