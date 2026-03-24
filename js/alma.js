@@ -1117,16 +1117,20 @@
   }
 
   // --- Persistent History (Database) ---
+  // Demo mode: don't persist history (each session starts clean)
+  var isDemo = location.hostname.includes('demo');
 
   var _saveHistoryTimer = null;
 
   function loadHistoryFromDB(person) {
+    if (isDemo) return Promise.resolve([]);
     return fetch('/.netlify/functions/memories?action=get_history&person=' + encodeURIComponent(person), { headers: authHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) { return data.history || []; });
   }
 
   function saveHistoryToDB(person, messages) {
+    if (isDemo) return;
     // Debounce: wait 2 seconds after last message before saving to DB
     if (_saveHistoryTimer) clearTimeout(_saveHistoryTimer);
     _saveHistoryTimer = setTimeout(function() {
