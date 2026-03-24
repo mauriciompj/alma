@@ -68,6 +68,55 @@ export default async function handler(req) {
   try {
     const sql = neon(dbUrl);
     const body = await req.json();
+
+    // --- Heartbeat: dead man's switch check-in ---
+    if (body.action === 'heartbeat') {
+      // Requires admin auth
+      const authHeader = req.headers.get('authorization') || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      if (!token) return json({ error: 'Auth required' }, 401);
+
+      const sess = await sql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
+      if (sess.length === 0) return json({ error: 'Invalid session' }, 401);
+      const session = JSON.parse(sess[0].value);
+      if (!session.admin) return json({ error: 'Admin only' }, 403);
+
+      await sql`
+        INSERT INTO alma_config (key, value, updated_at)
+        VALUES ('heartbeat_last', ${new Date().toISOString()}, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = ${new Date().toISOString()}, updated_at = NOW()
+      `;
+      // Also store count
+      const countRow = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_count' LIMIT 1`;
+      const count = countRow.length > 0 ? parseInt(countRow[0].value) + 1 : 1;
+      await sql`
+        INSERT INTO alma_config (key, value, updated_at)
+        VALUES ('heartbeat_count', ${String(count)}, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = ${String(count)}, updated_at = NOW()
+      `;
+
+      return json({ success: true, count, timestamp: new Date().toISOString() });
+    }
+
+    // --- Status: check heartbeat without auth (for heirs to verify) ---
+    if (body.action === 'heartbeat_status') {
+      const row = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_last' LIMIT 1`;
+      if (row.length === 0) return json({ alive: false, lastCheckin: null, daysSince: null });
+
+      const last = new Date(row[0].value);
+      const days = Math.floor((Date.now() - last.getTime()) / 86400000);
+      const intervalRow = await sql`SELECT value FROM alma_config WHERE key = 'heartbeat_interval_days' LIMIT 1`;
+      const interval = intervalRow.length > 0 ? parseInt(intervalRow[0].value) : 30;
+
+      return json({
+        alive: days <= interval,
+        lastCheckin: row[0].value,
+        daysSince: days,
+        intervalDays: interval,
+        overdue: days > interval,
+      });
+    }
+
     const passphrase = String(body.passphrase || '').trim();
 
     if (!passphrase) {

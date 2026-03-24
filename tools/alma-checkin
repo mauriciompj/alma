@@ -1,0 +1,71 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ============================================================================
+# alma-checkin — Dead Man's Switch heartbeat
+# ============================================================================
+# Confirma que voce esta vivo. Rode periodicamente (1x por mes).
+# Se parar de fazer check-in, o sistema sabe que algo aconteceu.
+#
+# USO:
+#   alma-checkin              # faz check-in
+#   alma-checkin --status     # mostra status do ultimo check-in
+#
+# SETUP:
+#   Adicione ao cron do Termux ou rode manualmente:
+#   cp alma-checkin $PREFIX/bin/ && chmod +x $PREFIX/bin/alma-checkin
+#
+# ============================================================================
+
+source "$(dirname "$0")/alma-lib.sh" 2>/dev/null || source "$PREFIX/bin/alma-lib.sh" 2>/dev/null || source "$HOME/bin/alma-lib.sh" 2>/dev/null || {
+  echo "ERRO: alma-lib.sh nao encontrado" >&2; exit 1
+}
+
+alma_load_config
+alma_check_creds || exit 1
+
+# Login
+TOKEN=$(alma_login)
+if [ -z "$TOKEN" ]; then
+  alma_toast "ALMA: Check-in falhou (login)"
+  exit 1
+fi
+
+if [ "$1" = "--status" ]; then
+  RESP=$(curl -s --max-time 10 -X POST "$ALMA_URL/api/legacy" \
+    -H "Content-Type: application/json" \
+    -d '{"action":"heartbeat_status"}')
+
+  ALIVE=$(echo "$RESP" | jq -r '.alive')
+  DAYS=$(echo "$RESP" | jq -r '.daysSince')
+  LAST=$(echo "$RESP" | jq -r '.lastCheckin')
+  INTERVAL=$(echo "$RESP" | jq -r '.intervalDays')
+  OVERDUE=$(echo "$RESP" | jq -r '.overdue')
+
+  echo ""
+  echo "=== ALMA Dead Man's Switch ==="
+  echo "Ultimo check-in: $LAST"
+  echo "Dias desde: $DAYS"
+  echo "Intervalo: $INTERVAL dias"
+  echo "Status: $([ "$ALIVE" = "true" ] && echo "ATIVO" || echo "EXPIRADO")"
+  [ "$OVERDUE" = "true" ] && echo "ATENCAO: Check-in atrasado!"
+  echo ""
+  exit 0
+fi
+
+# Heartbeat
+RESP=$(curl -s --max-time 10 -X POST "$ALMA_URL/api/legacy" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"action":"heartbeat"}')
+
+SUCCESS=$(echo "$RESP" | jq -r '.success // empty')
+if [ "$SUCCESS" = "true" ]; then
+  COUNT=$(echo "$RESP" | jq -r '.count')
+  alma_vibrate 200
+  alma_toast "ALMA: Check-in #$COUNT registrado"
+  echo "ALMA — Check-in OK (#$COUNT)"
+else
+  ERROR=$(echo "$RESP" | jq -r '.error // "erro"')
+  alma_toast "ALMA: Check-in falhou — $ERROR"
+  echo "ERRO: $ERROR" >&2
+  exit 1
+fi

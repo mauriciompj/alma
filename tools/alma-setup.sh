@@ -34,7 +34,7 @@ pkg install -y -q pandoc poppler 2>/dev/null || echo "  (pandoc/poppler nao disp
 # 4. Baixar todos os scripts
 echo "[4/7] Baixando scripts do GitHub..."
 BASE="https://raw.githubusercontent.com/mauriciompj/alma/main/tools"
-SCRIPTS="alma-lib.sh alma-send alma-quick alma-record alma-voice termux-url-opener termux-file-editor"
+SCRIPTS="alma-lib.sh alma-send alma-quick alma-record alma-voice alma-checkin termux-url-opener termux-file-editor"
 FAIL=0
 for f in $SCRIPTS; do
   curl -sL "$BASE/$f" -o ~/bin/$f

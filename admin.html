@@ -270,10 +270,25 @@
       });
     });
 
-    // --- Load stats ---
+    // --- Load stats + heartbeat ---
     fetch(API + '?action=stats').then(r => r.json()).then(function(data) {
-      document.getElementById('adminStats').textContent =
-        data.chunks + ' memorias · ' + data.corrections + ' correcoes';
+      var statsText = data.chunks + ' memorias · ' + data.corrections + ' correcoes';
+      // Check dead man's switch
+      fetch('/api/legacy', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'heartbeat_status' })
+      }).then(r => r.json()).then(function(hb) {
+        if (hb.lastCheckin) {
+          var days = hb.daysSince;
+          var icon = hb.overdue ? ' · ⚠️ CHECK-IN ' + days + 'd' : ' · ♥ ' + days + 'd';
+          statsText += icon;
+        } else {
+          statsText += ' · ⚠️ SEM CHECK-IN';
+        }
+        document.getElementById('adminStats').textContent = statsText;
+      }).catch(function() {
+        document.getElementById('adminStats').textContent = statsText;
+      });
     });
 
     // --- Load categories ---
