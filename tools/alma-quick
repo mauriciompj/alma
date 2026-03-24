@@ -3,121 +3,74 @@
 # alma-quick — Captura de voz rapida e silenciosa para o ALMA
 # ============================================================================
 # Versao automatica (sem confirmacao) para uso via:
-#   - Google Assistant + Tasker
 #   - Termux:Widget (1 toque na home screen)
 #   - Atalho rapido
 #
-# Fluxo: abre microfone → transcreve → envia → notifica → fim
-# Nenhuma interacao manual necessaria apos o disparo.
+# Fluxo: abre dialog → mic do teclado → transcreve → envia → notifica → fim
 #
 # SETUP:
 #   pkg install jq curl termux-api
 #   cp alma-quick $PREFIX/bin/ && chmod +x $PREFIX/bin/alma-quick
-#   # Tambem precisa de ~/.alma-env configurado (ver alma-send)
+#   cp alma-lib.sh $PREFIX/bin/ && chmod +x $PREFIX/bin/alma-lib.sh
 #
 #   # Para Termux:Widget (1 toque):
 #   mkdir -p ~/.shortcuts
 #   ln -s $PREFIX/bin/alma-quick ~/.shortcuts/ALMA
 #
-#   # Para Tasker (voz):
-#   mkdir -p ~/.termux/tasker
-#   ln -s $PREFIX/bin/alma-quick ~/.termux/tasker/alma-quick
+# USO:
+#   alma-quick                    # categoria padrao (memorias_pessoais)
+#   alma-quick fe                 # categoria especifica
+#   alma-quick valores "titulo"   # categoria + titulo
 #
 # ============================================================================
 
 set -e
 
-# Config
-ENV_FILE="$HOME/.alma-env"
-if [ -f "$ENV_FILE" ]; then source "$ENV_FILE"; fi
+# Load shared library
+source "$(dirname "$0")/alma-lib.sh" 2>/dev/null || source "$PREFIX/bin/alma-lib.sh" 2>/dev/null || {
+  echo "ERRO: alma-lib.sh nao encontrado" >&2; exit 1
+}
 
-ALMA_URL="${ALMA_URL:-https://projeto-alma.netlify.app}"
-ALMA_USER="${ALMA_USER:-}"
-ALMA_PASS="${ALMA_PASS:-}"
+alma_load_config
+alma_check_creds || exit 1
 
-# Categoria padrao (pode mudar via argumento)
 CATEGORY="${1:-memorias_pessoais}"
+CUSTOM_TITLE="${2:-}"
 
-# Validar
-if [ -z "$ALMA_USER" ] || [ -z "$ALMA_PASS" ]; then
-  termux-toast -g bottom "ALMA: Configure ~/.alma-env"
-  exit 1
-fi
+# Notificar que esta ouvindo
+alma_toast "ALMA ouvindo..." middle
+alma_vibrate 200
 
-# ============================================================
-# PASSO 1: Notificar que esta ouvindo
-# ============================================================
-termux-toast -g middle "ALMA ouvindo..."
-termux-vibrate -d 200
-
-# ============================================================
-# PASSO 2: Capturar via dialog nativo do Android
-# Abre um input onde voce pode usar o mic do teclado (PT-BR)
-# ou digitar texto direto
-# ============================================================
+# Capturar via dialog nativo do Android
 DIALOG_RESULT=$(termux-dialog text -t "ALMA — Fale ou digite" -i "Toque no mic do teclado e fale" 2>/dev/null || echo "{}")
 TEXT=$(echo "$DIALOG_RESULT" | jq -r '.text // empty')
 
 if [ -z "$TEXT" ]; then
-  termux-toast -g bottom "ALMA: Nada capturado"
-  termux-vibrate -d 100
+  alma_toast "ALMA: Nada capturado"
+  alma_vibrate 100
   exit 0
 fi
 
 CHAR_COUNT=${#TEXT}
-termux-toast -g middle "ALMA: ${CHAR_COUNT} chars capturados. Enviando..."
+alma_toast "ALMA: ${CHAR_COUNT} chars. Enviando..." middle
 
-# ============================================================
-# PASSO 3: Login
-# ============================================================
-TOKEN=$(curl -s --max-time 10 -X POST "$ALMA_URL/api/auth" \
-  -H "Content-Type: application/json" \
-  -d "{\"action\":\"login\",\"username\":\"$ALMA_USER\",\"password\":\"$ALMA_PASS\"}" \
-  | jq -r '.token // empty')
-
-if [ -z "$TOKEN" ]; then
-  termux-toast -g bottom "ALMA: Login falhou"
-  termux-vibrate -d 300
-  exit 1
+# Gerar titulo
+if [ -n "$CUSTOM_TITLE" ]; then
+  TITLE="$CUSTOM_TITLE"
+else
+  TITLE=$(alma_auto_title "$TEXT" "Voz")
 fi
 
-# ============================================================
-# PASSO 4: Enviar
-# ============================================================
-DATE_STR=$(date +"%Y-%m-%d %H:%M")
-PREVIEW=$(echo "$TEXT" | head -c 50 | tr '\n' ' ')
-TITLE="Voz $DATE_STR — $PREVIEW..."
+# Enviar via alma-lib
+RESP=$(alma_ingest "$TEXT" "$TITLE" "$CATEGORY" '["termux_voice","voz","quick"]' "termux_quick")
 
-CONTENT_JSON=$(echo "$TEXT" | jq -Rs .)
-TITLE_JSON=$(echo "$TITLE" | jq -Rs .)
-
-RESP=$(curl -s --max-time 15 -X POST "$ALMA_URL/api/ingest" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d "{
-    \"content\": $CONTENT_JSON,
-    \"title\": $TITLE_JSON,
-    \"category\": \"$CATEGORY\",
-    \"tags\": [\"termux_voice\", \"voz\", \"quick\"],
-    \"source\": \"termux_quick\"
-  }")
-
-SUCCESS=$(echo "$RESP" | jq -r '.success // empty')
-
-if [ "$SUCCESS" = "true" ]; then
+if [ $? -eq 0 ]; then
   CHUNKS=$(echo "$RESP" | jq -r '.chunks_created')
-  # Notificacao de sucesso
-  termux-vibrate -d 200
-  termux-toast -g bottom "ALMA salvo! ${CHAR_COUNT} chars (${CHUNKS} chunks)"
-
-  # Notificacao permanente (fica na barra)
-  termux-notification \
-    --id alma_capture \
-    --title "ALMA — Memoria salva" \
-    --content "$PREVIEW..." \
-    --group alma
+  alma_vibrate 200
+  alma_toast "ALMA salvo! ${CHAR_COUNT} chars (${CHUNKS} chunks)"
+  alma_notify "ALMA — Memoria salva" "$(echo "$TEXT" | head -c 50)..."  "alma_capture"
 else
-  ERROR=$(echo "$RESP" | jq -r '.error // "erro"')
-  termux-toast -g bottom "ALMA erro: $ERROR"
-  termux-vibrate -d 300
+  ERROR=$(echo "$RESP" | jq -r '.error // "erro"' 2>/dev/null)
+  alma_toast "ALMA erro: $ERROR"
+  alma_vibrate 300
 fi

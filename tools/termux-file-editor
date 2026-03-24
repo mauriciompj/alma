@@ -3,36 +3,106 @@
 # termux-file-editor — Android Share → Termux → ALMA
 # ============================================================================
 # When you share a file to Termux (Share → Termux → EDIT), this script
-# converts the file to plain text and sends it to ALMA via alma-send.
+# converts the file to plain text and sends it to ALMA.
 #
 # Supported formats:
-#   .txt, .md, .csv, .json  — sent directly
-#   .pdf                     — converted via pdftotext
-#   .docx, .doc, .odt, .rtf — converted via pandoc
+#   .txt .md .csv .json .log  — sent directly
+#   .pdf                       — converted via pdftotext (pkg install poppler)
+#   .docx .doc .odt .rtf      — converted via pandoc (pkg install pandoc)
+#   .m4a .ogg .opus .mp3 .wav — audio: prompts for manual transcription
+#   .jpg .jpeg .png .gif      — image: prompts for description
 #
 # INSTALL:
 #   cp termux-file-editor ~/bin/termux-file-editor
 #   chmod +x ~/bin/termux-file-editor
-#   pkg install pandoc poppler  # for docx/pdf support
+#   cp alma-lib.sh ~/bin/ && chmod +x ~/bin/alma-lib.sh
+#   pkg install pandoc poppler jq curl termux-api
 # ============================================================================
 
+set -e
+
+# Load shared library
+source "$(dirname "$0")/alma-lib.sh" 2>/dev/null || source "$PREFIX/bin/alma-lib.sh" 2>/dev/null || source "$HOME/bin/alma-lib.sh" 2>/dev/null || {
+  # Fallback: minimal inline config
+  ENV_FILE="$HOME/.alma-env"
+  [ -f "$ENV_FILE" ] && source "$ENV_FILE"
+  ALMA_URL="${ALMA_URL:-https://projeto-alma.netlify.app}"
+}
+
+alma_load_config 2>/dev/null
+alma_check_creds 2>/dev/null || {
+  termux-toast -g bottom "ALMA: Configure ~/.alma-env" 2>/dev/null
+  exit 1
+}
+
 FILE="$1"
-if [ -z "$FILE" ]; then exit 1; fi
-EXT="${FILE##*.}"
+if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
+  termux-toast -g bottom "ALMA: Arquivo nao encontrado" 2>/dev/null
+  exit 1
+fi
+
+FILENAME=$(basename "$FILE")
+EXT="${FILENAME##*.}"
 EXT=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+
+alma_toast "ALMA: Processando $FILENAME..." middle
+
+# ============================================================
+# Extract text based on format
+# ============================================================
+TEXT=""
+
 case "$EXT" in
-txt|md|csv|json) alma-send -f "$FILE" ;;
-pdf)
-  if ! command -v pdftotext &>/dev/null; then
-    termux-toast "pdftotext nao instalado. Rode: pkg install poppler"
+  txt|md|csv|json|log)
+    TEXT=$(cat "$FILE")
+    ;;
+  pdf)
+    if ! command -v pdftotext &>/dev/null; then
+      alma_toast "pdftotext nao instalado. Rode: pkg install poppler"
+      exit 1
+    fi
+    TEXT=$(pdftotext "$FILE" - 2>/dev/null)
+    ;;
+  docx|doc|odt|rtf)
+    if command -v pandoc &>/dev/null; then
+      TEXT=$(pandoc "$FILE" -t plain 2>/dev/null)
+    elif command -v python3 &>/dev/null && python3 -c "import docx" 2>/dev/null; then
+      # Safe python call with sys.argv instead of string interpolation
+      TEXT=$(python3 -c "
+import docx, sys
+doc = docx.Document(sys.argv[1])
+print('\n'.join([p.text for p in doc.paragraphs]))
+" "$FILE" 2>/dev/null)
+    else
+      # Last resort: extract XML from DOCX (it's a ZIP)
+      TEXT=$(unzip -p "$FILE" word/document.xml 2>/dev/null | sed 's/<[^>]*>//g' | tr -s ' \n' || echo "")
+    fi
+    if [ -z "$TEXT" ]; then
+      alma_toast "Nao consegui extrair texto. Instale: pkg install pandoc"
+      exit 1
+    fi
+    ;;
+  m4a|ogg|opus|mp3|wav|aac)
+    alma_toast "Audio recebido. Transcreva abaixo..." middle
+    DIALOG=$(termux-dialog text -t "ALMA — Transcreva o audio" -i "Ouca e digite/dite o conteudo" 2>/dev/null || echo '{"text":""}')
+    TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
+    ;;
+  jpg|jpeg|png|gif|webp)
+    alma_toast "Imagem recebida. Descreva..." middle
+    DIALOG=$(termux-dialog text -t "ALMA — $FILENAME" -i "O que esta nessa foto?" 2>/dev/null || echo '{"text":""}')
+    TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
+    if [ -n "$TEXT" ]; then TEXT="[Imagem: $FILENAME] $TEXT"; fi
+    ;;
+  *)
+    alma_toast "Formato .$EXT nao suportado"
     exit 1
-  fi
-  pdftotext "$FILE" - | alma-send -t "$(basename "$FILE")" ;;
-docx|doc|odt|rtf)
-  if ! command -v pandoc &>/dev/null; then
-    termux-toast "pandoc nao instalado. Rode: pkg install pandoc"
-    exit 1
-  fi
-  pandoc "$FILE" -t plain | alma-send -t "$(basename "$FILE")" ;;
-*) termux-toast "Formato .$EXT nao suportado" ;;
+    ;;
 esac
+
+if [ -z "$TEXT" ]; then
+  alma_toast "Nenhum texto extraido de $FILENAME"
+  exit 1
+fi
+
+# Send via alma-send (handles auth, retry, chunking)
+echo "$TEXT" | alma-send -t "$FILENAME" -s "android_share_file" -g "$EXT,arquivo"

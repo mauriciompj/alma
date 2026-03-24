@@ -8,44 +8,36 @@
 # INSTALACAO:
 #   mkdir -p ~/bin
 #   cp termux-url-opener ~/bin/termux-url-opener
+#   cp alma-lib.sh ~/bin/ && chmod +x ~/bin/alma-lib.sh
 #   chmod +x ~/bin/termux-url-opener
-#
-# USO:
-#   1. Em qualquer app (WhatsApp, Chrome, ChatGPT, etc.)
-#   2. Selecione texto ou toque "Compartilhar"
-#   3. Escolha "Termux" na lista de apps
-#   4. O texto vai direto pro banco do ALMA
-#
 # ============================================================================
 
 set -e
 
-ENV_FILE="$HOME/.alma-env"
-if [ -f "$ENV_FILE" ]; then source "$ENV_FILE"; fi
+source "$(dirname "$0")/alma-lib.sh" 2>/dev/null || source "$PREFIX/bin/alma-lib.sh" 2>/dev/null || source "$HOME/bin/alma-lib.sh" 2>/dev/null || {
+  ENV_FILE="$HOME/.alma-env"; [ -f "$ENV_FILE" ] && source "$ENV_FILE"
+  ALMA_URL="${ALMA_URL:-https://projeto-alma.netlify.app}"
+}
 
-ALMA_URL="${ALMA_URL:-https://projeto-alma.netlify.app}"
-ALMA_USER="${ALMA_USER:-}"
-ALMA_PASS="${ALMA_PASS:-}"
+alma_load_config 2>/dev/null
+alma_check_creds 2>/dev/null || exit 1
 
-# O texto/URL compartilhado vem como argumento $1
 SHARED="$1"
-
 if [ -z "$SHARED" ]; then
-  termux-toast -g bottom "ALMA: Nada recebido"
+  alma_toast "ALMA: Nada recebido"
   exit 0
 fi
 
 CHAR_COUNT=${#SHARED}
 
-# Se for uma URL, avisar
 if [[ "$SHARED" =~ ^https?:// ]]; then
-  termux-toast -g middle "ALMA: URL recebida ($CHAR_COUNT chars)"
+  alma_toast "ALMA: URL recebida ($CHAR_COUNT chars)" middle
 else
-  termux-toast -g middle "ALMA: Texto recebido ($CHAR_COUNT chars)"
+  alma_toast "ALMA: Texto recebido ($CHAR_COUNT chars)" middle
 fi
 
-# Perguntar titulo e categoria
-DIALOG=$(termux-dialog sheet -t "ALMA — Salvar memoria" -v "Salvar como memoria,Salvar como valores,Salvar como fe,Salvar como paternidade,Salvar como relacionamentos,Cancelar" 2>/dev/null || echo '{"index":-1}')
+# Escolher categoria
+DIALOG=$(termux-dialog sheet -t "ALMA — Salvar memoria" -v "Memoria pessoal,Valores,Fe,Paternidade,Relacionamentos,Cancelar" 2>/dev/null || echo '{"index":-1}')
 INDEX=$(echo "$DIALOG" | jq -r '.index // -1')
 
 case "$INDEX" in
@@ -54,57 +46,18 @@ case "$INDEX" in
   2) CATEGORY="fe" ;;
   3) CATEGORY="paternidade" ;;
   4) CATEGORY="relacionamentos" ;;
-  *) termux-toast -g bottom "Cancelado."; exit 0 ;;
+  *) alma_toast "Cancelado."; exit 0 ;;
 esac
 
-# Perguntar titulo (opcional)
+# Titulo opcional
 TITLE_DIALOG=$(termux-dialog text -t "Titulo (opcional)" -i "" 2>/dev/null || echo '{"text":""}')
 CUSTOM_TITLE=$(echo "$TITLE_DIALOG" | jq -r '.text // empty')
 
-# Login
-termux-toast -g middle "ALMA: Enviando..."
+alma_toast "ALMA: Enviando..." middle
 
-TOKEN=$(curl -s --max-time 10 -X POST "$ALMA_URL/api/auth" \
-  -H "Content-Type: application/json" \
-  -d "{\"action\":\"login\",\"username\":\"$ALMA_USER\",\"password\":\"$ALMA_PASS\"}" \
-  | jq -r '.token // empty')
-
-if [ -z "$TOKEN" ]; then
-  termux-toast -g bottom "ALMA: Login falhou"
-  exit 1
-fi
-
-# Montar titulo
+# Enviar via alma-send (handles auth, retry)
 if [ -n "$CUSTOM_TITLE" ]; then
-  TITLE="$CUSTOM_TITLE"
+  echo "$SHARED" | alma-send -t "$CUSTOM_TITLE" -c "$CATEGORY" -s "android_share" -g "$CATEGORY,compartilhado"
 else
-  DATE_STR=$(date +"%Y-%m-%d %H:%M")
-  PREVIEW=$(echo "$SHARED" | head -c 50 | tr '\n' ' ')
-  TITLE="Compartilhado $DATE_STR — $PREVIEW..."
-fi
-
-CONTENT_JSON=$(echo "$SHARED" | jq -Rs .)
-TITLE_JSON=$(echo "$TITLE" | jq -Rs .)
-
-RESP=$(curl -s --max-time 15 -X POST "$ALMA_URL/api/ingest" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d "{
-    \"content\": $CONTENT_JSON,
-    \"title\": $TITLE_JSON,
-    \"category\": \"$CATEGORY\",
-    \"tags\": [\"$CATEGORY\", \"compartilhado\"],
-    \"source\": \"android_share\"
-  }")
-
-SUCCESS=$(echo "$RESP" | jq -r '.success // empty')
-
-if [ "$SUCCESS" = "true" ]; then
-  CHUNKS=$(echo "$RESP" | jq -r '.chunks_created')
-  termux-vibrate -d 200
-  termux-toast -g bottom "ALMA salvo! ${CHAR_COUNT} chars (${CHUNKS} chunks)"
-  termux-notification --id alma_share --title "ALMA — Memoria compartilhada" --content "$TITLE" --group alma
-else
-  ERROR=$(echo "$RESP" | jq -r '.error // "erro"')
-  termux-toast -g bottom "ALMA erro: $ERROR"
+  echo "$SHARED" | alma-send -c "$CATEGORY" -s "android_share" -g "$CATEGORY,compartilhado"
 fi

@@ -198,9 +198,10 @@ alma/
 │   ├── alma-quick          # Termux: widget de 1 toque para voz
 │   ├── alma-record         # Termux: gravar audio + transcrever + enviar
 │   ├── alma-voice          # Termux: fala-pra-texto + enviar
+│   ├── alma_voz.sh         # Ponte Tasker: Google Assistant → ALMA (hands-free)
 │   ├── termux-url-opener   # Android Share: receber texto de qualquer app
 │   ├── termux-file-receiver # Android Share: receber arquivos (legado)
-│   └── termux-file-editor  # Android Share: receber + converter arquivos (PDF, DOCX, ODT, RTF)
+│   └── termux-file-editor  # Android Share: receber + converter arquivos (PDF, DOCX, audio, imagens)
 ├── db/
 │   ├── seed.sql            # Schema do banco
 │   ├── run-seed.mjs        # Executor do schema

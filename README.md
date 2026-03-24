@@ -194,13 +194,15 @@ alma/
 │       ├── alma-voice.mjs  # ElevenLabs text-to-speech
 │       └── legacy.mjs      # Passphrase verification for inheritance access
 ├── tools/
-│   ├── alma-send           # Termux: send text/files to ALMA
+│   ├── alma-lib.sh         # Shared library (auth, ingest, toast, config)
+│   ├── alma-send           # Termux: send text/files to ALMA (with retry)
 │   ├── alma-quick          # Termux: 1-tap voice capture widget
 │   ├── alma-record         # Termux: record audio + transcribe + send
-│   ├── alma-voice          # Termux: speak-to-text + send
+│   ├── alma-voice          # Termux: speak-to-text with confirmation + send
+│   ├── alma_voz.sh         # Tasker bridge: Google Assistant → ALMA (hands-free)
 │   ├── termux-url-opener   # Android Share: receive text from any app
 │   ├── termux-file-receiver # Android Share: receive files (legacy)
-│   └── termux-file-editor  # Android Share: receive + convert files (PDF, DOCX, ODT, RTF)
+│   └── termux-file-editor  # Android Share: receive + convert files (PDF, DOCX, audio, images)
 ├── locales/
 │   ├── en.json             # English
 │   ├── es.json             # Spanish
