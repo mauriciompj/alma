@@ -63,7 +63,7 @@
 
         <!-- Return -->
         <div class="sobre-footer">
-          <a href="javascript:void(0)" onclick="var a=localStorage.getItem('alma_admin');window.location.href=(a==='1'||a==='true')?'index.html':'chat.html'">Voltar ao ALMA</a>
+          <a href="#" id="backToAlma">Voltar ao ALMA</a>
         </div>
       </div>
     </div>
@@ -73,6 +73,12 @@ fetch('/.netlify/functions/memories?action=get_persons')
   .then(function(r){return r.json()})
   .then(function(d){if(d.author){var el=document.getElementById('quoteAuthor');if(el)el.textContent='— '+d.author;}})
   .catch(function(){});
+
+document.getElementById('backToAlma').addEventListener('click', function(e) {
+  e.preventDefault();
+  var a = localStorage.getItem('alma_admin');
+  window.location.href = (a === '1' || a === 'true') ? 'index.html' : 'chat.html';
+});
 </script>
 </body>
 </html>

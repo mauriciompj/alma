@@ -4,7 +4,7 @@
  * API calls always go to network (never cached).
  */
 
-const CACHE_NAME = 'alma-v6';
+const CACHE_NAME = 'alma-v7';
 const STATIC_ASSETS = [
   '/',
   '/login.html',
