@@ -117,11 +117,11 @@ export default async function handler() {
       let emails = [];
 
       if (severity === 'critical') {
-        const heirs = await sql`SELECT person, email FROM alma_legacy WHERE email IS NOT NULL AND email != ''`;
+        const heirs = await sql`SELECT person, email FROM alma_legacy WHERE email IS NOT NULL AND email != '' AND (notify IS NULL OR notify = true)`;
         emails = heirs.map(h => ({ email: h.email, person: h.person }));
       } else {
         // Warning: only primary heir (legacy_admin)
-        const primary = await sql`SELECT person, email FROM alma_legacy WHERE access_level = 'legacy_admin' AND email IS NOT NULL LIMIT 1`;
+        const primary = await sql`SELECT person, email FROM alma_legacy WHERE access_level = 'legacy_admin' AND email IS NOT NULL AND (notify IS NULL OR notify = true) LIMIT 1`;
         if (primary.length > 0) emails = [{ email: primary[0].email, person: primary[0].person }];
       }
 

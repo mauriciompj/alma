@@ -125,7 +125,7 @@ export default async function handler(req) {
       if (!session) return json({ error: 'Admin auth required' }, 401);
 
       const rows = await sql`
-        SELECT id, person, access_level, personal_message, technical_notes, email,
+        SELECT id, person, access_level, personal_message, technical_notes, email, notify,
                passphrase_hash IS NOT NULL as has_passphrase, unlocked_at, created_at
         FROM alma_legacy ORDER BY id
       `;
@@ -138,13 +138,14 @@ export default async function handler(req) {
       if (!session) return json({ error: 'Admin auth required' }, 401);
 
       const { id, person, access_level, personal_message, technical_notes, email, passphrase } = body;
+      const notify = body.notify !== undefined ? body.notify : true;
       if (!person) return json({ error: 'Missing person' }, 400);
 
       if (id) {
         // Update existing
         await sql`UPDATE alma_legacy SET person = ${person}, access_level = ${access_level || 'legacy_read'},
           personal_message = ${personal_message || ''}, technical_notes = ${technical_notes || ''},
-          email = ${email || null}, updated_at = NOW() WHERE id = ${id}`;
+          email = ${email || null}, notify = ${notify}, updated_at = NOW() WHERE id = ${id}`;
 
         // Update passphrase only if provided (non-empty)
         if (passphrase && passphrase.trim()) {
@@ -159,8 +160,8 @@ export default async function handler(req) {
           passphraseHash = await bcrypt.hash(passphrase.trim(), 12);
         }
         const result = await sql`
-          INSERT INTO alma_legacy (person, access_level, personal_message, technical_notes, email, passphrase_hash)
-          VALUES (${person}, ${access_level || 'legacy_read'}, ${personal_message || ''}, ${technical_notes || ''}, ${email || null}, ${passphraseHash})
+          INSERT INTO alma_legacy (person, access_level, personal_message, technical_notes, email, notify, passphrase_hash)
+          VALUES (${person}, ${access_level || 'legacy_read'}, ${personal_message || ''}, ${technical_notes || ''}, ${email || null}, ${notify}, ${passphraseHash})
           RETURNING id
         `;
         return json({ success: true, id: result[0].id });
