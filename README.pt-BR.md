@@ -131,40 +131,99 @@ npx netlify-cli deploy --prod --dir=. --functions=netlify/functions
 
 ---
 
+## Seguranca
+
+- **Senhas bcrypt** — Migracao automatica de texto plano no primeiro login
+- **CORS restrito** — API so responde ao dominio configurado
+- **CSP + HSTS** — Headers de seguranca em todas as paginas
+- **Moderacao de conteudo** — Todas as correcoes e diretivas passam por IA antes de salvar
+- **Protecao contra XSS** — Dados sanitizados em todo o frontend
+- **Dados sensiveis fora do codigo** — Perfis psicologicos dos filhos so no banco, nunca no codigo-fonte
+- **Bancos isolados** — Demo e producao usam bancos completamente separados
+
+---
+
+## Captura Mobile (Termux)
+
+O ALMA inclui ferramentas para capturar memorias direto do celular Android via [Termux](https://termux.dev). Fale um pensamento, cole uma conversa, ou envie um arquivo — vai direto pro banco em tempo real.
+
+### Uso
+
+| O que voce quer | Comando |
+|---|---|
+| Pensamento rapido | `alma-send "percebi que coragem nao e ausencia de medo"` |
+| Colar do clipboard | `termux-clipboard-get \| alma-send` |
+| Enviar arquivo | `alma-send -f conversa.txt -c valores` |
+| **1 toque de voz** | **Widget ALMA na home screen** |
+| Compartilhar de qualquer app | **Compartilhar → Termux** |
+
+---
+
+## Modo Legado
+
+O ALMA tem um sistema de heranca digital. A pagina `/legacy` permite acesso ao sistema atraves de frases-chave pessoais, pensadas para serem ativadas apos a morte do autor.
+
+Cada herdeiro recebe uma frase unica, uma carta pessoal e um nivel de acesso (admin, owner ou leitura). O herdeiro tecnico recebe instrucoes adicionais de como manter o sistema.
+
+---
+
 ## Arquitetura
 
 ```
 alma/
-├── index.html              # Dashboard / login
+├── index.html              # Dashboard / home
 ├── chat.html               # Interface de chat
-├── admin.html              # Painel admin (memórias, correções, diretrizes)
-├── login.html              # Autenticação
+├── admin.html              # Painel admin (memorias, correcoes, diretrizes)
+├── login.html              # Autenticacao com i18n
+├── revisor.html            # Revisor visual de chunks
+├── setup.html              # Wizard de configuracao inicial
+├── sobre.html              # Pagina sobre o ALMA
+├── legacy.html             # Acesso de heranca (frase-chave)
 ├── css/
 │   ├── style.css           # Estilos principais
 │   └── admin.css           # Estilos do admin
 ├── js/
-│   └── alma.js             # Motor de chat + correções + diretrizes
+│   ├── alma.js             # Motor de chat + correcoes + diretrizes
+│   └── i18n.js             # Sistema de internacionalizacao
 ├── netlify/
 │   └── functions/
-│       ├── auth.mjs        # Autenticação (tokens de sessão)
-│       ├── chat.mjs        # Motor RAG (busca → contexto → IA)
-│       └── memories.mjs    # CRUD de memórias, correções, diretrizes, importação
+│       ├── auth.mjs        # Autenticacao com bcrypt + migracao automatica
+│       ├── chat.mjs        # Motor RAG com reranking por pessoa
+│       ├── memories.mjs    # CRUD de memorias + correcoes + diretrizes + moderacao
+│       ├── ingest.mjs      # API de captura rapida (mobile/Termux/scripts)
+│       ├── alma-voice.mjs  # Sintese de voz via ElevenLabs
+│       └── legacy.mjs      # Verificacao de frases-chave de heranca
+├── tools/
+│   ├── alma-send           # Termux: enviar texto/arquivos
+│   ├── alma-quick          # Termux: widget de 1 toque para voz
+│   ├── alma-record         # Termux: gravar audio + transcrever + enviar
+│   ├── alma-voice          # Termux: fala-pra-texto + enviar
+│   ├── termux-url-opener   # Android Share: receber texto de qualquer app
+│   └── termux-file-receiver # Android Share: receber arquivos
+├── db/
+│   ├── seed.sql            # Schema do banco
+│   ├── run-seed.mjs        # Executor do schema
+│   ├── seed-demo.sql       # Dados ficticios (demo)
+│   ├── import-json.mjs     # Importacao em lote com deduplicacao
+│   └── backup.mjs          # Backup do banco pra JSON
 ├── locales/
-│   ├── en.json             # Strings de interface em inglês
-│   ├── es.json             # Strings de interface em espanhol
-│   └── pt-BR.json          # Strings de interface em português
-├── netlify.toml            # Configuração do Netlify
+│   ├── en.json             # Ingles
+│   ├── es.json             # Espanhol
+│   └── pt-BR.json          # Portugues (Brasil)
+├── netlify.toml            # Config do Netlify (redirects, headers, seguranca)
 └── package.json
 ```
 
-### Stack Tecnológica
+### Stack Tecnologica
 
-- **Frontend**: HTML/CSS/JS puro — sem framework, sem build step, rápido em qualquer lugar
+- **Frontend**: HTML/CSS/JS puro — sem framework, sem build step, rapido em qualquer lugar
 - **Backend**: Netlify Functions (serverless) com ESBuild
-- **Banco de Dados**: Neon PostgreSQL (serverless) com full-text search em português
+- **Banco de Dados**: Neon PostgreSQL (serverless) com full-text search em portugues
 - **IA**: Anthropic Claude (Sonnet) via API
-- **Autenticação**: Sessões com token armazenadas no banco
-- **i18n**: Arquivos JSON de locale, extensível para qualquer idioma
+- **Voz**: ElevenLabs TTS com voz clonada do autor
+- **Seguranca**: bcrypt, CSP, HSTS, CORS restrito, moderacao de conteudo
+- **Autenticacao**: Sessoes com token armazenadas no banco
+- **i18n**: Arquivos JSON de locale (PT/EN/ES)
 
 ---
 
@@ -197,23 +256,35 @@ O ALMA é maior que uma pessoa. Aceitamos contribuições de todos os tipos:
 - **Documentação** — Guias, tutoriais, how-tos
 - **Histórias** — Compartilhe como você está usando o ALMA (com permissão)
 
-Veja [CONTRIBUTING.md](CONTRIBUTING.md) para diretrizes.
+Veja [CONTRIBUTING.md](docs/CONTRIBUTING.md) para diretrizes.
 
 ---
 
 ## Roadmap
 
-- [x] Chat principal com busca RAG em memórias
-- [x] Adaptação de tom por pessoa
-- [x] Sistema de correções (human-in-the-loop)
+- [x] Chat principal com busca RAG em memorias
+- [x] Adaptacao de tom por pessoa
+- [x] Sistema de correcoes (human-in-the-loop)
 - [x] Sistema de diretrizes (por pessoa + global)
-- [x] Painel admin para gerenciamento de memórias
-- [x] Suporte multi-idioma (i18n)
-- [ ] Síntese de voz (ouvir o ALMA na voz real do autor)
-- [ ] Integração com álbuns de fotos (Google Photos, iCloud, OneDrive)
-- [ ] Wizard de setup em um clique
-- [ ] PWA otimizada para celular
-- [ ] Importação de diários, exports do WhatsApp, memos de voz
+- [x] Painel admin para gerenciamento de memorias
+- [x] Suporte multi-idioma (PT/EN/ES)
+- [x] Autenticacao bcrypt + CORS restrito
+- [x] Moderacao de conteudo (IA)
+- [x] Reranking de memorias por pessoa
+- [x] Site demo com dados ficticios
+- [x] Respostas adaptadas a idade (crianca/adolescente/adulto)
+- [x] Historico de conversa (persistente, salvo por pessoa)
+- [x] PWA (instalavel, offline)
+- [x] Sintese de voz via ElevenLabs (voz clonada do autor)
+- [x] Captura mobile via Termux (1 toque → banco)
+- [x] API de ingestao para scripts e automacao (`/api/ingest`)
+- [x] Hardening de seguranca (CSP, HSTS, XSS, auth bypass)
+- [x] Modo legado — heranca digital com frases-chave pessoais
+- [x] Android Share Intent — compartilhar de qualquer app pro ALMA
+- [ ] Fotos/midia nas respostas do chat
+- [ ] Sync com cloud storage (OneDrive, Google Drive)
+- [ ] Pipeline de transcricao de audio (Whisper)
+- [ ] Modo IA local (Ollama/LM Studio)
 - [ ] "Modo carta" — mensagens agendadas para datas futuras
 
 ---

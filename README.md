@@ -199,11 +199,14 @@ alma/
 │   ├── run-seed-demo.mjs   # Demo seeder
 │   ├── import-json.mjs     # Bulk JSON import with deduplication
 │   └── backup.mjs          # Database backup to JSON
+├── legacy.html             # Inheritance access (passphrase unlock)
 ├── tools/
 │   ├── alma-send           # Termux: send text/files to ALMA
 │   ├── alma-quick          # Termux: 1-tap voice capture widget
 │   ├── alma-record         # Termux: record audio + transcribe + send
-│   └── alma-voice          # Termux: speak-to-text + send
+│   ├── alma-voice          # Termux: speak-to-text + send
+│   ├── termux-url-opener   # Android Share: receive text from any app
+│   └── termux-file-receiver # Android Share: receive files (PDF, DOCX, audio)
 ├── docs/
 │   └── banner.svg          # README banner
 ├── netlify.toml            # Netlify config (redirects, headers, security)
@@ -320,7 +323,7 @@ ALMA is bigger than one person. We welcome contributions of all kinds:
 - **Documentation** — Guides, tutorials, how-tos
 - **Stories** — Share how you're using ALMA (with permission)
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
 
 ---
 
