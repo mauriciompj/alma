@@ -3,6 +3,7 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import { verifySession as sharedVerifySession, jsonResponse as sharedJsonResponse, corsResponse } from './lib/auth.mjs';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const MODERATION_MODEL = 'claude-haiku-4-5-20251001'; // Fast + cheap for moderation
@@ -72,23 +73,7 @@ const AUTH_ACTIONS = new Set([
 ]);
 
 async function verifySession(sql, req) {
-  const authHeader = req.headers.get('authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-
-  try {
-    const rows = await sql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
-    if (rows.length === 0) return null;
-
-    const session = JSON.parse(rows[0].value);
-    if (new Date(session.expiresAt) < new Date()) {
-      await sql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
-      return null;
-    }
-    return session; // { name, type, admin, token, expiresAt }
-  } catch (e) {
-    return null;
-  }
+  return sharedVerifySession(sql, req);
 }
 
 function jsonResponse(data, status = 200) {

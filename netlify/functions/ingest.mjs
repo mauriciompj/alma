@@ -18,44 +18,10 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import { verifySession, jsonResponse, corsResponse } from './lib/auth.mjs';
 
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
 const MAX_CONTENT_LENGTH = 500000; // 500KB text limit
 const CHUNK_TARGET = 2000; // target chunk size in chars
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-  });
-}
-
-// --- Auth: verify session token ---
-async function verifyAuth(sql, req) {
-  const authHeader = req.headers.get('authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-
-  try {
-    const rows = await sql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
-    if (rows.length === 0) return null;
-
-    const session = JSON.parse(rows[0].value);
-    if (new Date(session.expiresAt) < new Date()) {
-      await sql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
-      return null;
-    }
-    return session;
-  } catch (e) {
-    return null;
-  }
-}
 
 // --- Chunk text at paragraph boundaries ---
 function chunkText(text, targetSize = CHUNK_TARGET) {
@@ -124,27 +90,27 @@ function decodeFile(base64, fileName) {
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return corsResponse();
   }
 
   if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405);
+    return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
   const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
   if (!dbUrl) {
-    return json({ error: 'Database not configured' }, 503);
+    return jsonResponse({ error: 'Database not configured' }, 503);
   }
 
   const sql = neon(dbUrl);
 
   // Auth required — only admin can ingest
-  const session = await verifyAuth(sql, req);
+  const session = await verifySession(sql, req);
   if (!session) {
-    return json({ error: 'Authentication required' }, 401);
+    return jsonResponse({ error: 'Authentication required' }, 401);
   }
   if (!session.admin) {
-    return json({ error: 'Admin access required' }, 403);
+    return jsonResponse({ error: 'Admin access required' }, 403);
   }
 
   try {
@@ -159,11 +125,11 @@ export default async function handler(req) {
     }
 
     if (!text) {
-      return json({ error: 'Missing content or file' }, 400);
+      return jsonResponse({ error: 'Missing content or file' }, 400);
     }
 
     if (text.length > MAX_CONTENT_LENGTH) {
-      return json({ error: `Content too large (${text.length} chars, max ${MAX_CONTENT_LENGTH})` }, 400);
+      return jsonResponse({ error: `Content too large (${text.length} chars, max ${MAX_CONTENT_LENGTH})` }, 400);
     }
 
     // Metadata
@@ -204,7 +170,7 @@ export default async function handler(req) {
       created++;
     }
 
-    return json({
+    return jsonResponse({
       success: true,
       title,
       chunks_created: created,
@@ -214,6 +180,6 @@ export default async function handler(req) {
     });
   } catch (e) {
     console.error('[ALMA Ingest] Error:', e.message);
-    return json({ error: 'Ingest failed: ' + e.message }, 500);
+    return jsonResponse({ error: 'Ingest failed: ' + e.message }, 500);
   }
 }

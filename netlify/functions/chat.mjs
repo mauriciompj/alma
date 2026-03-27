@@ -4,32 +4,8 @@
  */
 
 import { neon } from '@neondatabase/serverless';
-
-const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-sonnet-4-20250514';
-const MAX_TOKENS = 1000;
-
-// --- Rate Limiting (in-memory, resets on cold start) ---
-const RATE_LIMIT = { maxRequests: 20, windowMs: 60000 }; // 20 requests per minute per IP
-const rateLimitMap = new Map();
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip) || { count: 0, resetAt: now + RATE_LIMIT.windowMs };
-  if (now > entry.resetAt) {
-    entry.count = 0;
-    entry.resetAt = now + RATE_LIMIT.windowMs;
-  }
-  entry.count++;
-  rateLimitMap.set(ip, entry);
-  // Clean old entries periodically
-  if (rateLimitMap.size > 1000) {
-    for (const [k, v] of rateLimitMap) { if (now > v.resetAt) rateLimitMap.delete(k); }
-  }
-  return entry.count <= RATE_LIMIT.maxRequests;
-}
-const MAX_CONTEXT_CHUNKS = 8;
-const MAX_CONTEXT_TOKENS = 3000; // token budget for memory chunks
+import { ANTHROPIC_API, MODEL_CHAT, MODEL_HAIKU, MAX_CHAT_TOKENS, MAX_CONTEXT_CHUNKS, MAX_CONTEXT_TOKENS, CHAT_RATE_LIMIT, ALLOWED_ORIGIN } from './lib/constants.mjs';
+import { verifySession, checkRateLimit, getClientIp, jsonResponse, corsResponse } from './lib/auth.mjs';
 
 // --- System Prompt (core identity, no memories — those come from DB) ---
 // This hardcoded prompt is the FALLBACK. The primary source is alma_config key='system_prompt_base'.
@@ -88,81 +64,25 @@ COMO RESPONDER:
 
 IMPORTANTE: Abaixo você receberá MEMÓRIAS REAIS extraídas dos documentos do ALMA — use-as como base para suas respostas. São as palavras reais do Maurício. Quando relevante, baseie-se nelas. Não invente fatos que não estão nas memórias.`;
 
-// Restrict CORS to production domain only (set via env var or fallback)
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
-
 export default async function handler(req) {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
-  }
-
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  // Rate limiting
-  const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-  if (!checkRateLimit(clientIp)) {
-    return new Response(JSON.stringify({ error: 'Too many requests. Please wait a moment.' }), {
-      status: 429, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN, 'Retry-After': '60' },
-    });
-  }
+  if (req.method === 'OPTIONS') return corsResponse();
+  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
 
   // Validate required env vars early
   const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
-      status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-    });
-  }
-  if (!dbUrl) {
-    return new Response(JSON.stringify({ error: 'DATABASE_URL not configured' }), {
-      status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-    });
-  }
+  if (!process.env.ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 503);
+  if (!dbUrl) return jsonResponse({ error: 'DATABASE_URL not configured' }, 503);
 
-  // Single DB connection for the entire request
   const sql = neon(dbUrl);
 
-  // --- Auth gate: verify session before consuming Anthropic API ---
-  const authHeader = req.headers.get('authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token) {
-    return new Response(JSON.stringify({ error: 'Authentication required' }), {
-      status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-    });
-  }
-  try {
-    const rows = await sql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
-    if (rows.length === 0) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
-        status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-      });
-    }
-    const session = JSON.parse(rows[0].value);
-    if (new Date(session.expiresAt) < new Date()) {
-      await sql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
-      return new Response(JSON.stringify({ error: 'Session expired' }), {
-        status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-      });
-    }
-  } catch (e) {
-    console.error('[ALMA Chat] Auth check error:', e.message);
-    return new Response(JSON.stringify({ error: 'Authentication service unavailable' }), {
-      status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-    });
-  }
+  // Rate limiting (DB-persistent)
+  const clientIp = getClientIp(req);
+  const allowed = await checkRateLimit(sql, 'chat_' + clientIp, CHAT_RATE_LIMIT.maxRequests, CHAT_RATE_LIMIT.windowMs);
+  if (!allowed) return jsonResponse({ error: 'Too many requests. Please wait a moment.' }, 429);
+
+  // Auth gate (shared module)
+  const session = await verifySession(sql, req);
+  if (!session) return jsonResponse({ error: 'Authentication required' }, 401);
 
   try {
     const body = await req.json();
@@ -173,17 +93,14 @@ export default async function handler(req) {
     const birthDate = body.birthDate || null; // e.g. "2016-03-15"
 
     if (!message || !personName) {
-      return new Response(JSON.stringify({ error: 'Missing message or personName' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Missing message or personName' }, 400);
     }
 
     // 0. Load system prompt + person contexts + expand query (in parallel)
     const [systemPromptBase, personContexts, expandedTerms] = await Promise.all([
       getSystemPromptBase(sql),
       getPersonContexts(sql),
-      expandQuery(message, personName),
+      expandQuery(message, personName, sql),
     ]);
 
     // 1. Search for relevant memories from Neon DB (with expanded terms)
@@ -204,36 +121,34 @@ export default async function handler(req) {
     // 6. Call Anthropic API
     const response = await callAnthropic(systemPrompt, history, message);
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       response: response,
       memoriesUsed: memories.length,
       categories: [...new Set(memories.map(m => m.category))],
-    }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-      },
     });
   } catch (error) {
     console.error('[ALMA Chat Error]', error.message);
-    return new Response(JSON.stringify({
-      error: 'Internal error. Please try again.',
-      // details intentionally omitted in production — check server logs
-    }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-      },
-    });
+    return jsonResponse({ error: 'Internal error. Please try again.' }, 500);
   }
 }
 
-// --- LLM Query Expansion (Haiku — cheap, fast, ~$0.001/query) ---
-async function expandQuery(message, personName) {
+// --- LLM Query Expansion (Haiku — cached in DB for 24h, ~$0.001/query) ---
+async function expandQuery(message, personName, sql) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return [];
+
+  // Check cache first (24h TTL)
+  const cacheKey = 'qcache_' + simpleHash(message.toLowerCase().trim());
+  try {
+    const cached = await sql`SELECT value, updated_at FROM alma_config WHERE key = ${cacheKey} LIMIT 1`;
+    if (cached.length > 0) {
+      const age = Date.now() - new Date(cached[0].updated_at).getTime();
+      if (age < 24 * 60 * 60 * 1000) { // 24h
+        return JSON.parse(cached[0].value);
+      }
+    }
+  } catch { /* cache miss, proceed to API */ }
+
   try {
     const response = await fetch(ANTHROPIC_API, {
       method: 'POST',
@@ -243,7 +158,7 @@ async function expandQuery(message, personName) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: MODEL_HAIKU,
         max_tokens: 100,
         system: `Gere 3-5 palavras-chave em português para buscar memórias relevantes no arquivo de legado emocional de um pai.
 A pessoa perguntando se chama ${personName}.
@@ -254,14 +169,32 @@ Retorne APENAS um array JSON de strings. Sem explicação.`,
     if (!response.ok) return [];
     const data = await response.json();
     const text = data.content[0].text.trim();
-    // Extract JSON array even if wrapped in markdown
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) return [];
     const parsed = JSON.parse(match[0]);
-    return Array.isArray(parsed) ? parsed.map(s => String(s).toLowerCase()).slice(0, 5) : [];
+    const terms = Array.isArray(parsed) ? parsed.map(s => String(s).toLowerCase()).slice(0, 5) : [];
+
+    // Cache result (fire-and-forget)
+    if (terms.length > 0) {
+      sql`
+        INSERT INTO alma_config (key, value, updated_at) VALUES (${cacheKey}, ${JSON.stringify(terms)}, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+      `.catch(() => {});
+    }
+
+    return terms;
   } catch {
     return []; // Fail silently — original query still works
   }
+}
+
+// Simple hash for cache keys (not cryptographic, just deterministic)
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(36);
 }
 
 // --- Token estimation for dynamic context budget ---
@@ -770,8 +703,8 @@ async function callAnthropic(systemPrompt, history, message) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
+      model: MODEL_CHAT,
+      max_tokens: MAX_CHAT_TOKENS,
       system: systemPrompt,
       messages: messages,
     }),

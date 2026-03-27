@@ -1,12 +1,12 @@
 /**
  * ALMA Voice Function — ElevenLabs text-to-speech
  * Receives a text response from the existing ALMA chat and returns audio in base64.
- * Includes session authentication (same as chat.mjs).
+ * Uses shared auth module for session verification.
  */
 
 import { neon } from '@neondatabase/serverless';
+import { verifySession, jsonResponse, corsResponse } from './lib/auth.mjs';
 
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
 const ELEVENLABS_API = 'https://api.elevenlabs.io/v1/text-to-speech';
 const DEFAULT_MODEL = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
 const DEFAULT_SETTINGS = {
@@ -16,55 +16,21 @@ const DEFAULT_SETTINGS = {
   use_speaker_boost: true,
 };
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-    },
-  });
-}
-
 export default async function handler(req) {
   // --- CORS preflight ---
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
-  }
+  if (req.method === 'OPTIONS') return corsResponse();
 
   if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405);
+    return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
-  // --- Auth gate: verify session token (same logic as chat.mjs) ---
+  // --- Auth gate: verify session token ---
   const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
   if (dbUrl) {
-    const authHeader = req.headers.get('authorization') || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-    if (!token) {
-      return json({ error: 'Authentication required', code: 'AUTH_REQUIRED' }, 401);
-    }
-    try {
-      const authSql = neon(dbUrl);
-      const rows = await authSql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
-      if (rows.length === 0) {
-        return json({ error: 'Invalid or expired session', code: 'AUTH_INVALID' }, 401);
-      }
-      const session = JSON.parse(rows[0].value);
-      if (new Date(session.expiresAt) < new Date()) {
-        await authSql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
-        return json({ error: 'Session expired', code: 'AUTH_EXPIRED' }, 401);
-      }
-    } catch (e) {
-      console.error('[ALMA Voice] Auth check error:', e.message);
-      return json({ error: 'Authentication service unavailable', code: 'AUTH_UNAVAILABLE' }, 503);
+    const sql = neon(dbUrl);
+    const session = await verifySession(sql, req);
+    if (!session) {
+      return jsonResponse({ error: 'Authentication required', code: 'AUTH_REQUIRED' }, 401);
     }
   }
 
@@ -73,7 +39,7 @@ export default async function handler(req) {
   const voiceId = process.env.ELEVENLABS_VOICE_ID;
 
   if (!apiKey || !voiceId) {
-    return json({
+    return jsonResponse({
       error: 'Voice not configured',
       code: 'VOICE_NOT_CONFIGURED',
     }, 503);
@@ -84,12 +50,12 @@ export default async function handler(req) {
     const text = String(body.text || '').trim();
 
     if (!text) {
-      return json({ error: 'Missing text', code: 'VOICE_EMPTY' }, 400);
+      return jsonResponse({ error: 'Missing text', code: 'VOICE_EMPTY' }, 400);
     }
 
     // Limit text length to prevent abuse (ElevenLabs charges per character)
     if (text.length > 5000) {
-      return json({ error: 'Text too long', code: 'VOICE_TOO_LONG' }, 400);
+      return jsonResponse({ error: 'Text too long', code: 'VOICE_TOO_LONG' }, 400);
     }
 
     const response = await fetch(`${ELEVENLABS_API}/${voiceId}`, {
@@ -110,7 +76,7 @@ export default async function handler(req) {
       let details = '';
       try { details = await response.text(); } catch (e) { details = ''; }
       console.error('[ALMA Voice] ElevenLabs error:', response.status, details);
-      return json({
+      return jsonResponse({
         error: 'Voice generation failed',
         code: 'VOICE_PROVIDER_ERROR',
       }, 502);
@@ -119,13 +85,13 @@ export default async function handler(req) {
     const audioBuffer = await response.arrayBuffer();
     const audioBase64 = Buffer.from(audioBuffer).toString('base64');
 
-    return json({
+    return jsonResponse({
       audio: audioBase64,
       mimeType: 'audio/mpeg',
     });
   } catch (error) {
     console.error('[ALMA Voice Error]', error.message);
-    return json({
+    return jsonResponse({
       error: 'Internal error. Please try again.',
       code: 'VOICE_INTERNAL_ERROR',
     }, 500);

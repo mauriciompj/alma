@@ -5,47 +5,11 @@
 
 import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
-
-// Restrict CORS to production domain only (set via env var or fallback)
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
-
-// --- Login rate limiting (in-memory, resets on cold start) ---
-const LOGIN_RATE_LIMIT = { maxAttempts: 5, windowMs: 300000 }; // 5 attempts per 5 minutes per IP
-const loginAttempts = new Map();
-
-function checkLoginRateLimit(ip) {
-  const now = Date.now();
-  const entry = loginAttempts.get(ip) || { count: 0, resetAt: now + LOGIN_RATE_LIMIT.windowMs };
-  if (now > entry.resetAt) {
-    entry.count = 0;
-    entry.resetAt = now + LOGIN_RATE_LIMIT.windowMs;
-  }
-  entry.count++;
-  loginAttempts.set(ip, entry);
-  // Clean old entries periodically
-  if (loginAttempts.size > 500) {
-    for (const [k, v] of loginAttempts) { if (now > v.resetAt) loginAttempts.delete(k); }
-  }
-  return entry.count <= LOGIN_RATE_LIMIT.maxAttempts;
-}
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-  });
-}
+import { SESSION_EXPIRY_MS, LOGIN_RATE_LIMIT } from './lib/constants.mjs';
+import { checkRateLimit, cleanupRateLimits, generateToken, getClientIp, jsonResponse, corsResponse } from './lib/auth.mjs';
 
 export default async function handler(req) {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
+  if (req.method === 'OPTIONS') return corsResponse();
 
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
@@ -57,8 +21,9 @@ export default async function handler(req) {
     const { action } = body;
 
     if (action === 'login') {
-      const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-      if (!checkLoginRateLimit(clientIp)) {
+      const clientIp = getClientIp(req);
+      const allowed = await checkRateLimit(sql, 'login_' + clientIp, LOGIN_RATE_LIMIT.maxAttempts, LOGIN_RATE_LIMIT.windowMs);
+      if (!allowed) {
         return jsonResponse({ error: 'Too many login attempts. Please wait 5 minutes.' }, 429);
       }
       return await handleLogin(sql, body);
@@ -85,7 +50,6 @@ async function handleLogin(sql, body) {
     return jsonResponse({ error: 'Username and password are required' }, 400);
   }
 
-  // Fetch users from alma_config
   let usersJson;
   try {
     const rows = await sql`SELECT value FROM alma_config WHERE key = 'users_json' LIMIT 1`;
@@ -97,7 +61,6 @@ async function handleLogin(sql, body) {
     return jsonResponse({ error: 'Failed to load users' }, 500);
   }
 
-  // Find user (case-insensitive username match)
   const user = usersJson.find(u =>
     u.username.toLowerCase() === username.toLowerCase()
   );
@@ -106,14 +69,12 @@ async function handleLogin(sql, body) {
     return jsonResponse({ error: 'Invalid username or password' }, 401);
   }
 
-  // Compare password: support both bcrypt hash and legacy plain text
   const isBcrypt = user.password && user.password.startsWith('$2');
   let passwordValid = false;
 
   if (isBcrypt) {
     passwordValid = await bcrypt.compare(password, user.password);
   } else {
-    // Legacy plain text comparison — will auto-migrate below
     passwordValid = (user.password === password);
   }
 
@@ -121,7 +82,7 @@ async function handleLogin(sql, body) {
     return jsonResponse({ error: 'Invalid username or password' }, 401);
   }
 
-  // Auto-migrate: hash plain text password on first successful login
+  // Auto-migrate plaintext password to bcrypt
   if (!isBcrypt) {
     try {
       const hashed = await bcrypt.hash(password, 12);
@@ -132,19 +93,17 @@ async function handleLogin(sql, body) {
       `;
       console.log(`[ALMA] Auto-migrated password hash for user: ${user.username}`);
     } catch (e) {
-      // Non-fatal: login still works, hash will happen next time
       console.error('[ALMA] Failed to auto-migrate password:', e.message);
     }
   }
 
-  // Cleanup expired sessions on every login (lightweight, bounded by session count)
+  // Cleanup expired sessions + stale rate limits
   cleanupExpiredSessions(sql).catch(() => {});
+  cleanupRateLimits(sql).catch(() => {});
 
-  // Generate simple session token
   const token = generateToken();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+  const expiresAt = new Date(Date.now() + SESSION_EXPIRY_MS).toISOString();
 
-  // Store session in database
   try {
     await sql`
       INSERT INTO alma_config (key, value, updated_at)
@@ -160,7 +119,6 @@ async function handleLogin(sql, body) {
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
     `;
   } catch (e) {
-    // If table doesn't exist, create it
     await sql`
       CREATE TABLE IF NOT EXISTS alma_config (
         key VARCHAR(255) PRIMARY KEY, value TEXT NOT NULL DEFAULT '', updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -187,7 +145,7 @@ async function handleLogin(sql, body) {
     type: user.type,
     admin: !!user.admin,
     token,
-    birthDate: user.birthDate || null, // e.g. "2016-03-15"
+    birthDate: user.birthDate || null,
     displayName: user.displayName || user.name,
   });
 }
@@ -204,14 +162,13 @@ async function handleVerifyToken(sql, body) {
 
     const session = JSON.parse(rows[0].value);
     if (new Date(session.expiresAt) < new Date()) {
-      // Session expired — clean up database entry
       await sql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
       return jsonResponse({ valid: false, reason: 'expired' }, 401);
     }
 
-    // Periodic cleanup: ~5% chance per verify to purge all expired sessions
+    // Periodic cleanup: ~5% chance per verify
     if (Math.random() < 0.05) {
-      cleanupExpiredSessions(sql).catch(() => {}); // Fire-and-forget
+      cleanupExpiredSessions(sql).catch(() => {});
     }
 
     return jsonResponse({
@@ -235,11 +192,10 @@ async function handleLogout(sql, body) {
     await sql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
     return jsonResponse({ success: true });
   } catch (e) {
-    return jsonResponse({ success: true }); // Don't leak errors on logout
+    return jsonResponse({ success: true });
   }
 }
 
-// Remove all expired sessions from database (runs on every login)
 async function cleanupExpiredSessions(sql) {
   try {
     const sessions = await sql`
@@ -254,7 +210,7 @@ async function cleanupExpiredSessions(sql) {
           expiredKeys.push(row.key);
         }
       } catch (e) {
-        expiredKeys.push(row.key); // Malformed session — delete it
+        expiredKeys.push(row.key);
       }
     }
     if (expiredKeys.length > 0) {
@@ -264,11 +220,4 @@ async function cleanupExpiredSessions(sql) {
   } catch (e) {
     console.error('[ALMA] Session cleanup error:', e.message);
   }
-}
-
-function generateToken() {
-  // Cryptographically secure token generation using hex encoding (full entropy)
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }
