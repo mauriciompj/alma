@@ -18,13 +18,13 @@
  */
 
 import { neon } from '@neondatabase/serverless';
-import { withSentry } from './lib/sentry.mjs';
+
 
 export const config = {
   schedule: "0 8 * * *"  // Every day at 08:00 UTC
 };
 
-export default withSentry('heartbeat', async function handler() {
+export default async function handler() {
   const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
   if (!dbUrl) {
     console.log('[Heartbeat] No database configured');
@@ -171,4 +171,4 @@ export default withSentry('heartbeat', async function handler() {
     console.error('[Heartbeat] Error:', e.message);
     return new Response('Error', { status: 500 });
   }
-});
+}

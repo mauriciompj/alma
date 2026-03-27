@@ -6,7 +6,7 @@
 import { neon } from '@neondatabase/serverless';
 import { ANTHROPIC_API, MODEL_CHAT, MODEL_HAIKU, MAX_CHAT_TOKENS, MAX_CONTEXT_CHUNKS, MAX_CONTEXT_TOKENS, CHAT_RATE_LIMIT, ALLOWED_ORIGIN } from './lib/constants.mjs';
 import { verifySession, checkRateLimit, getClientIp, jsonResponse, corsResponse } from './lib/auth.mjs';
-import { withSentry, captureError } from './lib/sentry.mjs';
+
 
 // --- System Prompt (core identity, no memories — those come from DB) ---
 // This hardcoded prompt is the FALLBACK. The primary source is alma_config key='system_prompt_base'.
@@ -65,7 +65,7 @@ COMO RESPONDER:
 
 IMPORTANTE: Abaixo você receberá MEMÓRIAS REAIS extraídas dos documentos do ALMA — use-as como base para suas respostas. São as palavras reais do Maurício. Quando relevante, baseie-se nelas. Não invente fatos que não estão nas memórias.`;
 
-export default withSentry('chat', async function handler(req) {
+export default async function handler(req) {
   if (req.method === 'OPTIONS') return corsResponse();
   if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
 
@@ -129,10 +129,9 @@ export default withSentry('chat', async function handler(req) {
     });
   } catch (error) {
     console.error('[ALMA Chat Error]', error.message);
-    captureError(error, { function: 'chat', phase: 'handler' });
     return jsonResponse({ error: 'Internal error. Please try again.' }, 500);
   }
-});
+}
 
 // --- LLM Query Expansion (Haiku — cached in DB for 24h, ~$0.001/query) ---
 async function expandQuery(message, personName, sql) {

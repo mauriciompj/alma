@@ -7,9 +7,7 @@ import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
 import { SESSION_EXPIRY_MS, LOGIN_RATE_LIMIT } from './lib/constants.mjs';
 import { checkRateLimit, cleanupRateLimits, generateToken, getClientIp, jsonResponse, corsResponse } from './lib/auth.mjs';
-import { withSentry } from './lib/sentry.mjs';
-
-export default withSentry('auth', async function handler(req) {
+export default async function handler(req) {
   if (req.method === 'OPTIONS') return corsResponse();
 
   if (req.method !== 'POST') {
@@ -43,7 +41,7 @@ export default withSentry('auth', async function handler(req) {
     console.error('[ALMA Auth] Error:', error.message);
     return jsonResponse({ error: 'Internal server error' }, 500);
   }
-});
+}
 
 async function handleLogin(sql, body) {
   const { username, password } = body;
