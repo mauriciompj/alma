@@ -29,6 +29,7 @@ function checkRateLimit(ip) {
   return entry.count <= RATE_LIMIT.maxRequests;
 }
 const MAX_CONTEXT_CHUNKS = 8;
+const MAX_CONTEXT_TOKENS = 3000; // token budget for memory chunks
 
 // --- System Prompt (core identity, no memories — those come from DB) ---
 // This hardcoded prompt is the FALLBACK. The primary source is alma_config key='system_prompt_base'.
@@ -178,12 +179,15 @@ export default async function handler(req) {
       });
     }
 
-    // 0. Load system prompt + person contexts (DB first, fallback to hardcoded)
-    const systemPromptBase = await getSystemPromptBase(sql);
-    const personContexts = await getPersonContexts(sql);
+    // 0. Load system prompt + person contexts + expand query (in parallel)
+    const [systemPromptBase, personContexts, expandedTerms] = await Promise.all([
+      getSystemPromptBase(sql),
+      getPersonContexts(sql),
+      expandQuery(message, personName),
+    ]);
 
-    // 1. Search for relevant memories from Neon DB
-    const memories = await searchMemories(sql, message, personName, lang);
+    // 1. Search for relevant memories from Neon DB (with expanded terms)
+    const memories = await searchMemories(sql, message, personName, lang, expandedTerms);
 
     // 2. Fetch active corrections (scoped: sons share all, others get individual)
     const corrections = await getCorrections(sql, personName, personContexts);
@@ -226,19 +230,71 @@ export default async function handler(req) {
   }
 }
 
-async function searchMemories(sql, query, personName, lang = 'pt-BR') {
+// --- LLM Query Expansion (Haiku — cheap, fast, ~$0.001/query) ---
+async function expandQuery(message, personName) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return [];
+  try {
+    const response = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 100,
+        system: `Gere 3-5 palavras-chave em português para buscar memórias relevantes no arquivo de legado emocional de um pai.
+A pessoa perguntando se chama ${personName}.
+Retorne APENAS um array JSON de strings. Sem explicação.`,
+        messages: [{ role: 'user', content: message }],
+      }),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    const text = data.content[0].text.trim();
+    // Extract JSON array even if wrapped in markdown
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    const parsed = JSON.parse(match[0]);
+    return Array.isArray(parsed) ? parsed.map(s => String(s).toLowerCase()).slice(0, 5) : [];
+  } catch {
+    return []; // Fail silently — original query still works
+  }
+}
+
+// --- Token estimation for dynamic context budget ---
+function estimateTokens(text) {
+  return Math.ceil((text || '').length / 4); // ~4 chars per token for Portuguese
+}
+
+async function searchMemories(sql, query, personName, lang = 'pt-BR', expandedTerms = []) {
 
   // Parse and clean search query: lowercase, remove special chars, split into terms
-  const searchTerms = query
+  let searchTerms = query
     .toLowerCase()
     .replace(/[^\w\sáéíóúâêîôûãõçà]/g, '')
     .split(/\s+/)
     .filter(w => w.length > 2)
     .slice(0, 8);
 
+  // Merge LLM-expanded terms (deduplicated)
+  if (expandedTerms.length > 0) {
+    const existing = new Set(searchTerms);
+    for (const term of expandedTerms) {
+      const clean = term.replace(/[^\w\sáéíóúâêîôûãõçà]/g, '').trim();
+      if (clean.length > 2 && !existing.has(clean)) {
+        searchTerms.push(clean);
+        existing.add(clean);
+      }
+    }
+    searchTerms = searchTerms.slice(0, 12); // allow more terms with expansion
+  }
+
   if (searchTerms.length === 0) {
     const results = await sql`
-      SELECT content, title, category, tags, source_file
+      SELECT content, title, category, tags, source_file, file_date
       FROM alma_chunks
       WHERE category IN ('legado_alma', 'valores', 'paternidade')
       ORDER BY chunk_index ASC
@@ -250,31 +306,53 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR') {
   // Format search query for PostgreSQL full-text search (using | as OR operator)
   const tsQuery = searchTerms.join(' | ');
 
-  // Semantic tag mapping for query terms to memory categories
+  // Expanded semantic tag mapping (45+ entries)
   const tagMap = {
-    'pai': 'paternidade', 'medo': 'trauma', 'erro': 'valores',
-    'arrepend': 'valores', 'deus': 'fe', 'fé': 'fe', 'jesus': 'fe',
-    'homem': 'valores', 'mulher': 'amor', 'amor': 'amor',
-    'relacion': 'amor', 'namorad': 'amor', 'casament': 'amor',
-    'chris': 'chris', 'separ': 'amor', 'traiç': 'amor',
+    // Parenting & Family
+    'pai': 'paternidade', 'filho': 'paternidade', 'crian': 'paternidade',
+    'alma': 'paternidade', 'famíli': 'paternidade', 'familia': 'paternidade',
+    'escola': 'paternidade',
+    // Children by name
     'noah': 'noah', 'nathan': 'nathan', 'isaac': 'isaac',
-    'polícia': 'policia', 'delegad': 'policia', 'trabalh': 'policia',
+    // Family members
+    'nivalda': 'familia', 'leslen': 'familia', 'davi': 'familia',
+    'irmão': 'familia', 'irmao': 'familia', 'chris': 'chris',
+    // Values
+    'valor': 'valores', 'honra': 'valores', 'corag': 'valores',
+    'verdad': 'valores', 'lealdad': 'valores', 'erro': 'valores',
+    'arrepend': 'valores', 'perdão': 'valores', 'perdao': 'valores',
+    'perdoar': 'valores', 'homem': 'valores', 'estud': 'valores',
+    'futur': 'valores', 'sonho': 'valores', 'objetivo': 'valores',
+    'dinheir': 'valores', 'financeir': 'valores',
+    'saúde': 'valores', 'saude': 'valores',
+    'amizad': 'valores', 'amigo': 'valores',
+    'fracass': 'valores', 'sucesso': 'valores',
+    // Love & Relationships
+    'mulher': 'amor', 'amor': 'amor', 'relacion': 'amor',
+    'namorad': 'amor', 'casament': 'amor', 'separ': 'amor', 'traiç': 'amor',
+    // Faith
+    'deus': 'fe', 'fé': 'fe', 'jesus': 'fe',
+    'conversão': 'fe', 'conversao': 'fe', 'igrej': 'fe', 'oraç': 'fe',
+    // Trauma & Crisis
+    'medo': 'trauma', 'solidão': 'trauma', 'solidao': 'trauma', 'sozin': 'trauma',
+    'ansied': 'trauma', 'infânci': 'trauma', 'infancia': 'trauma',
     'suicíd': 'suicidio', 'morr': 'suicidio', 'desist': 'suicidio',
+    'depress': 'suicidio',
+    // Work & Career
+    'polícia': 'policia', 'policia': 'policia', 'delegad': 'policia',
+    'trabalh': 'policia', 'prf': 'policia', 'segurança': 'policia',
+    // Mental Models
     'patch': 'patch', 'código': 'patch', 'sistema': 'patch',
-    'alma': 'paternidade', 'valor': 'valores', 'honra': 'valores',
-    'corag': 'valores', 'verdad': 'valores', 'lealdad': 'valores',
-    'filho': 'paternidade', 'crian': 'paternidade',
   };
 
   const childLower = personName.toLowerCase();
 
   try {
-    // Phase 3.1: Fetch MORE candidates than needed, then rerank with person-awareness
-    const FETCH_POOL = MAX_CONTEXT_CHUNKS * 3; // Fetch 3x to have candidates for reranking
+    const FETCH_POOL = MAX_CONTEXT_CHUNKS * 3;
 
-    // Primary search: full-text search ranked by relevance
+    // Phase 1: Full-text search ranked by relevance
     let results = await sql`
-      SELECT id, content, title, category, tags, source_file,
+      SELECT id, content, title, category, tags, source_file, file_date,
              ts_rank(search_vector, to_tsquery('portuguese', ${tsQuery})) as rank
       FROM alma_chunks
       WHERE search_vector @@ to_tsquery('portuguese', ${tsQuery})
@@ -282,7 +360,7 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR') {
       LIMIT ${FETCH_POOL}
     `;
 
-    // Supplement with tag-based fallback if results are sparse
+    // Phase 2: Tag-based fallback if results are sparse
     if (results.length < FETCH_POOL) {
       const matchedTags = [];
       for (const term of searchTerms) {
@@ -294,7 +372,7 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR') {
       if (matchedTags.length > 0) {
         const existingIds = results.map(r => Number(r.id) || 0).concat([0]);
         const tagResults = await sql`
-          SELECT id, content, title, category, tags, source_file, 0 as rank
+          SELECT id, content, title, category, tags, source_file, file_date, 0 as rank
           FROM alma_chunks
           WHERE tags && ${matchedTags}::TEXT[]
           AND NOT (id = ANY(${existingIds}::int[]))
@@ -305,10 +383,30 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR') {
       }
     }
 
-    // Always fetch person-specific memories to guarantee they're in the pool
+    // Phase 2.5: Trigram fuzzy search for typo tolerance (if pg_trgm available)
+    if (results.length < FETCH_POOL / 2 && searchTerms.length > 0) {
+      try {
+        const trigramQuery = searchTerms.slice(0, 4).join(' ');
+        const existingIdsTrgm = results.map(r => Number(r.id) || 0).concat([0]);
+        const trigramResults = await sql`
+          SELECT id, content, title, category, tags, source_file, file_date,
+                 similarity(content, ${trigramQuery}) as rank
+          FROM alma_chunks
+          WHERE similarity(content, ${trigramQuery}) > 0.08
+          AND NOT (id = ANY(${existingIdsTrgm}::int[]))
+          ORDER BY rank DESC
+          LIMIT ${Math.min(FETCH_POOL - results.length, 8)}
+        `;
+        results = [...results, ...trigramResults];
+      } catch (e) {
+        // pg_trgm not available — skip silently
+      }
+    }
+
+    // Phase 3: Person-specific guarantee
     const existingIds2 = results.map(r => Number(r.id) || 0).concat([0]);
     const personResults = await sql`
-      SELECT id, content, title, category, tags, source_file, 0 as rank
+      SELECT id, content, title, category, tags, source_file, file_date, 0 as rank
       FROM alma_chunks
       WHERE ${childLower} = ANY(tags)
       AND NOT (id = ANY(${existingIds2}::int[]))
@@ -316,49 +414,83 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR') {
     `;
     results = [...results, ...personResults];
 
-    // --- RERANKING: boost results based on person relevance ---
+    // --- RERANKING: 7-tier boost system ---
     const reranked = results.map(r => {
       let score = Number(r.rank) || 0;
       const tags = r.tags || [];
 
-      // Boost 1: Memory is tagged with the current person's name (+0.5)
+      // Boost 1: Memory tagged with person name (+0.5)
       if (tags.includes(childLower)) {
         score += 0.5;
       }
 
-      // Boost 2: Memory category matches person (e.g., "noah" category for Noah) (+0.3)
+      // Boost 2: Category matches person (+0.3)
       if (r.category && r.category.toLowerCase() === childLower) {
         score += 0.3;
       }
 
-      // Boost 3: Memory is about children in general when talking to a child (+0.1)
+      // Boost 3: Child + parenting memories (+0.1)
       const CHILDREN = ['noah', 'nathan', 'isaac'];
       if (CHILDREN.includes(childLower) && tags.some(t => ['paternidade', 'filhos'].includes(t))) {
         score += 0.1;
       }
 
-      // Boost 4: Core identity memories always get a small baseline (+0.05)
+      // Boost 4: Core identity baseline (+0.05)
       if (['legado_alma', 'valores', 'paternidade'].includes(r.category)) {
         score += 0.05;
       }
 
-      // Boost 5: Memory is in the user's language (+0.8 — highest boost)
-      const langCode = lang === 'pt-BR' ? 'pt' : lang; // normalize
+      // Boost 5: Language match (+0.8 highest / -0.3 penalty)
+      const langCode = lang === 'pt-BR' ? 'pt' : lang;
       if (tags.includes(langCode)) {
         score += 0.8;
       }
-      // Penalize memories in OTHER non-PT languages if user chose a specific language
       if (lang !== 'pt-BR' && !tags.includes(langCode) && (tags.includes('en') || tags.includes('es'))) {
-        score -= 0.3; // push down memories in wrong foreign language
+        score -= 0.3;
       }
+
+      // Boost 6: Recency — newer content slightly preferred
+      if (r.file_date) {
+        const ageMonths = (Date.now() - new Date(r.file_date).getTime()) / (1000 * 60 * 60 * 24 * 30);
+        if (ageMonths < 6) score += 0.15;
+        else if (ageMonths < 12) score += 0.08;
+      }
+
+      // Boost 7: Term overlap — more matching terms = more relevant
+      const contentLower = (r.content || '').toLowerCase();
+      const termMatches = searchTerms.filter(t => contentLower.includes(t)).length;
+      score += termMatches * 0.06;
 
       return { ...r, finalScore: score };
     });
 
-    // Sort by final score (highest first), then slice to limit
+    // Sort by final score
     reranked.sort((a, b) => b.finalScore - a.finalScore);
 
-    return reranked.slice(0, MAX_CONTEXT_CHUNKS);
+    // Source diversity: max 3 chunks from same source_file
+    const diversified = [];
+    const sourceCount = {};
+    for (const r of reranked) {
+      const src = r.source_file || '';
+      sourceCount[src] = (sourceCount[src] || 0) + 1;
+      if (sourceCount[src] <= 3) {
+        diversified.push(r);
+      }
+      if (diversified.length >= 12) break; // hard cap for budget check
+    }
+
+    // Dynamic context budget: select chunks until token budget exhausted
+    let tokenBudget = MAX_CONTEXT_TOKENS;
+    const selected = [];
+    for (const r of diversified) {
+      const tokens = estimateTokens(r.content);
+      if (tokenBudget - tokens < 0 && selected.length >= 3) break; // minimum 3 chunks
+      selected.push(r);
+      tokenBudget -= tokens;
+      if (selected.length >= MAX_CONTEXT_CHUNKS) break;
+    }
+
+    return selected;
   } catch (e) {
     // Fallback to simple substring matching if full-text search fails
     console.error('Search error, falling back to LIKE:', e.message);
