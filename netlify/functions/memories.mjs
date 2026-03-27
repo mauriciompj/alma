@@ -4,6 +4,7 @@
 
 import { neon } from '@neondatabase/serverless';
 import { verifySession as sharedVerifySession, jsonResponse as sharedJsonResponse, corsResponse } from './lib/auth.mjs';
+import { withSentry } from './lib/sentry.mjs';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const MODERATION_MODEL = 'claude-haiku-4-5-20251001'; // Fast + cheap for moderation
@@ -83,7 +84,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-export default async function handler(req) {
+export default withSentry('memories', async function handler(req) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
@@ -432,7 +433,7 @@ export default async function handler(req) {
   } catch (error) {
     return jsonResponse({ error: error.message }, 500);
   }
-}
+});
 
 // --- POST request handlers ---
 

@@ -15,6 +15,7 @@
 
 import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
+import { withSentry } from './lib/sentry.mjs';
 
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
 
@@ -47,7 +48,7 @@ function json(data, status = 200) {
   });
 }
 
-export default async function handler(req) {
+export default withSentry('legacy', async function handler(req) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
@@ -277,4 +278,4 @@ export default async function handler(req) {
     console.error('[ALMA Legacy] Error:', e.message);
     return json({ unlocked: false }, 200); // Silent even on errors
   }
-}
+});

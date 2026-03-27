@@ -6,6 +6,7 @@
 
 import { neon } from '@neondatabase/serverless';
 import { verifySession, jsonResponse, corsResponse } from './lib/auth.mjs';
+import { withSentry } from './lib/sentry.mjs';
 
 const ELEVENLABS_API = 'https://api.elevenlabs.io/v1/text-to-speech';
 const DEFAULT_MODEL = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
@@ -16,7 +17,7 @@ const DEFAULT_SETTINGS = {
   use_speaker_boost: true,
 };
 
-export default async function handler(req) {
+export default withSentry('voice', async function handler(req) {
   // --- CORS preflight ---
   if (req.method === 'OPTIONS') return corsResponse();
 
@@ -96,4 +97,4 @@ export default async function handler(req) {
       code: 'VOICE_INTERNAL_ERROR',
     }, 500);
   }
-}
+});
