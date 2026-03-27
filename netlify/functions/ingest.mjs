@@ -180,6 +180,6 @@ export default async function handler(req) {
     });
   } catch (e) {
     console.error('[ALMA Ingest] Error:', e.message);
-    return jsonResponse({ error: 'Ingest failed: ' + e.message }, 500);
+    return jsonResponse({ error: 'Ingest failed. Please try again.' }, 500);
   }
 }

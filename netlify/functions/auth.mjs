@@ -90,7 +90,7 @@ async function handleLogin(sql, body) {
         UPDATE alma_config SET value = ${JSON.stringify(usersJson)}, updated_at = NOW()
         WHERE key = 'users_json'
       `;
-      console.log(`[ALMA] Auto-migrated password hash for user: ${user.username}`);
+      // password hash auto-migrated
     } catch (e) {
       console.error('[ALMA] Failed to auto-migrate password:', e.message);
     }
@@ -214,7 +214,7 @@ async function cleanupExpiredSessions(sql) {
     }
     if (expiredKeys.length > 0) {
       await sql`DELETE FROM alma_config WHERE key = ANY(${expiredKeys})`;
-      console.log(`[ALMA] Cleaned ${expiredKeys.length} expired sessions`);
+      // expired sessions cleaned
     }
   } catch (e) {
     console.error('[ALMA] Session cleanup error:', e.message);

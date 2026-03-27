@@ -154,7 +154,7 @@ export default async function handler() {
                 text: body,
               }),
             });
-            console.log(`[Heartbeat] Email sent to ${heir.person} (${heir.email})`);
+            console.log(`[Heartbeat] Email sent to ${heir.person}`);
           } catch (e) {
             console.error(`[Heartbeat] Failed to email ${heir.person}:`, e.message);
           }

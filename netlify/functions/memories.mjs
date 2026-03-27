@@ -366,7 +366,7 @@ export default async function handler(req) {
             await ensureDirectivesTable(sql);
             result = { directives: [] };
           } else {
-            result = { directives: [], error: e.message };
+            result = { directives: [], error: 'Failed to load directives' };
           }
         }
         break;
@@ -431,7 +431,7 @@ export default async function handler(req) {
 
     return jsonResponse(result);
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return jsonResponse({ error: 'Request failed. Please try again.' }, 500);
   }
 }
 
@@ -718,7 +718,7 @@ Responda APENAS em JSON válido (sem markdown):
     const classification = JSON.parse(jsonMatch[0]);
     return jsonResponse({ success: true, classification });
   } catch (e) {
-    return jsonResponse({ error: 'Classification failed: ' + e.message }, 500);
+    return jsonResponse({ error: 'Classification failed. Please try again.' }, 500);
   }
 }
 
@@ -741,7 +741,7 @@ async function handleSaveHistory(sql, body) {
     `;
     return jsonResponse({ success: true, saved: trimmed.length });
   } catch (e) {
-    return jsonResponse({ error: 'Failed to save history: ' + e.message }, 500);
+    return jsonResponse({ error: 'Failed to save history. Please try again.' }, 500);
   }
 }
 
