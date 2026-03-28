@@ -4,9 +4,36 @@
  */
 
 import { neon } from '@neondatabase/serverless';
-import { ANTHROPIC_API, MODEL_CHAT, MODEL_HAIKU, MAX_CHAT_TOKENS, MAX_CONTEXT_CHUNKS, MAX_CONTEXT_TOKENS, CHAT_RATE_LIMIT, ALLOWED_ORIGIN } from './lib/constants.mjs';
-import { verifySession, checkRateLimit, getClientIp, jsonResponse, corsResponse } from './lib/auth.mjs';
 
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+const MODEL = 'claude-sonnet-4-20250514';
+const MAX_TOKENS = 1000;
+
+// Full-text search language config (PostgreSQL ts_config)
+// 'portuguese', 'english', 'spanish', 'simple' (universal, no stemming), etc.
+// Default: 'simple' — works with any language. Set to a specific language for better stemming.
+const SEARCH_LANG = process.env.SEARCH_LANGUAGE || 'simple';
+
+// --- Rate Limiting (in-memory, resets on cold start) ---
+const RATE_LIMIT = { maxRequests: 20, windowMs: 60000 }; // 20 requests per minute per IP
+const rateLimitMap = new Map();
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip) || { count: 0, resetAt: now + RATE_LIMIT.windowMs };
+  if (now > entry.resetAt) {
+    entry.count = 0;
+    entry.resetAt = now + RATE_LIMIT.windowMs;
+  }
+  entry.count++;
+  rateLimitMap.set(ip, entry);
+  // Clean old entries periodically
+  if (rateLimitMap.size > 1000) {
+    for (const [k, v] of rateLimitMap) { if (now > v.resetAt) rateLimitMap.delete(k); }
+  }
+  return entry.count <= RATE_LIMIT.maxRequests;
+}
+const MAX_CONTEXT_CHUNKS = 8;
 
 // --- System Prompt (core identity, no memories — those come from DB) ---
 // This hardcoded prompt is the FALLBACK. The primary source is alma_config key='system_prompt_base'.
@@ -65,56 +92,109 @@ COMO RESPONDER:
 
 IMPORTANTE: Abaixo você receberá MEMÓRIAS REAIS extraídas dos documentos do ALMA — use-as como base para suas respostas. São as palavras reais do Maurício. Quando relevante, baseie-se nelas. Não invente fatos que não estão nas memórias.`;
 
+// Restrict CORS to production domain only (set via env var or fallback)
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
+
 export default async function handler(req) {
-  if (req.method === 'OPTIONS') return corsResponse();
-  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Rate limiting
+  const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    return new Response(JSON.stringify({ error: 'Too many requests. Please wait a moment.' }), {
+      status: 429, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN, 'Retry-After': '60' },
+    });
+  }
+
+  // --- Auth gate: verify session before consuming Anthropic API ---
+  const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+  if (dbUrl) {
+    const authHeader = req.headers.get('authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+      });
+    }
+    try {
+      const authSql = neon(dbUrl);
+      const rows = await authSql`SELECT value FROM alma_config WHERE key = ${'session_' + token} LIMIT 1`;
+      if (rows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+          status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+        });
+      }
+      const session = JSON.parse(rows[0].value);
+      if (new Date(session.expiresAt) < new Date()) {
+        await authSql`DELETE FROM alma_config WHERE key = ${'session_' + token}`;
+        return new Response(JSON.stringify({ error: 'Session expired' }), {
+          status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+        });
+      }
+    } catch (e) {
+      // Auth check failed — allow through to not break if DB is temporarily down
+      console.error('[ALMA Chat] Auth check error:', e.message);
+    }
+  }
 
   // Validate required env vars early
-  const dbUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
-  if (!process.env.ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 503);
-  if (!dbUrl) return jsonResponse({ error: 'DATABASE_URL not configured' }, 503);
-
-  const sql = neon(dbUrl);
-
-  // Rate limiting (DB-persistent)
-  const clientIp = getClientIp(req);
-  const allowed = await checkRateLimit(sql, 'chat_' + clientIp, CHAT_RATE_LIMIT.maxRequests, CHAT_RATE_LIMIT.windowMs);
-  if (!allowed) return jsonResponse({ error: 'Too many requests. Please wait a moment.' }, 429);
-
-  // Auth gate (shared module)
-  const session = await verifySession(sql, req);
-  if (!session) return jsonResponse({ error: 'Authentication required' }, 401);
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+    });
+  }
+  if (!process.env.NETLIFY_DATABASE_URL && !process.env.DATABASE_URL) {
+    return new Response(JSON.stringify({ error: 'DATABASE_URL not configured' }), {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+    });
+  }
 
   try {
     const body = await req.json();
     const { message, history = [] } = body;
     const personName = body.personName || body.filhoNome; // Support both v2 (personName) and v1 (filhoNome)
-    const ALLOWED_LANGS = ['pt-BR', 'en', 'es'];
-    const lang = ALLOWED_LANGS.includes(body.lang) ? body.lang : 'pt-BR';
+    const lang = body.lang || 'pt-BR'; // User's chosen UI language
     const birthDate = body.birthDate || null; // e.g. "2016-03-15"
 
     if (!message || !personName) {
-      return jsonResponse({ error: 'Missing message or personName' }, 400);
+      return new Response(JSON.stringify({ error: 'Missing message or personName' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    // 0. Load system prompt + person contexts + expand query (in parallel)
-    const [systemPromptBase, personContexts, expandedTerms] = await Promise.all([
-      getSystemPromptBase(sql),
-      getPersonContexts(sql),
-      expandQuery(message, personName, sql),
-    ]);
+    // 0. Load system prompt + person contexts (DB first, fallback to hardcoded)
+    const systemPromptBase = await getSystemPromptBase();
+    const personContexts = await getPersonContexts();
 
-    // 1. Search for relevant memories from Neon DB (with expanded terms)
-    const memories = await searchMemories(sql, message, personName, lang, expandedTerms);
+    // 1. Search for relevant memories from Neon DB
+    const memories = await searchMemories(message, personName, lang);
 
     // 2. Fetch active corrections (scoped: sons share all, others get individual)
-    const corrections = await getCorrections(sql, personName, personContexts);
+    const corrections = await getCorrections(personName, personContexts);
 
     // 3. Fetch tone configuration
-    const toneConfig = await getToneConfig(sql);
+    const toneConfig = await getToneConfig();
 
     // 4. Fetch directives (per-person + global)
-    const directives = await getDirectives(sql, personName);
+    const directives = await getDirectives(personName);
 
     // 5. Build system prompt with retrieved memories + corrections + tone + directives
     const systemPrompt = buildSystemPrompt(systemPromptBase, memories, corrections, personName, toneConfig, directives, lang, birthDate, personContexts);
@@ -122,113 +202,48 @@ export default async function handler(req) {
     // 6. Call Anthropic API
     const response = await callAnthropic(systemPrompt, history, message);
 
-    return jsonResponse({
+    return new Response(JSON.stringify({
       response: response,
       memoriesUsed: memories.length,
       categories: [...new Set(memories.map(m => m.category))],
+    }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+      },
     });
   } catch (error) {
     console.error('[ALMA Chat Error]', error.message);
-    return jsonResponse({ error: 'Internal error. Please try again.' }, 500);
-  }
-}
-
-// --- LLM Query Expansion (Haiku — cached in DB for 24h, ~$0.001/query) ---
-async function expandQuery(message, personName, sql) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return [];
-
-  // Check cache first (24h TTL)
-  const cacheKey = 'qcache_' + simpleHash(message.toLowerCase().trim());
-  try {
-    const cached = await sql`SELECT value, updated_at FROM alma_config WHERE key = ${cacheKey} LIMIT 1`;
-    if (cached.length > 0) {
-      const age = Date.now() - new Date(cached[0].updated_at).getTime();
-      if (age < 24 * 60 * 60 * 1000) { // 24h
-        return JSON.parse(cached[0].value);
-      }
-    }
-  } catch { /* cache miss, proceed to API */ }
-
-  try {
-    const response = await fetch(ANTHROPIC_API, {
-      method: 'POST',
+    return new Response(JSON.stringify({
+      error: 'Internal error. Please try again.',
+      // details intentionally omitted in production — check server logs
+    }), {
+      status: 500,
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
       },
-      body: JSON.stringify({
-        model: MODEL_HAIKU,
-        max_tokens: 100,
-        system: `Gere 3-5 palavras-chave em português para buscar memórias relevantes no arquivo de legado emocional de um pai.
-A pessoa perguntando se chama ${personName}.
-Retorne APENAS um array JSON de strings. Sem explicação.`,
-        messages: [{ role: 'user', content: message }],
-      }),
     });
-    if (!response.ok) return [];
-    const data = await response.json();
-    const text = data.content[0].text.trim();
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) return [];
-    const parsed = JSON.parse(match[0]);
-    const terms = Array.isArray(parsed) ? parsed.map(s => String(s).toLowerCase()).slice(0, 5) : [];
-
-    // Cache result (fire-and-forget)
-    if (terms.length > 0) {
-      sql`
-        INSERT INTO alma_config (key, value, updated_at) VALUES (${cacheKey}, ${JSON.stringify(terms)}, NOW())
-        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-      `.catch(() => {});
-    }
-
-    return terms;
-  } catch {
-    return []; // Fail silently — original query still works
   }
 }
 
-// Simple hash for cache keys (not cryptographic, just deterministic)
-function simpleHash(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
-  }
-  return (h >>> 0).toString(36);
-}
-
-// --- Token estimation for dynamic context budget ---
-function estimateTokens(text) {
-  return Math.ceil((text || '').length / 4); // ~4 chars per token for Portuguese
-}
-
-async function searchMemories(sql, query, personName, lang = 'pt-BR', expandedTerms = []) {
+async function searchMemories(query, personName, lang = 'pt-BR') {
+  // personName parameter: person's name / child's name — used to personalize memory search
+  // lang parameter: user's UI language — used to boost memories in that language
+  const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
 
   // Parse and clean search query: lowercase, remove special chars, split into terms
-  let searchTerms = query
+  const searchTerms = query
     .toLowerCase()
     .replace(/[^\w\sáéíóúâêîôûãõçà]/g, '')
     .split(/\s+/)
     .filter(w => w.length > 2)
     .slice(0, 8);
 
-  // Merge LLM-expanded terms (deduplicated)
-  if (expandedTerms.length > 0) {
-    const existing = new Set(searchTerms);
-    for (const term of expandedTerms) {
-      const clean = term.replace(/[^\w\sáéíóúâêîôûãõçà]/g, '').trim();
-      if (clean.length > 2 && !existing.has(clean)) {
-        searchTerms.push(clean);
-        existing.add(clean);
-      }
-    }
-    searchTerms = searchTerms.slice(0, 12); // allow more terms with expansion
-  }
-
   if (searchTerms.length === 0) {
     const results = await sql`
-      SELECT content, title, category, tags, source_file, file_date
+      SELECT content, title, category, tags, source_file
       FROM alma_chunks
       WHERE category IN ('legado_alma', 'valores', 'paternidade')
       ORDER BY chunk_index ASC
@@ -240,61 +255,39 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR', expandedTe
   // Format search query for PostgreSQL full-text search (using | as OR operator)
   const tsQuery = searchTerms.join(' | ');
 
-  // Expanded semantic tag mapping (45+ entries)
+  // Semantic tag mapping for query terms to memory categories
   const tagMap = {
-    // Parenting & Family
-    'pai': 'paternidade', 'filho': 'paternidade', 'crian': 'paternidade',
-    'alma': 'paternidade', 'famíli': 'paternidade', 'familia': 'paternidade',
-    'escola': 'paternidade',
-    // Children by name
+    'pai': 'paternidade', 'medo': 'trauma', 'erro': 'valores',
+    'arrepend': 'valores', 'deus': 'fe', 'fé': 'fe', 'jesus': 'fe',
+    'homem': 'valores', 'mulher': 'amor', 'amor': 'amor',
+    'relacion': 'amor', 'namorad': 'amor', 'casament': 'amor',
+    'chris': 'chris', 'separ': 'amor', 'traiç': 'amor',
     'noah': 'noah', 'nathan': 'nathan', 'isaac': 'isaac',
-    // Family members
-    'nivalda': 'familia', 'leslen': 'familia', 'davi': 'familia',
-    'irmão': 'familia', 'irmao': 'familia', 'chris': 'chris',
-    // Values
-    'valor': 'valores', 'honra': 'valores', 'corag': 'valores',
-    'verdad': 'valores', 'lealdad': 'valores', 'erro': 'valores',
-    'arrepend': 'valores', 'perdão': 'valores', 'perdao': 'valores',
-    'perdoar': 'valores', 'homem': 'valores', 'estud': 'valores',
-    'futur': 'valores', 'sonho': 'valores', 'objetivo': 'valores',
-    'dinheir': 'valores', 'financeir': 'valores',
-    'saúde': 'valores', 'saude': 'valores',
-    'amizad': 'valores', 'amigo': 'valores',
-    'fracass': 'valores', 'sucesso': 'valores',
-    // Love & Relationships
-    'mulher': 'amor', 'amor': 'amor', 'relacion': 'amor',
-    'namorad': 'amor', 'casament': 'amor', 'separ': 'amor', 'traiç': 'amor',
-    // Faith
-    'deus': 'fe', 'fé': 'fe', 'jesus': 'fe',
-    'conversão': 'fe', 'conversao': 'fe', 'igrej': 'fe', 'oraç': 'fe',
-    // Trauma & Crisis
-    'medo': 'trauma', 'solidão': 'trauma', 'solidao': 'trauma', 'sozin': 'trauma',
-    'ansied': 'trauma', 'infânci': 'trauma', 'infancia': 'trauma',
+    'polícia': 'policia', 'delegad': 'policia', 'trabalh': 'policia',
     'suicíd': 'suicidio', 'morr': 'suicidio', 'desist': 'suicidio',
-    'depress': 'suicidio',
-    // Work & Career
-    'polícia': 'policia', 'policia': 'policia', 'delegad': 'policia',
-    'trabalh': 'policia', 'prf': 'policia', 'segurança': 'policia',
-    // Mental Models
     'patch': 'patch', 'código': 'patch', 'sistema': 'patch',
+    'alma': 'paternidade', 'valor': 'valores', 'honra': 'valores',
+    'corag': 'valores', 'verdad': 'valores', 'lealdad': 'valores',
+    'filho': 'paternidade', 'crian': 'paternidade',
   };
 
   const childLower = personName.toLowerCase();
 
   try {
-    const FETCH_POOL = MAX_CONTEXT_CHUNKS * 3;
+    // Phase 3.1: Fetch MORE candidates than needed, then rerank with person-awareness
+    const FETCH_POOL = MAX_CONTEXT_CHUNKS * 3; // Fetch 3x to have candidates for reranking
 
-    // Phase 1: Full-text search ranked by relevance
+    // Primary search: full-text search ranked by relevance
     let results = await sql`
-      SELECT id, content, title, category, tags, source_file, file_date,
-             ts_rank(search_vector, to_tsquery('portuguese', ${tsQuery})) as rank
+      SELECT id, content, title, category, tags, source_file,
+             ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
       FROM alma_chunks
-      WHERE search_vector @@ to_tsquery('portuguese', ${tsQuery})
+      WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
       ORDER BY rank DESC
       LIMIT ${FETCH_POOL}
     `;
 
-    // Phase 2: Tag-based fallback if results are sparse
+    // Supplement with tag-based fallback if results are sparse
     if (results.length < FETCH_POOL) {
       const matchedTags = [];
       for (const term of searchTerms) {
@@ -306,7 +299,7 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR', expandedTe
       if (matchedTags.length > 0) {
         const existingIds = results.map(r => Number(r.id) || 0).concat([0]);
         const tagResults = await sql`
-          SELECT id, content, title, category, tags, source_file, file_date, 0 as rank
+          SELECT id, content, title, category, tags, source_file, 0 as rank
           FROM alma_chunks
           WHERE tags && ${matchedTags}::TEXT[]
           AND NOT (id = ANY(${existingIds}::int[]))
@@ -317,30 +310,10 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR', expandedTe
       }
     }
 
-    // Phase 2.5: Trigram fuzzy search for typo tolerance (if pg_trgm available)
-    if (results.length < FETCH_POOL / 2 && searchTerms.length > 0) {
-      try {
-        const trigramQuery = searchTerms.slice(0, 4).join(' ');
-        const existingIdsTrgm = results.map(r => Number(r.id) || 0).concat([0]);
-        const trigramResults = await sql`
-          SELECT id, content, title, category, tags, source_file, file_date,
-                 similarity(content, ${trigramQuery}) as rank
-          FROM alma_chunks
-          WHERE similarity(content, ${trigramQuery}) > 0.08
-          AND NOT (id = ANY(${existingIdsTrgm}::int[]))
-          ORDER BY rank DESC
-          LIMIT ${Math.min(FETCH_POOL - results.length, 8)}
-        `;
-        results = [...results, ...trigramResults];
-      } catch (e) {
-        // pg_trgm not available — skip silently
-      }
-    }
-
-    // Phase 3: Person-specific guarantee
+    // Always fetch person-specific memories to guarantee they're in the pool
     const existingIds2 = results.map(r => Number(r.id) || 0).concat([0]);
     const personResults = await sql`
-      SELECT id, content, title, category, tags, source_file, file_date, 0 as rank
+      SELECT id, content, title, category, tags, source_file, 0 as rank
       FROM alma_chunks
       WHERE ${childLower} = ANY(tags)
       AND NOT (id = ANY(${existingIds2}::int[]))
@@ -348,83 +321,49 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR', expandedTe
     `;
     results = [...results, ...personResults];
 
-    // --- RERANKING: 7-tier boost system ---
+    // --- RERANKING: boost results based on person relevance ---
     const reranked = results.map(r => {
       let score = Number(r.rank) || 0;
       const tags = r.tags || [];
 
-      // Boost 1: Memory tagged with person name (+0.5)
+      // Boost 1: Memory is tagged with the current person's name (+0.5)
       if (tags.includes(childLower)) {
         score += 0.5;
       }
 
-      // Boost 2: Category matches person (+0.3)
+      // Boost 2: Memory category matches person (e.g., "noah" category for Noah) (+0.3)
       if (r.category && r.category.toLowerCase() === childLower) {
         score += 0.3;
       }
 
-      // Boost 3: Child + parenting memories (+0.1)
+      // Boost 3: Memory is about children in general when talking to a child (+0.1)
       const CHILDREN = ['noah', 'nathan', 'isaac'];
       if (CHILDREN.includes(childLower) && tags.some(t => ['paternidade', 'filhos'].includes(t))) {
         score += 0.1;
       }
 
-      // Boost 4: Core identity baseline (+0.05)
+      // Boost 4: Core identity memories always get a small baseline (+0.05)
       if (['legado_alma', 'valores', 'paternidade'].includes(r.category)) {
         score += 0.05;
       }
 
-      // Boost 5: Language match (+0.8 highest / -0.3 penalty)
-      const langCode = lang === 'pt-BR' ? 'pt' : lang;
+      // Boost 5: Memory is in the user's language (+0.8 — highest boost)
+      const langCode = lang === 'pt-BR' ? 'pt' : lang; // normalize
       if (tags.includes(langCode)) {
         score += 0.8;
       }
+      // Penalize memories in OTHER non-PT languages if user chose a specific language
       if (lang !== 'pt-BR' && !tags.includes(langCode) && (tags.includes('en') || tags.includes('es'))) {
-        score -= 0.3;
+        score -= 0.3; // push down memories in wrong foreign language
       }
-
-      // Boost 6: Recency — newer content slightly preferred
-      if (r.file_date) {
-        const ageMonths = (Date.now() - new Date(r.file_date).getTime()) / (1000 * 60 * 60 * 24 * 30);
-        if (ageMonths < 6) score += 0.15;
-        else if (ageMonths < 12) score += 0.08;
-      }
-
-      // Boost 7: Term overlap — more matching terms = more relevant
-      const contentLower = (r.content || '').toLowerCase();
-      const termMatches = searchTerms.filter(t => contentLower.includes(t)).length;
-      score += termMatches * 0.06;
 
       return { ...r, finalScore: score };
     });
 
-    // Sort by final score
+    // Sort by final score (highest first), then slice to limit
     reranked.sort((a, b) => b.finalScore - a.finalScore);
 
-    // Source diversity: max 3 chunks from same source_file
-    const diversified = [];
-    const sourceCount = {};
-    for (const r of reranked) {
-      const src = r.source_file || '';
-      sourceCount[src] = (sourceCount[src] || 0) + 1;
-      if (sourceCount[src] <= 3) {
-        diversified.push(r);
-      }
-      if (diversified.length >= 12) break; // hard cap for budget check
-    }
-
-    // Dynamic context budget: select chunks until token budget exhausted
-    let tokenBudget = MAX_CONTEXT_TOKENS;
-    const selected = [];
-    for (const r of diversified) {
-      const tokens = estimateTokens(r.content);
-      if (tokenBudget - tokens < 0 && selected.length >= 3) break; // minimum 3 chunks
-      selected.push(r);
-      tokenBudget -= tokens;
-      if (selected.length >= MAX_CONTEXT_CHUNKS) break;
-    }
-
-    return selected;
+    return reranked.slice(0, MAX_CONTEXT_CHUNKS);
   } catch (e) {
     // Fallback to simple substring matching if full-text search fails
     console.error('Search error, falling back to LIKE:', e.message);
@@ -440,8 +379,9 @@ async function searchMemories(sql, query, personName, lang = 'pt-BR', expandedTe
   }
 }
 
-async function getCorrections(sql, personName, personContexts = {}) {
+async function getCorrections(personName, personContexts = {}) {
   try {
+    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
     // Determine children dynamically from person contexts
     const CHILDREN = Object.entries(personContexts)
       .filter(([_, v]) => v.role === 'filho')
@@ -476,9 +416,10 @@ async function getCorrections(sql, personName, personContexts = {}) {
   }
 }
 
-async function getSystemPromptBase(sql) {
+async function getSystemPromptBase() {
   // Try to load from DB first (allows customization without code changes)
   try {
+    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
     const rows = await sql`SELECT value FROM alma_config WHERE key = 'system_prompt_base' LIMIT 1`;
     if (rows.length > 0 && rows[0].value && rows[0].value.trim().length > 50) {
       return rows[0].value;
@@ -493,7 +434,8 @@ async function getSystemPromptBase(sql) {
 // If no person_contexts key exists, the system will build contexts from users_json
 const PERSON_CONTEXT_FALLBACK = {};
 
-async function getPersonContexts(sql) {
+async function getPersonContexts() {
+  const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
 
   // Try explicit person_contexts config first
   try {
@@ -524,9 +466,10 @@ async function getPersonContexts(sql) {
   return PERSON_CONTEXT_FALLBACK;
 }
 
-async function getToneConfig(sql) {
+async function getToneConfig() {
   // Fetch global tone override set by Maurício in admin panel
   try {
+    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
     const rows = await sql`
       SELECT value FROM alma_config WHERE key = 'tone_global' LIMIT 1
     `;
@@ -537,9 +480,10 @@ async function getToneConfig(sql) {
   }
 }
 
-async function getDirectives(sql, personName) {
+async function getDirectives(personName) {
   // Fetch behavior directives: instructions Maurício sets for ALMA's responses in specific contexts
   try {
+    const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
 
     // Try new alma_directives table first (preferred schema)
     try {
@@ -704,8 +648,8 @@ async function callAnthropic(systemPrompt, history, message) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: MODEL_CHAT,
-      max_tokens: MAX_CHAT_TOKENS,
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
       system: systemPrompt,
       messages: messages,
     }),

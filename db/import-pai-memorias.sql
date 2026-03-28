@@ -3,6 +3,11 @@
 -- =============================================================================
 -- Fonte: alma_sobre_o_pai.docx, alma_transcricao_completa.docx, projeto_alma_pai.docx
 -- Data: 27 de março de 2026
+--
+-- NOTE: to_tsvector() below uses 'portuguese' because these memories are in PT.
+-- If your memories are in another language, replace 'portuguese' with:
+--   'simple' (universal), 'english', 'spanish', etc.
+-- This MUST match the SEARCH_LANGUAGE env var in your deployment.
 -- =============================================================================
 
 -- =====================

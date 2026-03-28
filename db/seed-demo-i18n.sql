@@ -70,7 +70,8 @@ INSERT INTO alma_chunks (content, title, category, tags, source_file, chunk_inde
 ('Si estas pasando por un momento donde parece que no hay salida — escucha: la hay. Siempre la hay. Lo se porque ya estuve en ese lugar oscuro. La salida no es rapida y no es bonita, pero existe. Respira. Llora si lo necesitas. Y pide ayuda — pedir ayuda es lo mas valiente que una persona puede hacer.',
 'Sobre momentos oscuros', 'suicidio', ARRAY['suicidio', 'ajuda', 'superacao', 'esperanca', 'es'], 'demo_hard_es.txt', 2);
 
--- Build search vectors for EN/ES chunks
+-- Build search vectors for EN/ES chunks (language-specific stemming per tag)
+-- NOTE: If using SEARCH_LANGUAGE='simple' in .env, change these to 'simple' for consistency
 UPDATE alma_chunks SET search_vector = to_tsvector('english', coalesce(title, '') || ' ' || content)
 WHERE 'en' = ANY(tags) AND search_vector IS NULL;
 
