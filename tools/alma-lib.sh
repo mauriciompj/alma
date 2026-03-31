@@ -203,18 +203,22 @@ alma_describe_image() {
     *) mime="image/jpeg" ;;
   esac
 
-  local base64_img
-  base64_img=$(base64 -w 0 "$file" 2>/dev/null || base64 < "$file" | tr -d '\n')
+  # Encode to base64 via temp file (avoids "Argument list too long")
+  local tmpb64=$(mktemp)
+  local tmppayload=$(mktemp)
+  base64 -w 0 "$file" > "$tmpb64" 2>/dev/null || base64 < "$file" | tr -d '\n' > "$tmpb64"
 
-  local b64len=${#base64_img}
-  if [ "$b64len" -gt 20000000 ]; then
+  local b64size
+  b64size=$(stat -c%s "$tmpb64" 2>/dev/null || stat -f%z "$tmpb64" 2>/dev/null || echo "0")
+  if [ "$b64size" -gt 20000000 ]; then
     echo "ERRO: Imagem muito grande para Claude Vision" >&2
+    rm -f "$tmpb64" "$tmppayload"
     return 1
   fi
 
-  local payload
-  payload=$(jq -n \
-    --arg img "$base64_img" \
+  # Build JSON payload using --rawfile (reads from file, no arg limit)
+  jq -n \
+    --rawfile img "$tmpb64" \
     --arg mime "$mime" \
     '{
       "model": "claude-sonnet-4-20250514",
@@ -236,15 +240,17 @@ alma_describe_image() {
           }
         ]
       }]
-    }')
+    }' > "$tmppayload"
 
   local resp
   resp=$(curl -s --max-time 60 \
     -H "x-api-key: $ANTHROPIC_API_KEY" \
     -H "anthropic-version: 2023-06-01" \
     -H "content-type: application/json" \
-    -d "$payload" \
+    -d @"$tmppayload" \
     "https://api.anthropic.com/v1/messages" 2>/dev/null)
+
+  rm -f "$tmpb64" "$tmppayload"
 
   local text
   text=$(echo "$resp" | jq -r '.content[0].text // empty' 2>/dev/null)
