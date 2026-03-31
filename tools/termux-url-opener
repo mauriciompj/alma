@@ -37,7 +37,7 @@ else
 fi
 
 # Escolher categoria
-DIALOG=$(termux-dialog sheet -t "ALMA — Salvar memoria" -v "Memoria pessoal,Valores,Fe,Paternidade,Relacionamentos,Cancelar" 2>/dev/null || echo '{"index":-1}')
+DIALOG=$(termux-dialog sheet -t "ALMA — Salvar memoria" -v "Memorias pessoais,Valores,Fe,Paternidade,Relacionamentos,Familia,Profissao,Trauma,Identidade,Amor,Legado ALMA,Tecnologia/IA,Psicologia,Cancelar" 2>/dev/null || echo '{"index":-1}')
 INDEX=$(echo "$DIALOG" | jq -r '.index // -1')
 
 case "$INDEX" in
@@ -46,6 +46,14 @@ case "$INDEX" in
   2) CATEGORY="fe" ;;
   3) CATEGORY="paternidade" ;;
   4) CATEGORY="relacionamentos" ;;
+  5) CATEGORY="familia" ;;
+  6) CATEGORY="profissao" ;;
+  7) CATEGORY="trauma" ;;
+  8) CATEGORY="identidade" ;;
+  9) CATEGORY="amor" ;;
+  10) CATEGORY="legado_alma" ;;
+  11) CATEGORY="tecnologia_ia" ;;
+  12) CATEGORY="psicologia" ;;
   *) alma_toast "Cancelado."; exit 0 ;;
 esac
 

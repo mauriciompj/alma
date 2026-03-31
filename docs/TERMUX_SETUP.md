@@ -64,6 +64,12 @@ cat > ~/.alma-env << 'EOF'
 ALMA_URL=https://projeto-alma.netlify.app
 ALMA_USER=YourUsername
 ALMA_PASS=YourPassword
+
+# Optional: for automatic audio transcription (Whisper)
+OPENAI_API_KEY=sk-...
+
+# Optional: for automatic image description (Claude Vision)
+ANTHROPIC_API_KEY=sk-ant-...
 EOF
 chmod 600 ~/.alma-env
 ```
@@ -121,6 +127,10 @@ This enables: **"Ok Google, ALMA [your message]"** → captured and sent automat
 | Login failed | Check ~/.alma-env credentials |
 | "command not found: alma-send" | Ensure ~/bin is in PATH: `echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc` |
 | Token expired | Token is cached 5 min in ~/.cache/alma_token. Delete it: `rm ~/.cache/alma_token` |
+| Whisper failed | Check `OPENAI_API_KEY` in ~/.alma-env. Get one at platform.openai.com |
+| Claude Vision failed | Check `ANTHROPIC_API_KEY` in ~/.alma-env. Get one at console.anthropic.com |
+| Audio too large | Whisper accepts up to 25MB. Trim the audio before sharing. |
+| Falls back to manual | API key missing or network error — check ~/.alma-env and internet |
 
 ---
 
@@ -213,8 +223,42 @@ Supported formats:
 - `.txt .md .csv .json .log` — sent directly
 - `.pdf` — converted via pdftotext
 - `.docx .doc .odt .rtf` — converted via pandoc
-- `.m4a .ogg .opus .mp3 .wav` — prompts for manual transcription
-- `.jpg .jpeg .png .gif` — prompts for image description
+- `.m4a .ogg .opus .mp3 .wav .aac` — **auto-transcribed via Whisper API** (fallback: manual)
+- `.jpg .jpeg .png .gif .webp` — **auto-described via Claude Vision** (fallback: manual)
+
+---
+
+## Media: Audio & Images (automatic)
+
+When you share audio or images from WhatsApp (or any app) to Termux, the processing is automatic:
+
+### How it works
+1. **Share** → Termux (or Termux EDIT)
+2. **Audio** (.m4a .ogg .opus .mp3 .wav .aac): Whisper API transcribes automatically (~5 seconds)
+3. **Images** (.jpg .jpeg .png .gif .webp): Claude Vision describes automatically (~5 seconds)
+4. The resulting text is stored in ALMA like any other memory
+
+If the API fails (no key, network error), it falls back to the manual dialog.
+
+### Required API Keys in ~/.alma-env
+
+```bash
+OPENAI_API_KEY=sk-...            # Whisper (audio transcription)
+ANTHROPIC_API_KEY=sk-ant-...     # Claude Vision (image description)
+```
+
+Get your keys at:
+- OpenAI: https://platform.openai.com/api-keys
+- Anthropic: https://console.anthropic.com/settings/keys
+
+### Estimated Cost
+- Whisper: ~$0.006/minute of audio (~R$0.03 per voice message)
+- Claude Vision: ~$0.004/image (~R$0.02 per photo)
+- Typical usage (10 audios + 5 photos/day): ~R$2/month
+
+### Limits
+- Audio: max 25MB per file (Whisper limit)
+- Images: max ~15MB per image (Claude Vision limit)
 
 ---
 

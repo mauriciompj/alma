@@ -9,8 +9,8 @@
 #   .txt .md .csv .json .log  — sent directly
 #   .pdf                       — converted via pdftotext (pkg install poppler)
 #   .docx .doc .odt .rtf      — converted via pandoc (pkg install pandoc)
-#   .m4a .ogg .opus .mp3 .wav — audio: prompts for manual transcription
-#   .jpg .jpeg .png .gif      — image: prompts for description
+#   .m4a .ogg .opus .mp3 .wav .aac — audio: auto-transcribed via Whisper API
+#   .jpg .jpeg .png .gif .webp     — image: auto-described via Claude Vision
 #
 # INSTALL:
 #   cp termux-file-editor ~/bin/termux-file-editor
@@ -83,14 +83,27 @@ print('\n'.join([p.text for p in doc.paragraphs]))
     fi
     ;;
   m4a|ogg|opus|mp3|wav|aac)
-    alma_toast "Audio recebido. Transcreva abaixo..." middle
-    DIALOG=$(termux-dialog text -t "ALMA — Transcreva o audio" -i "Ouca e digite/dite o conteudo" 2>/dev/null || echo '{"text":""}')
-    TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
+    alma_toast "ALMA: Transcrevendo audio..." middle
+    TEXT=$(alma_transcribe_audio "$FILE" 2>/tmp/alma_whisper_err)
+    if [ -z "$TEXT" ]; then
+      ERR_MSG=$(cat /tmp/alma_whisper_err 2>/dev/null)
+      alma_toast "Transcricao falhou. Digitando manual..." middle
+      DIALOG=$(termux-dialog text -t "ALMA — Transcreva o audio" \
+        -i "${ERR_MSG:-Whisper indisponivel. Digite o conteudo}" 2>/dev/null || echo '{"text":""}')
+      TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
+    fi
+    if [ -n "$TEXT" ]; then TEXT="[Audio transcrito: $FILENAME] $TEXT"; fi
     ;;
   jpg|jpeg|png|gif|webp)
-    alma_toast "Imagem recebida. Descreva..." middle
-    DIALOG=$(termux-dialog text -t "ALMA — $FILENAME" -i "O que esta nessa foto?" 2>/dev/null || echo '{"text":""}')
-    TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
+    alma_toast "ALMA: Analisando imagem..." middle
+    TEXT=$(alma_describe_image "$FILE" 2>/tmp/alma_vision_err)
+    if [ -z "$TEXT" ]; then
+      ERR_MSG=$(cat /tmp/alma_vision_err 2>/dev/null)
+      alma_toast "Analise falhou. Descrevendo manual..." middle
+      DIALOG=$(termux-dialog text -t "ALMA — $FILENAME" \
+        -i "${ERR_MSG:-Claude Vision indisponivel. Descreva a imagem}" 2>/dev/null || echo '{"text":""}')
+      TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
+    fi
     if [ -n "$TEXT" ]; then TEXT="[Imagem: $FILENAME] $TEXT"; fi
     ;;
   *)
@@ -105,4 +118,14 @@ if [ -z "$TEXT" ]; then
 fi
 
 # Send via alma-send (handles auth, retry, chunking)
-echo "$TEXT" | alma-send -t "$FILENAME" -s "android_share_file" -g "$EXT,arquivo"
+case "$EXT" in
+  m4a|ogg|opus|mp3|wav|aac)
+    echo "$TEXT" | alma-send -t "$FILENAME" -s "android_share_audio" -g "$EXT,audio,transcricao_whisper"
+    ;;
+  jpg|jpeg|png|gif|webp)
+    echo "$TEXT" | alma-send -t "$FILENAME" -s "android_share_imagem" -g "$EXT,imagem,descricao_claude"
+    ;;
+  *)
+    echo "$TEXT" | alma-send -t "$FILENAME" -s "android_share_file" -g "$EXT,arquivo"
+    ;;
+esac

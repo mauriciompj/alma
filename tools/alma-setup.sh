@@ -80,6 +80,27 @@ else
   echo ""
 fi
 
+# 6b. API keys para midia (audio/imagem)
+echo "[6b/7] Verificando API keys para midia..."
+if [ -f ~/.alma-env ]; then
+  if grep -q "OPENAI_API_KEY" ~/.alma-env; then
+    echo "  OPENAI_API_KEY: configurada (Whisper — transcricao de audio)"
+  else
+    echo ""
+    echo "  OPCIONAL: Para transcrever audios automaticamente (Whisper):"
+    echo "  echo 'OPENAI_API_KEY=sk-...' >> ~/.alma-env"
+    echo ""
+  fi
+  if grep -q "ANTHROPIC_API_KEY" ~/.alma-env; then
+    echo "  ANTHROPIC_API_KEY: configurada (Claude Vision — descricao de imagem)"
+  else
+    echo ""
+    echo "  OPCIONAL: Para descrever imagens automaticamente (Claude Vision):"
+    echo "  echo 'ANTHROPIC_API_KEY=sk-ant-...' >> ~/.alma-env"
+    echo ""
+  fi
+fi
+
 # 7. Teste
 echo "[7/7] Testando conexao..."
 if [ -f ~/.alma-env ]; then

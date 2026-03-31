@@ -136,3 +136,125 @@ alma_auto_title() {
   local preview=$(echo "$text" | head -c 50 | tr '\n' ' ')
   echo "$prefix $date_str — $preview..."
 }
+
+# --- Transcribe audio file via OpenAI Whisper API ---
+# Usage: alma_transcribe_audio "/path/to/audio.ogg"
+# Requires: OPENAI_API_KEY in ~/.alma-env
+# Returns: transcription text on stdout, empty on failure
+alma_transcribe_audio() {
+  local file="$1"
+  if [ -z "$OPENAI_API_KEY" ]; then
+    echo "ERRO: OPENAI_API_KEY nao configurada em ~/.alma-env" >&2
+    return 1
+  fi
+  if [ ! -f "$file" ]; then
+    echo "ERRO: Arquivo nao encontrado: $file" >&2
+    return 1
+  fi
+
+  local filesize
+  filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "0")
+  if [ "$filesize" -gt 25000000 ]; then
+    echo "ERRO: Arquivo muito grande para Whisper ($filesize bytes, max 25MB)" >&2
+    return 1
+  fi
+
+  local resp
+  resp=$(curl -s --max-time 120 \
+    -H "Authorization: Bearer $OPENAI_API_KEY" \
+    -F "file=@$file" \
+    -F "model=whisper-1" \
+    -F "language=pt" \
+    -F "response_format=json" \
+    "https://api.openai.com/v1/audio/transcriptions" 2>/dev/null)
+
+  local text
+  text=$(echo "$resp" | jq -r '.text // empty' 2>/dev/null)
+
+  if [ -z "$text" ]; then
+    local err
+    err=$(echo "$resp" | jq -r '.error.message // empty' 2>/dev/null)
+    echo "ERRO: Whisper falhou${err:+ — $err}" >&2
+    return 1
+  fi
+
+  echo "$text"
+}
+
+# --- Describe image via Claude Vision API ---
+# Usage: alma_describe_image "/path/to/image.jpg"
+# Requires: ANTHROPIC_API_KEY in ~/.alma-env
+# Returns: description text on stdout, empty on failure
+alma_describe_image() {
+  local file="$1"
+  if [ -z "$ANTHROPIC_API_KEY" ]; then
+    echo "ERRO: ANTHROPIC_API_KEY nao configurada em ~/.alma-env" >&2
+    return 1
+  fi
+  if [ ! -f "$file" ]; then
+    echo "ERRO: Arquivo nao encontrado: $file" >&2
+    return 1
+  fi
+
+  local mime
+  mime=$(file --mime-type -b "$file" 2>/dev/null || echo "image/jpeg")
+  case "$mime" in
+    image/jpeg|image/png|image/gif|image/webp) ;;
+    *) mime="image/jpeg" ;;
+  esac
+
+  local base64_img
+  base64_img=$(base64 -w 0 "$file" 2>/dev/null || base64 < "$file" | tr -d '\n')
+
+  local b64len=${#base64_img}
+  if [ "$b64len" -gt 20000000 ]; then
+    echo "ERRO: Imagem muito grande para Claude Vision" >&2
+    return 1
+  fi
+
+  local payload
+  payload=$(jq -n \
+    --arg img "$base64_img" \
+    --arg mime "$mime" \
+    '{
+      "model": "claude-sonnet-4-20250514",
+      "max_tokens": 1024,
+      "messages": [{
+        "role": "user",
+        "content": [
+          {
+            "type": "image",
+            "source": {
+              "type": "base64",
+              "media_type": $mime,
+              "data": $img
+            }
+          },
+          {
+            "type": "text",
+            "text": "Voce faz parte do ALMA, um sistema de legado pessoal. Esta imagem foi compartilhada para ser preservada como memoria.\n\nDescreva esta imagem de forma completa e sensivel, capturando:\n1. O que aparece na imagem (pessoas, lugar, objetos, texto)\n2. O contexto aparente (evento, momento do dia, situacao)\n3. Emocoes ou atmosfera que a imagem transmite\n4. Detalhes que seriam importantes para relembrar este momento no futuro\n\nSe houver texto na imagem (print de conversa, documento, placa), transcreva o texto integralmente.\n\nResponda em portugues, em um ou dois paragrafos descritivos. Nao use formatacao markdown."
+          }
+        ]
+      }]
+    }')
+
+  local resp
+  resp=$(curl -s --max-time 60 \
+    -H "x-api-key: $ANTHROPIC_API_KEY" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "content-type: application/json" \
+    -d "$payload" \
+    "https://api.anthropic.com/v1/messages" 2>/dev/null)
+
+  local text
+  text=$(echo "$resp" | jq -r '.content[0].text // empty' 2>/dev/null)
+
+  if [ -z "$text" ]; then
+    local err
+    err=$(echo "$resp" | jq -r '.error.message // empty' 2>/dev/null)
+    echo "ERRO: Claude Vision falhou${err:+ — $err}" >&2
+    return 1
+  fi
+
+  echo "$text"
+}
