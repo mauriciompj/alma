@@ -195,7 +195,7 @@ alma_transcribe_audio() {
   resp=$(curl -s --max-time 120 \
     -H "Content-Type: application/json" \
     -d @"$tmppayload" \
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" 2>/dev/null)
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY" 2>/dev/null)
 
   rm -f "$tmpb64" "$tmppayload"
 
