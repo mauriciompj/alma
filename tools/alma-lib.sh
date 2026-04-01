@@ -210,18 +210,18 @@ alma_describe_image() {
   filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "0")
   if [ "$filesize" -gt 3500000 ]; then
     rm -f "$tmpresized"
-    if command -v python3 &>/dev/null; then
-      python3 << PYEOF
-from PIL import Image
-img = Image.open("$file")
-img.thumbnail((1568, 1568))
-if img.mode in ('RGBA', 'P'):
-    img = img.convert('RGB')
-img.save("$tmpresized", "JPEG", quality=75)
-print("resized")
-PYEOF
+    if command -v ffmpeg &>/dev/null; then
+      ffmpeg -y -i "$file" -vf "scale='min(1568,iw)':'min(1568,ih)':force_original_aspect_ratio=decrease" -q:v 4 "$tmpresized" 2>/dev/null
     elif command -v convert &>/dev/null; then
       convert "$file" -resize 1568x1568\> -quality 75 "$tmpresized" 2>/dev/null
+    elif command -v python3 &>/dev/null; then
+      python3 -c "
+from PIL import Image
+img = Image.open('$file')
+img.thumbnail((1568, 1568))
+if img.mode in ('RGBA', 'P'): img = img.convert('RGB')
+img.save('$tmpresized', 'JPEG', quality=75)
+" 2>/dev/null
     fi
     if [ -s "$tmpresized" ]; then
       srcfile="$tmpresized"
