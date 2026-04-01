@@ -137,14 +137,14 @@ alma_auto_title() {
   echo "$prefix $date_str — $preview..."
 }
 
-# --- Transcribe audio file via OpenAI Whisper API ---
+# --- Transcribe audio file via Google Gemini API ---
 # Usage: alma_transcribe_audio "/path/to/audio.ogg"
-# Requires: OPENAI_API_KEY in ~/.alma-env
+# Requires: GEMINI_API_KEY in ~/.alma-env
 # Returns: transcription text on stdout, empty on failure
 alma_transcribe_audio() {
   local file="$1"
-  if [ -z "$OPENAI_API_KEY" ]; then
-    echo "ERRO: OPENAI_API_KEY nao configurada em ~/.alma-env" >&2
+  if [ -z "$GEMINI_API_KEY" ]; then
+    echo "ERRO: GEMINI_API_KEY nao configurada em ~/.alma-env" >&2
     return 1
   fi
   if [ ! -f "$file" ]; then
@@ -154,27 +154,58 @@ alma_transcribe_audio() {
 
   local filesize
   filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "0")
-  if [ "$filesize" -gt 25000000 ]; then
-    echo "ERRO: Arquivo muito grande para Whisper ($filesize bytes, max 25MB)" >&2
+  if [ "$filesize" -gt 20000000 ]; then
+    echo "ERRO: Arquivo muito grande ($filesize bytes, max 20MB)" >&2
     return 1
   fi
 
+  # Detect mime type
+  local mime
+  mime=$(file --mime-type -b "$file" 2>/dev/null || echo "audio/ogg")
+  case "$mime" in
+    audio/*) ;;
+    *) mime="audio/ogg" ;;
+  esac
+
+  # Encode audio to base64 via temp file (avoids Argument list too long)
+  local tmpb64=$(mktemp)
+  local tmppayload=$(mktemp)
+  base64 -w 0 "$file" > "$tmpb64" 2>/dev/null || base64 < "$file" | tr -d '\n' > "$tmpb64"
+
+  jq -n \
+    --rawfile audio "$tmpb64" \
+    --arg mime "$mime" \
+    '{
+      "contents": [{
+        "parts": [
+          {
+            "inline_data": {
+              "mime_type": $mime,
+              "data": $audio
+            }
+          },
+          {
+            "text": "Transcreva este audio em portugues. Retorne APENAS o texto transcrito, sem formatacao, sem comentarios, sem markdown."
+          }
+        ]
+      }]
+    }' > "$tmppayload"
+
   local resp
   resp=$(curl -s --max-time 120 \
-    -H "Authorization: Bearer $OPENAI_API_KEY" \
-    -F "file=@$file" \
-    -F "model=whisper-1" \
-    -F "language=pt" \
-    -F "response_format=json" \
-    "https://api.openai.com/v1/audio/transcriptions" 2>/dev/null)
+    -H "Content-Type: application/json" \
+    -d @"$tmppayload" \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" 2>/dev/null)
+
+  rm -f "$tmpb64" "$tmppayload"
 
   local text
-  text=$(echo "$resp" | jq -r '.text // empty' 2>/dev/null)
+  text=$(echo "$resp" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
 
   if [ -z "$text" ]; then
     local err
     err=$(echo "$resp" | jq -r '.error.message // empty' 2>/dev/null)
-    echo "ERRO: Whisper falhou${err:+ — $err}" >&2
+    echo "ERRO: Gemini falhou${err:+ — $err}" >&2
     return 1
   fi
 
