@@ -88,9 +88,9 @@ for p in doc.paragraphs:
 
   m4a|ogg|opus|mp3|wav|aac)
     termux-toast -g middle "ALMA: Transcrevendo audio..."
-    TEXT=$(alma_transcribe_audio "$FILE" 2>/tmp/alma_whisper_err)
+    TEXT=$(alma_transcribe_audio "$FILE" 2>${TMPDIR:-/tmp}/alma_whisper_err)
     if [ -z "$TEXT" ]; then
-      ERR_MSG=$(cat /tmp/alma_whisper_err 2>/dev/null)
+      ERR_MSG=$(cat ${TMPDIR:-/tmp}/alma_whisper_err 2>/dev/null)
       termux-toast -g middle "Transcricao falhou. Digitando manual..."
       DIALOG=$(termux-dialog text -t "ALMA — Transcreva o audio" \
         -i "${ERR_MSG:-Whisper indisponivel. Digite o conteudo}" 2>/dev/null || echo '{"text":""}')
@@ -105,9 +105,9 @@ for p in doc.paragraphs:
 
   jpg|jpeg|png|gif|webp)
     termux-toast -g middle "ALMA: Analisando imagem..."
-    TEXT=$(alma_describe_image "$FILE" 2>/tmp/alma_vision_err)
+    TEXT=$(alma_describe_image "$FILE" 2>${TMPDIR:-/tmp}/alma_vision_err)
     if [ -z "$TEXT" ]; then
-      ERR_MSG=$(cat /tmp/alma_vision_err 2>/dev/null)
+      ERR_MSG=$(cat ${TMPDIR:-/tmp}/alma_vision_err 2>/dev/null)
       termux-toast -g middle "Analise falhou. Descrevendo manual..."
       DIALOG=$(termux-dialog text -t "ALMA — Descreva a imagem" \
         -i "${ERR_MSG:-Claude Vision indisponivel. Descreva a imagem}" 2>/dev/null || echo '{"text":""}')

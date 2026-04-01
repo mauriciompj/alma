@@ -236,7 +236,7 @@ alma_describe_image() {
 
   # Resize if image is too large (Claude Vision limit: 5MB base64)
   local srcfile="$file"
-  local tmpresized="/tmp/alma_resized_$$.jpg"
+  local tmpresized="${TMPDIR:-/tmp}/alma_resized_$$.jpg"
   local filesize
   filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "0")
   if [ "$filesize" -gt 3500000 ]; then
