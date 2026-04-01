@@ -205,28 +205,27 @@ alma_describe_image() {
 
   # Resize if image is too large (Claude Vision limit: 5MB base64)
   local srcfile="$file"
-  local tmpresized=""
+  local tmpresized="/tmp/alma_resized_$$.jpg"
   local filesize
   filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "0")
   if [ "$filesize" -gt 3500000 ]; then
-    tmpresized=$(mktemp --suffix=.jpg)
+    rm -f "$tmpresized"
     if command -v python3 &>/dev/null; then
-      python3 -c "
+      python3 << PYEOF
 from PIL import Image
-import sys
-img = Image.open(sys.argv[1])
+img = Image.open("$file")
 img.thumbnail((1568, 1568))
-img.save(sys.argv[2], 'JPEG', quality=75)
-" "$file" "$tmpresized" 2>/dev/null
+if img.mode in ('RGBA', 'P'):
+    img = img.convert('RGB')
+img.save("$tmpresized", "JPEG", quality=75)
+print("resized")
+PYEOF
     elif command -v convert &>/dev/null; then
       convert "$file" -resize 1568x1568\> -quality 75 "$tmpresized" 2>/dev/null
     fi
     if [ -s "$tmpresized" ]; then
       srcfile="$tmpresized"
       mime="image/jpeg"
-    else
-      rm -f "$tmpresized"
-      tmpresized=""
     fi
   fi
 
