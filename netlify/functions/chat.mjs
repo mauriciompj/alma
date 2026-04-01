@@ -248,7 +248,7 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
 
   if (searchTerms.length === 0) {
     const results = await sql`
-      SELECT content, title, category, tags, source_file
+      SELECT COALESCE(content_clean, content) as content, title, category, tags, source_file
       FROM alma_chunks
       WHERE category IN ('legado_alma', 'valores', 'paternidade')
       ORDER BY chunk_index ASC
@@ -284,7 +284,7 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
 
     // Primary search: full-text search ranked by relevance
     let results = await sql`
-      SELECT id, content, title, category, tags, source_file,
+      SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
              ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
       FROM alma_chunks
       WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
@@ -304,7 +304,7 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
       if (matchedTags.length > 0) {
         const existingIds = results.map(r => Number(r.id) || 0).concat([0]);
         const tagResults = await sql`
-          SELECT id, content, title, category, tags, source_file, 0 as rank
+          SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file, 0 as rank
           FROM alma_chunks
           WHERE tags && ${matchedTags}::TEXT[]
           AND NOT (id = ANY(${existingIds}::int[]))
@@ -318,7 +318,7 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
     // Always fetch person-specific memories to guarantee they're in the pool
     const existingIds2 = results.map(r => Number(r.id) || 0).concat([0]);
     const personResults = await sql`
-      SELECT id, content, title, category, tags, source_file, 0 as rank
+      SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file, 0 as rank
       FROM alma_chunks
       WHERE ${childLower} = ANY(tags)
       AND NOT (id = ANY(${existingIds2}::int[]))
@@ -374,9 +374,9 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
     console.error('Search error, falling back to LIKE:', e.message);
     const likePattern = `%${searchTerms[0]}%`;
     const results = await sql`
-      SELECT content, title, category, tags, source_file
+      SELECT COALESCE(content_clean, content) as content, title, category, tags, source_file
       FROM alma_chunks
-      WHERE LOWER(content) LIKE ${likePattern}
+      WHERE LOWER(COALESCE(content_clean, content)) LIKE ${likePattern}
       ORDER BY chunk_index ASC
       LIMIT ${MAX_CONTEXT_CHUNKS}
     `;

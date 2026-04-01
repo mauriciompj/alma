@@ -66,7 +66,7 @@ const ADMIN_ACTIONS = new Set([
   'save_config', 'update_chunk', 'delete_chunk', 'create_chunk', 'import_chunks',
   'promote_correction', 'delete_correction', 'reactivate_correction',
   'add_directive', 'update_directive', 'delete_directive',
-  'classify_input',
+  'classify_input', 'clean_chunk',
 ]);
 // Actions that require any valid session (not necessarily admin)
 const AUTH_ACTIONS = new Set([
@@ -147,6 +147,7 @@ export default async function handler(req) {
         case 'update_directive': return await handleUpdateDirective(sql, body);
         case 'delete_directive': return await handleDeleteDirective(sql, body);
         case 'classify_input': return await handleClassifyInput(sql, body);
+        case 'clean_chunk': return await handleCleanChunk(sql, body);
         default: return jsonResponse({ error: 'Unknown POST action' }, 400);
       }
     }
@@ -228,7 +229,7 @@ export default async function handler(req) {
           const terms = q.split(/\s+/).filter(w => w.length > 2).join(' | ');
           if (category) {
             rows = await sql`
-              SELECT id, title, category, content, tags, source_file
+              SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
               FROM alma_chunks
               WHERE search_vector @@ to_tsquery('portuguese', ${terms}) AND category = ${category}
               ORDER BY ts_rank(search_vector, to_tsquery('portuguese', ${terms})) DESC
@@ -236,7 +237,7 @@ export default async function handler(req) {
             `;
           } else {
             rows = await sql`
-              SELECT id, title, category, content, tags, source_file
+              SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
               FROM alma_chunks
               WHERE search_vector @@ to_tsquery('portuguese', ${terms})
               ORDER BY ts_rank(search_vector, to_tsquery('portuguese', ${terms})) DESC
@@ -245,7 +246,7 @@ export default async function handler(req) {
           }
         } else {
           rows = await sql`
-            SELECT id, title, category, content, tags, source_file
+            SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
             FROM alma_chunks WHERE category = ${category} ORDER BY chunk_index ASC LIMIT ${limit}
           `;
         }
@@ -275,7 +276,7 @@ export default async function handler(req) {
           const terms = q.split(/\s+/).filter(w => w.length > 2).join(' | ');
           if (terms) {
             rows = await sql`
-              SELECT id, title, category, content, tags, source_file, char_count
+              SELECT id, title, category, content, content_clean, tags, source_file, char_count
               FROM alma_chunks
               WHERE search_vector @@ to_tsquery('portuguese', ${terms})
               ${category ? sql`AND category = ${category}` : sql``}
@@ -293,7 +294,7 @@ export default async function handler(req) {
           }
         } else if (category) {
           rows = await sql`
-            SELECT id, title, category, content, tags, source_file, char_count
+            SELECT id, title, category, content, content_clean, tags, source_file, char_count
             FROM alma_chunks WHERE category = ${category}
             ORDER BY chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
           `;
@@ -301,7 +302,7 @@ export default async function handler(req) {
           total = parseInt(countRes[0].c);
         } else {
           rows = await sql`
-            SELECT id, title, category, content, tags, source_file, char_count
+            SELECT id, title, category, content, content_clean, tags, source_file, char_count
             FROM alma_chunks ORDER BY category, chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
           `;
           const countRes = await sql`SELECT COUNT(*) as c FROM alma_chunks`;
@@ -508,10 +509,10 @@ async function handleUpdateChunk(sql, body) {
   const { id, content, title, category, tags } = body;
   if (!id) return jsonResponse({ error: 'Missing id' }, 400);
 
-  const updates = [];
   if (content !== undefined) {
+    // search_vector uses content_clean if it exists, otherwise content
     await sql`UPDATE alma_chunks SET content = ${content}, char_count = ${content.length},
-      search_vector = to_tsvector('portuguese', ${content}) WHERE id = ${id}`;
+      search_vector = to_tsvector('portuguese', COALESCE(content_clean, ${content})) WHERE id = ${id}`;
   }
   if (title !== undefined) await sql`UPDATE alma_chunks SET title = ${title} WHERE id = ${id}`;
   if (category !== undefined) await sql`UPDATE alma_chunks SET category = ${category} WHERE id = ${id}`;
@@ -524,6 +525,27 @@ async function handleDeleteChunk(sql, body) {
   const { id } = body;
   if (!id) return jsonResponse({ error: 'Missing id' }, 400);
   await sql`DELETE FROM alma_chunks WHERE id = ${id}`;
+  return jsonResponse({ success: true, id });
+}
+
+async function handleCleanChunk(sql, body) {
+  const { id, content_clean } = body;
+  if (!id) return jsonResponse({ error: 'Missing id' }, 400);
+
+  if (content_clean === null || content_clean === '') {
+    // Clear: revert to original content for search_vector
+    await sql`UPDATE alma_chunks SET content_clean = NULL,
+      search_vector = to_tsvector('portuguese', content) WHERE id = ${id}`;
+    return jsonResponse({ success: true, id, cleared: true });
+  }
+
+  if (!content_clean || !content_clean.trim()) {
+    return jsonResponse({ error: 'Missing content_clean' }, 400);
+  }
+
+  // Set clean version and update search_vector to use it
+  await sql`UPDATE alma_chunks SET content_clean = ${content_clean.trim()},
+    search_vector = to_tsvector('portuguese', ${content_clean.trim()}) WHERE id = ${id}`;
   return jsonResponse({ success: true, id });
 }
 
