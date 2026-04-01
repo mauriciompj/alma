@@ -203,16 +203,43 @@ alma_describe_image() {
     *) mime="image/jpeg" ;;
   esac
 
+  # Resize if image is too large (Claude Vision limit: 5MB base64)
+  local srcfile="$file"
+  local tmpresized=""
+  local filesize
+  filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "0")
+  if [ "$filesize" -gt 3500000 ]; then
+    tmpresized=$(mktemp --suffix=.jpg)
+    if command -v python3 &>/dev/null; then
+      python3 -c "
+from PIL import Image
+import sys
+img = Image.open(sys.argv[1])
+img.thumbnail((1568, 1568))
+img.save(sys.argv[2], 'JPEG', quality=75)
+" "$file" "$tmpresized" 2>/dev/null
+    elif command -v convert &>/dev/null; then
+      convert "$file" -resize 1568x1568\> -quality 75 "$tmpresized" 2>/dev/null
+    fi
+    if [ -s "$tmpresized" ]; then
+      srcfile="$tmpresized"
+      mime="image/jpeg"
+    else
+      rm -f "$tmpresized"
+      tmpresized=""
+    fi
+  fi
+
   # Encode to base64 via temp file (avoids "Argument list too long")
   local tmpb64=$(mktemp)
   local tmppayload=$(mktemp)
-  base64 -w 0 "$file" > "$tmpb64" 2>/dev/null || base64 < "$file" | tr -d '\n' > "$tmpb64"
+  base64 -w 0 "$srcfile" > "$tmpb64" 2>/dev/null || base64 < "$srcfile" | tr -d '\n' > "$tmpb64"
 
   local b64size
   b64size=$(stat -c%s "$tmpb64" 2>/dev/null || stat -f%z "$tmpb64" 2>/dev/null || echo "0")
-  if [ "$b64size" -gt 20000000 ]; then
-    echo "ERRO: Imagem muito grande para Claude Vision" >&2
-    rm -f "$tmpb64" "$tmppayload"
+  if [ "$b64size" -gt 5200000 ]; then
+    echo "ERRO: Imagem ainda muito grande apos redimensionar ($b64size bytes)" >&2
+    rm -f "$tmpb64" "$tmppayload" "$tmpresized"
     return 1
   fi
 
@@ -250,7 +277,7 @@ alma_describe_image() {
     -d @"$tmppayload" \
     "https://api.anthropic.com/v1/messages" 2>/dev/null)
 
-  rm -f "$tmpb64" "$tmppayload"
+  rm -f "$tmpb64" "$tmppayload" "$tmpresized"
 
   local text
   text=$(echo "$resp" | jq -r '.content[0].text // empty' 2>/dev/null)
