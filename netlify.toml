@@ -69,6 +69,12 @@
   to = "/arvore.html"
   status = 200
 
+# Timeline page (must be BEFORE catch-all)
+[[redirects]]
+  from = "/timeline"
+  to = "/timeline.html"
+  status = 200
+
 # Catch-all: redirect unknown routes to login (must be LAST redirect)
 [[redirects]]
   from = "/*"

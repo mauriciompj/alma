@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline - ALMA</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: #0D0D0D;
+            color: #F0F0F0;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background-color: #1A1A2E;
+            border-bottom: 1px solid #2A2A3E;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            min-width: 200px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: #E8C547;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            padding: 0.5rem;
+        }
+
+        .back-btn:hover {
+            color: #F0F0F0;
+        }
+
+        .header-logo {
+            font-family: Georgia, serif;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #E8C547;
+            letter-spacing: 2px;
+        }
+
+        .header-separator {
+            color: #8A8A9A;
+            margin: 0 0.5rem;
+        }
+
+        .header-title {
+            color: #8A8A9A;
+            font-size: 0.95rem;
+            font-weight: normal;
+        }
+
+        /* Header Center */
+        .header-center {
+            flex: 1;
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.6rem 1rem;
+            background-color: #0D0D0D;
+            border: 1px solid #2A2A3E;
+            border-radius: 4px;
+            color: #F0F0F0;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #E8C547;
+        }
+
+        .search-input::placeholder {
+            color: #8A8A9A;
+        }
+
+        /* Header Right */
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            min-width: 300px;
+            justify-content: flex-end;
+        }
+
+        .category-filter {
+            padding: 0.6rem 1rem;
+            background-color: #0D0D0D;
+            border: 1px solid #2A2A3E;
+            border-radius: 4px;
+            color: #F0F0F0;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .category-filter:focus {
+            outline: none;
+            border-color: #E8C547;
+        }
+
+        .memory-count {
+            color: #8A8A9A;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background-color: #1A1A2E;
+            border-top: 1px solid #2A2A3E;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            font-size: 0.85rem;
+            z-index: 1000;
+            box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .footer-link {
+            color: #8A8A9A;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-link:hover {
+            color: #E8C547;
+        }
+
+        /* Main Content */
+        .timeline-container {
+            margin-top: 70px;
+            margin-bottom: 70px;
+            padding: 2rem 1.5rem;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Timeline Line */
+        .timeline {
+            position: relative;
+            padding: 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 100%;
+            background: linear-gradient(180deg, #E8C547, #8A8A9A);
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .timeline::before {
+                left: 15px;
+            }
+        }
+
+        /* Timeline Cards */
+        .timeline-item {
+            margin-bottom: 2rem;
+            opacity: 0;
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .timeline-item:nth-child(odd) {
+            margin-left: 0;
+            margin-right: auto;
+            width: 45%;
+            text-align: right;
+            padding-right: 2rem;
+        }
+
+        .timeline-item:nth-child(odd)::after {
+            content: '';
+            position: absolute;
+            right: -40px;
+            top: 20px;
+            width: 20px;
+            height: 20px;
+            background-color: #E8C547;
+            border: 2px solid #0D0D0D;
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px #1A1A2E;
+        }
+
+        .timeline-item:nth-child(even) {
+            margin-left: auto;
+            margin-right: 0;
+            width: 45%;
+            text-align: left;
+            padding-left: 2rem;
+        }
+
+        .timeline-item:nth-child(even)::after {
+            content: '';
+            position: absolute;
+            left: -40px;
+            top: 20px;
+            width: 20px;
+            height: 20px;
+            background-color: #E8C547;
+            border: 2px solid #0D0D0D;
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px #1A1A2E;
+        }
+
+        .timeline-item {
+            position: relative;
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: #1A1A2E;
+            border: 1px solid #2A2A3E;
+            border-radius: 6px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .card:hover {
+            border-color: #E8C547;
+            box-shadow: 0 8px 24px rgba(232, 197, 71, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-valores { background-color: #E8C547; color: #0D0D0D; }
+        .badge-historias { background-color: #4A90D9; color: #F0F0F0; }
+        .badge-conselhos { background-color: #4CAF50; color: #F0F0F0; }
+        .badge-humor { background-color: #FF9800; color: #0D0D0D; }
+        .badge-reflexoes { background-color: #9C27B0; color: #F0F0F0; }
+        .badge-correcao { background-color: #D94A4A; color: #F0F0F0; }
+        .badge-default { background-color: #8A8A9A; color: #0D0D0D; }
+
+        .card-title {
+            font-family: Georgia, serif;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #F0F0F0;
+            margin-bottom: 0.5rem;
+            transition: color 0.3s ease;
+        }
+
+        .card:hover .card-title {
+            color: #E8C547;
+        }
+
+        .card-content {
+            color: #B0B0B0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .card-content.expanded {
+            max-height: none;
+        }
+
+        .card-content.collapsed {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            background-color: #2A2A3E;
+            border: 1px solid #3A3A4E;
+            border-radius: 3px;
+            color: #B0B0B0;
+            font-size: 0.8rem;
+        }
+
+        .card-meta {
+            font-size: 0.8rem;
+            color: #8A8A9A;
+            border-top: 1px solid #2A2A3E;
+            padding-top: 0.75rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 0.75rem;
+                padding: 0.75rem 1rem;
+            }
+
+            .header-left,
+            .header-center,
+            .header-right {
+                width: 100%;
+                min-width: unset;
+                justify-content: center;
+            }
+
+            .header-center {
+                order: 2;
+            }
+
+            .search-input {
+                max-width: 100%;
+            }
+
+            .header-right {
+                order: 3;
+            }
+
+            .header-left {
+                order: 1;
+            }
+
+            .timeline::before {
+                left: 15px;
+            }
+
+            .timeline-item:nth-child(odd),
+            .timeline-item:nth-child(even) {
+                width: 100%;
+                text-align: left;
+                padding-left: 50px;
+                padding-right: 0;
+            }
+
+            .timeline-item:nth-child(odd)::after,
+            .timeline-item:nth-child(even)::after {
+                left: 0;
+                right: auto;
+            }
+
+            .footer {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+                padding: 0.5rem 1rem;
+            }
+
+            .timeline-container {
+                margin-top: 280px;
+                padding: 1rem 0.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-logo {
+                font-size: 1.2rem;
+            }
+
+            .card-title {
+                font-size: 1rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .memory-count {
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 3rem;
+            padding: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .pagination-btn {
+            padding: 0.6rem 1.2rem;
+            background-color: #1A1A2E;
+            border: 1px solid #2A2A3E;
+            color: #F0F0F0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            border-color: #E8C547;
+            color: #E8C547;
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            color: #8A8A9A;
+            font-size: 0.9rem;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #8A8A9A;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #2A2A3E;
+            border-top-color: #E8C547;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error State */
+        .error {
+            background-color: #2A1A1A;
+            border: 1px solid #D94A4A;
+            color: #FF9999;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        .error-action {
+            color: #E8C547;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+            <span class="header-logo">ALMA</span>
+            <span class="header-separator">·</span>
+            <span class="header-title">Timeline</span>
+        </div>
+        <div class="header-center">
+            <input
+                type="text"
+                class="search-input"
+                id="searchInput"
+                placeholder="Buscar memória..."
+            >
+        </div>
+        <div class="header-right">
+            <select class="category-filter" id="categoryFilter">
+                <option value="">Todas as categorias</option>
+                <option value="valores">Valores</option>
+                <option value="historias">Histórias</option>
+                <option value="conselhos">Conselhos</option>
+                <option value="humor">Humor</option>
+                <option value="reflexoes">Reflexões</option>
+                <option value="correcao">Correção</option>
+            </select>
+            <div class="memory-count" id="memoryCount">0 memórias</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="timeline-container">
+        <div class="timeline" id="timeline"></div>
+        <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <a href="index.html" class="footer-link">Painel</a>
+        <a href="admin.html" class="footer-link">Base de Dados</a>
+        <a href="arvore.html" class="footer-link">Árvore</a>
+        <a href="login.html" class="footer-link">Sair</a>
+    </div>
+
+    <script>
+        const API_BASE = '/.netlify/functions/memories';
+        const ALMA_TOKEN_NAME = 'alma_token';
+
+        let currentPage = 1;
+        let perPage = 20;
+        let totalPages = 1;
+        let currentSearch = '';
+        let currentCategory = '';
+        let allMemories = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            fetchMemories();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                currentSearch = e.target.value;
+                currentPage = 1;
+                fetchMemories();
+            });
+
+            document.getElementById('categoryFilter').addEventListener('change', (e) => {
+                currentCategory = e.target.value;
+                currentPage = 1;
+                fetchMemories();
+            });
+        }
+
+        function getAuthToken() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === ALMA_TOKEN_NAME) {
+                    return decodeURIComponent(value);
+                }
+            }
+            return null;
+        }
+
+        async function fetchMemories() {
+            const token = getAuthToken();
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const timeline = document.getElementById('timeline');
+            timeline.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+            try {
+                const params = new URLSearchParams({
+                    action: 'admin_chunks',
+                    page: currentPage,
+                    per_page: perPage,
+                    ...(currentSearch && { q: currentSearch }),
+                    ...(currentCategory && { category: currentCategory })
+                });
+
+                const response = await fetch(`${API_BASE}?${params}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                allMemories = data.chunks || [];
+                totalPages = data.totalPages || 1;
+
+                document.getElementById('memoryCount').textContent =
+                    `${data.total || 0} memória${data.total !== 1 ? 's' : ''}`;
+
+                renderTimeline(allMemories);
+                renderPagination(data.page, totalPages);
+            } catch (error) {
+                console.error('Erro ao buscar memórias:', error);
+                timeline.innerHTML = `
+                    <div class="error">
+                        Erro ao carregar memórias.
+                        <span class="error-action" onclick="location.reload()">Tentar novamente</span>
+                    </div>
+                `;
+            }
+        }
+
+        function renderTimeline(memories) {
+            const timeline = document.getElementById('timeline');
+
+            if (memories.length === 0) {
+                timeline.innerHTML = '<div class="loading">Nenhuma memória encontrada</div>';
+                return;
+            }
+
+            timeline.innerHTML = memories.map((memory, index) => {
+                const badge = `badge-${memory.category || 'default'}`;
+                const tagsHtml = memory.tags
+                    ? memory.tags.split(',').map(tag =>
+                        `<span class="tag">${tag.trim()}</span>`
+                      ).join('')
+                    : '';
+
+                const preview = memory.content.length > 200
+                    ? memory.content.substring(0, 200) + '...'
+                    : memory.content;
+
+                return `
+                    <div class="timeline-item" style="animation-delay: ${index * 0.1}s">
+                        <div class="card" onclick="toggleCardExpand(this)">
+                            <div class="card-header">
+                                <span class="card-badge ${badge}">
+                                    ${memory.category || 'outro'}
+                                </span>
+                            </div>
+                            <h3 class="card-title">${escapeHtml(memory.title)}</h3>
+                            <div class="card-content collapsed" data-full="${escapeHtml(memory.content)}">
+                                ${escapeHtml(preview)}
+                            </div>
+                            ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
+                            <div class="card-meta">
+                                ${escapeHtml(memory.source_file)} · Parte ${memory.chunk_index + 1}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Setup Intersection Observer for fade-in
+            const items = document.querySelectorAll('.timeline-item');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            items.forEach(item => observer.observe(item));
+        }
+
+        function toggleCardExpand(cardElement) {
+            const contentDiv = cardElement.querySelector('.card-content');
+            const isCollapsed = contentDiv.classList.contains('collapsed');
+
+            if (isCollapsed) {
+                contentDiv.textContent = contentDiv.dataset.full;
+                contentDiv.classList.remove('collapsed');
+                contentDiv.classList.add('expanded');
+            } else {
+                const preview = contentDiv.dataset.full.length > 200
+                    ? contentDiv.dataset.full.substring(0, 200) + '...'
+                    : contentDiv.dataset.full;
+                contentDiv.textContent = preview;
+                contentDiv.classList.add('collapsed');
+                contentDiv.classList.remove('expanded');
+            }
+        }
+
+        function renderPagination(page, total) {
+            const pagination = document.getElementById('pagination');
+
+            if (total <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            const prevBtn = `
+                <button class="pagination-btn"
+                    onclick="goToPage(${page - 1})"
+                    ${page === 1 ? 'disabled' : ''}>
+                    ← Anterior
+                </button>
+            `;
+
+            const nextBtn = `
+                <button class="pagination-btn"
+                    onclick="goToPage(${page + 1})"
+                    ${page === total ? 'disabled' : ''}>
+                    Próxima →
+                </button>
+            `;
+
+            const info = `<div class="pagination-info">Página ${page} de ${total}</div>`;
+
+            pagination.innerHTML = prevBtn + info + nextBtn;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            fetchMemories();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
