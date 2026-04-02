@@ -145,9 +145,16 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.success) {
-            persistSessionAndRedirect(data);
+            localStorage.setItem('alma_token', data.token);
+            localStorage.setItem('alma_user', data.name);
+            localStorage.setItem('alma_type', data.type);
+            localStorage.setItem('alma_admin', data.admin ? '1' : '0');
+            if (data.birthDate) localStorage.setItem('alma_birthDate', data.birthDate);
+            else localStorage.removeItem('alma_birthDate');
+            sessionStorage.setItem('alma_filho', data.name);
+            sessionStorage.setItem('alma_tipo', data.type);
+            window.location.href = 'chat.html';
           } else {
-            // Invalid/expired magic link — show login form
             document.querySelector('.login-container').style.display = '';
             var errorEl = document.getElementById('loginError');
             if (errorEl) errorEl.textContent = 'Link expirado ou inválido. Faça login normalmente.';
