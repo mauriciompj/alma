@@ -50,6 +50,17 @@
         <button type="submit" class="login-btn" id="loginBtn">Entrar</button>
       </form>
 
+      <div id="googleLoginSection" style="display:none;margin-top:16px;">
+        <div id="googleDivider" style="display:flex;align-items:center;gap:12px;color:#8e8e8e;font-size:0.8rem;letter-spacing:0.08em;text-transform:uppercase;">
+          <span style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></span>
+          <span id="googleDividerText">ou continue com Google</span>
+          <span style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></span>
+        </div>
+        <div id="googleButtonWrap" style="margin-top:14px;display:flex;justify-content:center;">
+          <div id="googleSignInButton"></div>
+        </div>
+      </div>
+
       <p class="login-hint" id="loginHint">Cada pessoa tem seu acesso privado ao ALMA.</p>
 
       <!-- Language selector -->
@@ -73,6 +84,7 @@
       document.getElementById('loginPass').placeholder = t('login.passwordPlaceholder');
       document.getElementById('loginBtn').textContent = t('login.submitButton');
       document.getElementById('loginHint').textContent = t('login.hint');
+      document.getElementById('googleDividerText').textContent = t('login.googleDivider');
       createLangSelector('langSelector');
 
       // Check if dead man's switch is activated — show legacy link
@@ -87,6 +99,9 @@
   <script>
     (function() {
       'use strict';
+
+      var googleClientId = null;
+      var googleButtonReady = false;
 
       // Demo mode: auto-login as Visitante silently, skip form
       if (location.hostname.includes('demo')) {
@@ -118,6 +133,32 @@
         return;
       }
 
+      // Magic link: auto-login via ?token=XXX in URL
+      var urlParams = new URLSearchParams(window.location.search);
+      var magicToken = urlParams.get('token');
+      if (magicToken) {
+        fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'magic_link', magicToken: magicToken })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            persistSessionAndRedirect(data);
+          } else {
+            // Invalid/expired magic link — show login form
+            document.querySelector('.login-container').style.display = '';
+            var errorEl = document.getElementById('loginError');
+            if (errorEl) errorEl.textContent = 'Link expirado ou inválido. Faça login normalmente.';
+          }
+        })
+        .catch(function() {
+          document.querySelector('.login-container').style.display = '';
+        });
+        return;
+      }
+
       // Check if already logged in
       var token = localStorage.getItem('alma_token');
       if (token) {
@@ -127,12 +168,13 @@
       var form = document.getElementById('loginForm');
       var errorEl = document.getElementById('loginError');
       var btn = document.getElementById('loginBtn');
+      var googleSection = document.getElementById('googleLoginSection');
+      var googleButtonHost = document.getElementById('googleSignInButton');
 
       form.addEventListener('submit', function(e) {
         e.preventDefault();
         errorEl.textContent = '';
-        btn.disabled = true;
-        btn.textContent = t('login.submitting');
+        setPrimaryLoading(true);
 
         var username = document.getElementById('loginUser').value.trim();
         var password = document.getElementById('loginPass').value;
@@ -145,32 +187,19 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.success) {
-            // Store session
-            localStorage.setItem('alma_token', data.token);
-            localStorage.setItem('alma_user', data.name);
-            localStorage.setItem('alma_type', data.type);
-            localStorage.setItem('alma_admin', data.admin ? '1' : '0');
-            if (data.birthDate) localStorage.setItem('alma_birthDate', data.birthDate);
-            else localStorage.removeItem('alma_birthDate');
-
-            // Also set sessionStorage for chat.html compatibility
-            sessionStorage.setItem('alma_filho', data.name);
-            sessionStorage.setItem('alma_tipo', data.type);
-
-            // Admin goes to dashboard, users go to chat
-            window.location.href = data.admin ? 'index.html' : 'chat.html';
+            persistSessionAndRedirect(data);
           } else {
             errorEl.textContent = data.error || t('login.errorGeneric');
-            btn.disabled = false;
-            btn.textContent = t('login.submitButton');
+            setPrimaryLoading(false);
           }
         })
         .catch(function() {
           errorEl.textContent = t('login.errorConnection');
-          btn.disabled = false;
-          btn.textContent = t('login.submitButton');
+          setPrimaryLoading(false);
         });
       });
+
+      loadGoogleConfig();
 
       function verifyToken(tk) {
         fetch('/.netlify/functions/auth', {
@@ -181,23 +210,124 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.valid) {
-            localStorage.setItem('alma_user', data.name);
-            localStorage.setItem('alma_type', data.type);
-            localStorage.setItem('alma_admin', data.admin ? '1' : '0');
-            if (data.birthDate) localStorage.setItem('alma_birthDate', data.birthDate);
-            else localStorage.removeItem('alma_birthDate');
-            sessionStorage.setItem('alma_filho', data.name);
-            sessionStorage.setItem('alma_tipo', data.type);
-            window.location.href = data.admin ? 'index.html' : 'chat.html';
+            persistSessionAndRedirect(data);
           } else {
             // Token invalid/expired, clear and stay on login
-            localStorage.removeItem('alma_token');
-            localStorage.removeItem('alma_user');
-            localStorage.removeItem('alma_type');
-            localStorage.removeItem('alma_birthDate');
+            clearStoredSession();
           }
         })
         .catch(function() {});
+      }
+
+      function setPrimaryLoading(isLoading) {
+        btn.disabled = isLoading;
+        btn.textContent = isLoading ? t('login.submitting') : t('login.submitButton');
+      }
+
+      function persistSessionAndRedirect(data) {
+        localStorage.setItem('alma_token', data.token);
+        localStorage.setItem('alma_user', data.name);
+        localStorage.setItem('alma_type', data.type);
+        localStorage.setItem('alma_admin', data.admin ? '1' : '0');
+        if (data.birthDate) localStorage.setItem('alma_birthDate', data.birthDate);
+        else localStorage.removeItem('alma_birthDate');
+        sessionStorage.setItem('alma_filho', data.name);
+        sessionStorage.setItem('alma_tipo', data.type);
+        window.location.href = data.admin ? 'index.html' : 'chat.html';
+      }
+
+      function clearStoredSession() {
+        localStorage.removeItem('alma_token');
+        localStorage.removeItem('alma_user');
+        localStorage.removeItem('alma_type');
+        localStorage.removeItem('alma_admin');
+        localStorage.removeItem('alma_birthDate');
+        sessionStorage.removeItem('alma_filho');
+        sessionStorage.removeItem('alma_tipo');
+      }
+
+      function loadGoogleConfig() {
+        fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'google_config' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data || !data.enabled || !data.clientId) return;
+          googleClientId = data.clientId;
+          googleSection.style.display = '';
+          loadGoogleScript();
+        })
+        .catch(function() {});
+      }
+
+      function loadGoogleScript() {
+        if (window.google && window.google.accounts && window.google.accounts.id) {
+          initGoogleButton();
+          return;
+        }
+        if (document.getElementById('googleGsiScript')) return;
+
+        var script = document.createElement('script');
+        script.id = 'googleGsiScript';
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = initGoogleButton;
+        script.onerror = function() {
+          errorEl.textContent = t('login.googleLoadError');
+        };
+        document.head.appendChild(script);
+      }
+
+      function initGoogleButton() {
+        if (googleButtonReady || !googleClientId || !(window.google && window.google.accounts && window.google.accounts.id)) return;
+        google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false,
+          ux_mode: 'popup',
+          cancel_on_tap_outside: true
+        });
+        googleButtonHost.textContent = '';
+        google.accounts.id.renderButton(googleButtonHost, {
+          theme: 'outline',
+          size: 'large',
+          shape: 'pill',
+          text: 'continue_with',
+          width: 320
+        });
+        googleButtonReady = true;
+      }
+
+      function handleGoogleCredentialResponse(response) {
+        if (!response || !response.credential) {
+          errorEl.textContent = t('login.googleError');
+          return;
+        }
+
+        errorEl.textContent = '';
+        setPrimaryLoading(true);
+
+        fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login_google', idToken: response.credential })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            persistSessionAndRedirect(data);
+            return;
+          }
+          errorEl.textContent = data.error || t('login.googleError');
+          setPrimaryLoading(false);
+        })
+        .catch(function() {
+          errorEl.textContent = t('login.errorConnection');
+          setPrimaryLoading(false);
+        });
       }
     })();
   </script>
