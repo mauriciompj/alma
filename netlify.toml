@@ -63,6 +63,12 @@
   [headers.values]
     Cache-Control = "public, max-age=300"
 
+# Carta page (must be BEFORE catch-all)
+[[redirects]]
+  from = "/carta"
+  to = "/carta.html"
+  status = 200
+
 # Árvore genealógica page (must be BEFORE catch-all)
 [[redirects]]
   from = "/arvore"

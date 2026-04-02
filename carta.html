@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0D0D0D">
+  <title>ALMA — Modo Carta</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕊</text></svg>">
+  <style>
+    .page-carta {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header — same pattern as chat */
+    .carta-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid rgba(232,197,71,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .carta-header h1 {
+      font-family: var(--font-title);
+      font-size: 1.1rem;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    .carta-header nav {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      font-size: 0.82rem;
+    }
+    .carta-header nav a {
+      color: var(--text-soft);
+      transition: color 0.2s;
+    }
+    .carta-header nav a:hover {
+      color: var(--accent);
+    }
+    .btn-back-carta {
+      background: none;
+      border: none;
+      color: var(--text-soft);
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      transition: color 0.2s;
+    }
+    .btn-back-carta:hover { color: var(--accent); }
+
+    /* Main content */
+    .carta-content {
+      flex: 1;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+      width: 100%;
+    }
+
+    /* Intro */
+    .carta-intro {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .carta-intro h2 {
+      font-family: var(--font-title);
+      font-size: 1.6rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .carta-intro p {
+      color: var(--text-soft);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    /* Form */
+    .carta-form {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      margin-bottom: 32px;
+      border: 1px solid rgba(232,197,71,0.08);
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group:last-of-type {
+      margin-bottom: 24px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--accent);
+      margin-bottom: 6px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .form-group select,
+    .form-group textarea,
+    .form-group input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid rgba(232,197,71,0.15);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      padding: 12px 14px;
+      transition: border-color 0.2s;
+    }
+    .form-group select:focus,
+    .form-group textarea:focus,
+    .form-group input[type="text"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .form-group textarea {
+      min-height: 80px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    .form-group select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8A9A' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+    }
+    .form-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Generate button */
+    .btn-generate {
+      width: 100%;
+      padding: 14px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius);
+      font-family: var(--font-title);
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-generate:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(232,197,71,0.3);
+    }
+    .btn-generate:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Loading state */
+    .btn-generate.loading {
+      color: transparent;
+    }
+    .btn-generate.loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 22px;
+      height: 22px;
+      margin: -11px 0 0 -11px;
+      border: 2px solid var(--bg);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Letter display */
+    .carta-result {
+      display: none;
+      margin-top: 12px;
+    }
+    .carta-result.visible {
+      display: block;
+      animation: fadeInUp 0.6s ease;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .carta-envelope {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(232,197,71,0.15);
+      overflow: hidden;
+    }
+    .carta-envelope-header {
+      background: rgba(232,197,71,0.06);
+      padding: 20px 28px;
+      border-bottom: 1px solid rgba(232,197,71,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .carta-envelope-header .carta-label {
+      font-family: var(--font-title);
+      font-size: 0.9rem;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    .carta-envelope-header .carta-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .carta-body {
+      padding: 32px 28px;
+      font-family: var(--font-title);
+      font-size: 1.05rem;
+      line-height: 1.85;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .carta-envelope-footer {
+      padding: 16px 28px;
+      border-top: 1px solid rgba(232,197,71,0.08);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+    .btn-carta-action {
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid rgba(232,197,71,0.2);
+      background: transparent;
+      color: var(--accent);
+    }
+    .btn-carta-action:hover {
+      background: rgba(232,197,71,0.1);
+    }
+    .btn-carta-action.primary {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+    .btn-carta-action.primary:hover {
+      box-shadow: 0 2px 12px rgba(232,197,71,0.25);
+    }
+
+    /* Occasions grid — quick pick */
+    .occasions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .occasion-chip {
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid rgba(232,197,71,0.12);
+      border-radius: var(--radius-sm);
+      color: var(--text-soft);
+      font-size: 0.82rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .occasion-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .occasion-chip.selected {
+      border-color: var(--accent);
+      background: rgba(232,197,71,0.1);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Print styles */
+    @media print {
+      body { background: white; color: #222; }
+      .carta-header, .carta-form, .carta-envelope-footer,
+      .carta-intro, .btn-generate, .btn-back-carta { display: none !important; }
+      .carta-content { padding: 0; max-width: 100%; }
+      .carta-envelope { border: none; background: white; }
+      .carta-envelope-header { background: none; border-bottom: 2px solid #E8C547; }
+      .carta-envelope-header .carta-label { color: #333; }
+      .carta-body { color: #222; font-size: 14pt; padding: 24px 0; }
+      .carta-result { display: block !important; }
+    }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+      .carta-header nav { gap: 10px; font-size: 0.75rem; }
+      .carta-content { padding: 20px 14px 40px; }
+      .carta-form { padding: 20px 16px; }
+      .carta-body { padding: 24px 18px; font-size: 0.98rem; }
+      .carta-envelope-header { padding: 14px 18px; }
+      .carta-envelope-footer { padding: 12px 18px; }
+      .occasions-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-carta" style="display:none" id="pageCarta">
+
+    <!-- Header -->
+    <header class="carta-header">
+      <button class="btn-back-carta" id="btnBack" aria-label="Voltar">&#8592;</button>
+      <h1>ALMA — Modo Carta</h1>
+      <nav>
+        <a href="chat.html">Chat</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="arvore.html">Árvore</a>
+      </nav>
+    </header>
+
+    <!-- Content -->
+    <div class="carta-content">
+
+      <!-- Intro -->
+      <div class="carta-intro">
+        <h2>Carta do Pai</h2>
+        <p>Gere uma carta escrita com a voz, os valores e as memórias reais do seu pai.<br>Escolha a ocasião e deixe o ALMA transformar o legado em palavras.</p>
+      </div>
+
+      <!-- Form -->
+      <div class="carta-form" id="cartaForm">
+        <!-- Recipient -->
+        <div class="form-group">
+          <label for="selectRecipient">Para quem?</label>
+          <select id="selectRecipient">
+            <option value="" disabled selected>Carregando...</option>
+          </select>
+        </div>
+
+        <!-- Occasion -->
+        <div class="form-group">
+          <label>Ocasião</label>
+          <div class="occasions-grid" id="occasionsGrid">
+            <button class="occasion-chip" data-occasion="aniversario">Aniversário</button>
+            <button class="occasion-chip" data-occasion="dia_dos_pais">Dia dos Pais</button>
+            <button class="occasion-chip" data-occasion="formatura">Formatura</button>
+            <button class="occasion-chip" data-occasion="natal">Natal</button>
+            <button class="occasion-chip" data-occasion="conselho">Conselho de Vida</button>
+            <button class="occasion-chip" data-occasion="momento_dificil">Momento Difícil</button>
+            <button class="occasion-chip" data-occasion="conquista">Conquista</button>
+            <button class="occasion-chip" data-occasion="casamento">Casamento</button>
+            <button class="occasion-chip" data-occasion="primeiro_filho">Primeiro Filho</button>
+            <button class="occasion-chip" data-occasion="saudade">Saudade</button>
+            <button class="occasion-chip" data-occasion="livre">Tema Livre</button>
+          </div>
+        </div>
+
+        <!-- Custom context -->
+        <div class="form-group">
+          <label for="txtContext">Contexto adicional <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional)</span></label>
+          <textarea id="txtContext" placeholder="Ex: 'Ele está completando 18 anos', 'Está passando por uma fase difícil na escola', 'Vai casar com a Maria'..."></textarea>
+          <p class="form-hint">Quanto mais contexto, mais personalizada será a carta.</p>
+        </div>
+
+        <!-- Generate -->
+        <button class="btn-generate" id="btnGenerate" disabled>Gerar Carta</button>
+      </div>
+
+      <!-- Result -->
+      <div class="carta-result" id="cartaResult">
+        <div class="carta-envelope">
+          <div class="carta-envelope-header">
+            <span class="carta-label" id="cartaLabel">CARTA DO PAI</span>
+            <span class="carta-meta" id="cartaMeta"></span>
+          </div>
+          <div class="carta-body" id="cartaBody"></div>
+          <div class="carta-envelope-footer">
+            <button class="btn-carta-action" id="btnCopy" title="Copiar texto">Copiar</button>
+            <button class="btn-carta-action" id="btnPrint" title="Imprimir carta">Imprimir</button>
+            <button class="btn-carta-action primary" id="btnNewCarta">Nova Carta</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // --- Auth guard ---
+    var token = localStorage.getItem('alma_token');
+    var user = localStorage.getItem('alma_user');
+    var isAdmin = localStorage.getItem('alma_admin') === '1';
+
+    if (!token || !user) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    document.getElementById('pageCarta').style.display = '';
+
+    // --- Helpers ---
+    function authHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (localStorage.getItem('alma_token') || '')
+      };
+    }
+
+    // --- Back button ---
+    document.getElementById('btnBack').addEventListener('click', function() {
+      if (isAdmin) {
+        window.location.href = 'index.html';
+      } else {
+        window.location.href = 'chat.html';
+      }
+    });
+
+    // --- Load persons for recipient dropdown ---
+    var selectRecipient = document.getElementById('selectRecipient');
+
+    fetch('/.netlify/functions/memories?action=get_persons', { headers: authHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        selectRecipient.innerHTML = '<option value="" disabled selected>Escolha o destinatário</option>';
+        if (data.persons && data.persons.length > 0) {
+          data.persons.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p.name;
+            opt.textContent = p.displayName || p.name;
+            opt.setAttribute('data-type', p.type || '');
+            selectRecipient.appendChild(opt);
+          });
+        }
+        checkFormReady();
+      })
+      .catch(function() {
+        selectRecipient.innerHTML = '<option value="" disabled selected>Erro ao carregar</option>';
+      });
+
+    // --- Occasion selection ---
+    var selectedOccasion = '';
+    var chips = document.querySelectorAll('.occasion-chip');
+    chips.forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        chips.forEach(function(c) { c.classList.remove('selected'); });
+        chip.classList.add('selected');
+        selectedOccasion = chip.getAttribute('data-occasion');
+        checkFormReady();
+      });
+    });
+
+    // --- Form validation ---
+    var btnGenerate = document.getElementById('btnGenerate');
+    selectRecipient.addEventListener('change', checkFormReady);
+
+    function checkFormReady() {
+      btnGenerate.disabled = !(selectRecipient.value && selectedOccasion);
+    }
+
+    // --- Occasion labels (for display) ---
+    var occasionLabels = {
+      'aniversario': 'Aniversário',
+      'dia_dos_pais': 'Dia dos Pais',
+      'formatura': 'Formatura',
+      'natal': 'Natal',
+      'conselho': 'Conselho de Vida',
+      'momento_dificil': 'Momento Difícil',
+      'conquista': 'Conquista',
+      'casamento': 'Casamento',
+      'primeiro_filho': 'Primeiro Filho',
+      'saudade': 'Saudade',
+      'livre': 'Tema Livre'
+    };
+
+    // --- Occasion prompt fragments ---
+    var occasionPrompts = {
+      'aniversario': 'Escreva uma carta para o aniversário de {name}. É um momento de celebrar a vida, refletir sobre o crescimento e reafirmar o amor de pai.',
+      'dia_dos_pais': 'Escreva uma carta para {name} no Dia dos Pais. Fale sobre o que significa ser pai, a gratidão por essa jornada e o que você quer que ele/ela saiba.',
+      'formatura': 'Escreva uma carta para a formatura de {name}. Celebre a conquista, relembre a caminhada e deixe palavras de sabedoria para o próximo capítulo.',
+      'natal': 'Escreva uma carta de Natal para {name}. Fale sobre o significado dessa data, memórias de Natais juntos e o amor que permanece.',
+      'conselho': 'Escreva uma carta com conselhos de vida para {name}. Compartilhe lições que você aprendeu, erros que cometeu e o que espera que ele/ela carregue.',
+      'momento_dificil': 'Escreva uma carta para {name} que está passando por um momento difícil. Seja honesto, acolhedor e forte. Mostre que dá pra sobreviver.',
+      'conquista': 'Escreva uma carta para {name} que alcançou uma conquista importante. Celebre o esforço, reconheça a jornada e expresse orgulho de pai.',
+      'casamento': 'Escreva uma carta para {name} que vai se casar. Fale sobre amor, parceria, erros e acertos — com a honestidade de quem já viveu.',
+      'primeiro_filho': 'Escreva uma carta para {name} que vai ser pai/mãe pela primeira vez. Compartilhe o que aprendeu sendo pai, o que muda e o que permanece.',
+      'saudade': 'Escreva uma carta para {name} que está sentindo saudade. Seja presente nas palavras. Mostre que o amor não depende de presença física.',
+      'livre': 'Escreva uma carta para {name}. O tema é livre — fale do coração, sobre o que vier à mente, o que for mais importante dizer agora.'
+    };
+
+    // --- Generate letter ---
+    btnGenerate.addEventListener('click', function() {
+      if (btnGenerate.disabled) return;
+
+      var recipientName = selectRecipient.value;
+      var recipientDisplay = selectRecipient.options[selectRecipient.selectedIndex].textContent;
+      var context = document.getElementById('txtContext').value.trim();
+
+      // Build the prompt
+      var prompt = occasionPrompts[selectedOccasion].replace(/{name}/g, recipientDisplay);
+      prompt += '\n\nIMPORTANTE: Escreva a carta COMPLETA, como se fosse entregue ao ' + recipientDisplay + '. ';
+      prompt += 'Use a voz, os valores e as memórias reais do Maurício. ';
+      prompt += 'A carta deve ter entre 4 e 8 parágrafos. ';
+      prompt += 'Comece com uma saudação carinhosa e termine com uma despedida de pai. ';
+      prompt += 'NÃO use markdown, NÃO use negrito, NÃO use asteriscos. Texto puro. ';
+      prompt += 'NÃO inclua título ou cabeçalho — comece direto na saudação.';
+
+      if (context) {
+        prompt += '\n\nContexto adicional fornecido pelo usuário: ' + context;
+      }
+
+      // UI: loading state
+      btnGenerate.classList.add('loading');
+      btnGenerate.disabled = true;
+      btnGenerate.textContent = 'Gerando...';
+
+      // Call the chat API
+      fetch('/.netlify/functions/chat', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          message: prompt,
+          person: recipientName,
+          history: [] // No conversation history for letters
+        })
+      })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Erro ' + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        var text = data.reply || data.response || data.message || '';
+        if (!text) throw new Error('Resposta vazia');
+
+        // Clean any markdown artifacts
+        text = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/^#+\s*/gm, '').trim();
+
+        // Show result
+        showLetter(recipientDisplay, text);
+      })
+      .catch(function(err) {
+        alert('Erro ao gerar carta: ' + err.message);
+      })
+      .finally(function() {
+        btnGenerate.classList.remove('loading');
+        btnGenerate.disabled = false;
+        btnGenerate.textContent = 'Gerar Carta';
+        checkFormReady();
+      });
+    });
+
+    function showLetter(recipientDisplay, text) {
+      // Set meta info
+      var now = new Date();
+      var dateStr = now.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+      document.getElementById('cartaMeta').textContent = 'Para ' + recipientDisplay + ' — ' + dateStr;
+      document.getElementById('cartaLabel').textContent = 'CARTA DO PAI';
+
+      // Set body
+      document.getElementById('cartaBody').textContent = text;
+
+      // Show
+      var result = document.getElementById('cartaResult');
+      result.classList.add('visible');
+      result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Hide form
+      document.getElementById('cartaForm').style.display = 'none';
+    }
+
+    // --- Copy button ---
+    document.getElementById('btnCopy').addEventListener('click', function() {
+      var text = document.getElementById('cartaBody').textContent;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+          var btn = document.getElementById('btnCopy');
+          btn.textContent = 'Copiado!';
+          setTimeout(function() { btn.textContent = 'Copiar'; }, 2000);
+        });
+      } else {
+        // Fallback
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        var btn = document.getElementById('btnCopy');
+        btn.textContent = 'Copiado!';
+        setTimeout(function() { btn.textContent = 'Copiar'; }, 2000);
+      }
+    });
+
+    // --- Print button ---
+    document.getElementById('btnPrint').addEventListener('click', function() {
+      window.print();
+    });
+
+    // --- New letter button ---
+    document.getElementById('btnNewCarta').addEventListener('click', function() {
+      document.getElementById('cartaResult').classList.remove('visible');
+      document.getElementById('cartaForm').style.display = '';
+      // Reset form
+      selectedOccasion = '';
+      chips.forEach(function(c) { c.classList.remove('selected'); });
+      document.getElementById('txtContext').value = '';
+      checkFormReady();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+  })();
+  </script>
+</body>
+</html>
