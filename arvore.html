@@ -691,6 +691,204 @@
       cursor: not-allowed;
     }
 
+    /* ── Profile Panel ── */
+    .profile-panel {
+      position: fixed;
+      top: 60px;
+      right: -420px;
+      width: 400px;
+      max-width: 90vw;
+      bottom: 50px;
+      background: var(--surface);
+      border-left: 1px solid rgba(232,197,71,0.15);
+      z-index: 200;
+      overflow-y: auto;
+      transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+    }
+    .profile-panel.open {
+      right: 0;
+    }
+    .profile-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid rgba(232,197,71,0.1);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 1;
+    }
+    .profile-panel-name {
+      font-family: var(--font-title);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .profile-panel-close {
+      background: none;
+      border: none;
+      color: var(--text-soft);
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      transition: color 0.2s;
+    }
+    .profile-panel-close:hover {
+      color: var(--accent);
+    }
+    .profile-panel-body {
+      padding: 20px;
+    }
+    .profile-section {
+      margin-bottom: 24px;
+    }
+    .profile-section-title {
+      font-size: 0.72rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(232,197,71,0.08);
+    }
+    .profile-field {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 6px 0;
+    }
+    .profile-field-label {
+      color: var(--text-soft);
+      font-size: 0.82rem;
+    }
+    .profile-field-value {
+      color: var(--text);
+      font-size: 0.88rem;
+      text-align: right;
+      max-width: 60%;
+    }
+    .profile-type-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .profile-type-badge.you { background: rgba(232,197,71,0.15); color: var(--accent); }
+    .profile-type-badge.child { background: rgba(74,144,217,0.15); color: var(--blue); }
+    .profile-type-badge.direct { background: rgba(139,115,85,0.2); color: #C4A978; }
+    .profile-type-badge.lateral { background: rgba(90,106,122,0.2); color: #8A9AAA; }
+    .profile-type-badge.deceased { background: rgba(106,74,74,0.2); color: #B07A7A; }
+
+    .profile-family-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+    .profile-family-link:hover {
+      border-color: rgba(232,197,71,0.2);
+      background: var(--surface-light);
+    }
+    .profile-family-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .profile-family-dot.you { background: var(--accent); }
+    .profile-family-dot.child { background: var(--blue); }
+    .profile-family-dot.direct { background: #8B7355; }
+    .profile-family-dot.lateral { background: #5A6A7A; }
+    .profile-family-dot.deceased { background: #6A4A4A; }
+    .profile-family-name {
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+    .profile-family-relation {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    /* Memories in profile */
+    .profile-memories-loading {
+      text-align: center;
+      padding: 16px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .profile-memory-card {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      border-left: 3px solid var(--accent);
+    }
+    .profile-memory-title {
+      font-size: 0.82rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .profile-memory-text {
+      font-size: 0.82rem;
+      color: var(--text-soft);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .profile-memory-text.expanded {
+      -webkit-line-clamp: unset;
+    }
+    .profile-memory-more {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 4px 0;
+      margin-top: 4px;
+    }
+    .profile-no-memories {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-style: italic;
+      padding: 8px 0;
+    }
+    .profile-carta-btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      background: rgba(232,197,71,0.08);
+      border: 1px solid rgba(232,197,71,0.2);
+      border-radius: var(--radius-sm);
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .profile-carta-btn:hover {
+      background: rgba(232,197,71,0.15);
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .tree-header {
@@ -744,6 +942,11 @@
         width: 95%;
         max-height: 70vh;
         padding: 20px;
+      }
+      .profile-panel {
+        width: 100vw;
+        max-width: 100vw;
+        right: -100vw;
       }
     }
 
@@ -907,6 +1110,15 @@
         <button class="tree-modal-button" id="apiConnectBtn" style="margin-top:8px;">Conectar API</button>
       </div>
     </div>
+  </div>
+
+  <!-- Profile Panel -->
+  <div class="profile-panel" id="profilePanel">
+    <div class="profile-panel-header">
+      <span class="profile-panel-name" id="profileName">—</span>
+      <button class="profile-panel-close" id="profileClose">&times;</button>
+    </div>
+    <div class="profile-panel-body" id="profileBody"></div>
   </div>
 
   <!-- Tooltip (created dynamically) -->
@@ -1257,10 +1469,12 @@
         node.appendChild(datesEl);
         node.appendChild(tagEl);
 
-        node.addEventListener('click', function() {
-          appState.selectedNodeId = appState.selectedNodeId === person.id ? null : person.id;
+        node.addEventListener('click', function(e) {
+          e.stopPropagation();
+          appState.selectedNodeId = person.id;
           renderNodes();
           highlightConnections();
+          openProfilePanel(person);
         });
 
         node.addEventListener('mouseenter', function() {
@@ -1332,6 +1546,198 @@
     function updatePersonCount(count) {
       document.getElementById('personCount').textContent = count + ' pessoa' + (count !== 1 ? 's' : '');
     }
+
+    // ============================================
+    // PROFILE PANEL
+    // ============================================
+
+    function openProfilePanel(person) {
+      var panel = document.getElementById('profilePanel');
+      var nameEl = document.getElementById('profileName');
+      var body = document.getElementById('profileBody');
+
+      nameEl.textContent = person.name;
+
+      // Build profile body
+      var html = '';
+
+      // ── Dados section ──
+      var typeLabelsProfile = {
+        'you': 'Você', 'child': 'Filho(a)', 'direct': 'Linha Direta',
+        'lateral': 'Lateral', 'deceased': 'Falecido'
+      };
+      var ptype = getPersonType(person);
+
+      html += '<div class="profile-section">';
+      html += '<div class="profile-section-title">Dados</div>';
+      html += '<div class="profile-field"><span class="profile-field-label">Tipo</span>';
+      html += '<span class="profile-type-badge ' + ptype + '">' + (typeLabelsProfile[ptype] || ptype) + '</span></div>';
+      if (person.relation) {
+        html += '<div class="profile-field"><span class="profile-field-label">Relação</span>';
+        html += '<span class="profile-field-value">' + person.relation + '</span></div>';
+      }
+      html += '<div class="profile-field"><span class="profile-field-label">Nascimento</span>';
+      html += '<span class="profile-field-value">' + (person.born || 'Desconhecido') + '</span></div>';
+      html += '<div class="profile-field"><span class="profile-field-label">Falecimento</span>';
+      html += '<span class="profile-field-value">' + (person.died || 'Vivo') + '</span></div>';
+      if (person.location) {
+        html += '<div class="profile-field"><span class="profile-field-label">Local</span>';
+        html += '<span class="profile-field-value">' + person.location + '</span></div>';
+      }
+      html += '<div class="profile-field"><span class="profile-field-label">Geração</span>';
+      html += '<span class="profile-field-value">' + (person.generation > 0 ? '+' : '') + person.generation + '</span></div>';
+      html += '</div>';
+
+      // ── Família section ──
+      var familyLinks = getFamilyLinks(person.id);
+      if (familyLinks.length > 0) {
+        html += '<div class="profile-section">';
+        html += '<div class="profile-section-title">Família</div>';
+        familyLinks.forEach(function(link) {
+          var p = appState.people[link.id];
+          if (!p) return;
+          var dot = getPersonType(p);
+          html += '<div class="profile-family-link" data-person-id="' + link.id + '">';
+          html += '<span class="profile-family-dot ' + dot + '"></span>';
+          html += '<span class="profile-family-name">' + p.name + '</span>';
+          html += '<span class="profile-family-relation">' + link.label + '</span>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      // ── Memórias section ──
+      html += '<div class="profile-section" id="profileMemoriesSection">';
+      html += '<div class="profile-section-title">Memórias no ALMA</div>';
+      html += '<div class="profile-memories-loading" id="profileMemoriesContent">Buscando memórias...</div>';
+      html += '</div>';
+
+      // ── Ações section ──
+      html += '<div class="profile-section">';
+      html += '<a class="profile-carta-btn" href="carta.html">Escrever Carta para ' + person.name.split(' ')[0] + '</a>';
+      html += '</div>';
+
+      body.innerHTML = html;
+
+      // Attach click handlers for family links
+      body.querySelectorAll('.profile-family-link').forEach(function(el) {
+        el.addEventListener('click', function() {
+          var pid = el.getAttribute('data-person-id');
+          var targetPerson = appState.people[pid];
+          if (targetPerson) {
+            appState.selectedNodeId = pid;
+            renderNodes();
+            highlightConnections();
+            openProfilePanel(targetPerson);
+            // Scroll to node
+            var nodeEl = document.getElementById('node-' + pid);
+            if (nodeEl) nodeEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          }
+        });
+      });
+
+      // Open panel
+      panel.classList.add('open');
+
+      // Fetch memories
+      fetchMemoriesForPerson(person.name);
+    }
+
+    function closeProfilePanel() {
+      document.getElementById('profilePanel').classList.remove('open');
+    }
+
+    function getFamilyLinks(personId) {
+      var links = [];
+      var seen = {};
+
+      appState.edges.forEach(function(edge) {
+        if (edge.type === 'spouse') {
+          if (edge.from === personId && !seen[edge.to]) {
+            seen[edge.to] = true;
+            links.push({ id: edge.to, label: 'Cônjuge' });
+          } else if (edge.to === personId && !seen[edge.from]) {
+            seen[edge.from] = true;
+            links.push({ id: edge.from, label: 'Cônjuge' });
+          }
+        }
+        if (edge.type === 'parent') {
+          // edge.from is parent, edge.to is child
+          if (edge.from === personId && !seen[edge.to]) {
+            seen[edge.to] = true;
+            links.push({ id: edge.to, label: 'Filho(a)' });
+          }
+          if (edge.to === personId && !seen[edge.from]) {
+            seen[edge.from] = true;
+            links.push({ id: edge.from, label: 'Pai/Mãe' });
+          }
+        }
+      });
+
+      return links;
+    }
+
+    function fetchMemoriesForPerson(personName) {
+      var container = document.getElementById('profileMemoriesContent');
+      if (!container) return;
+
+      // Search by first name and full name
+      var firstName = personName.split(' ')[0];
+      var searchQuery = firstName;
+
+      fetch('/.netlify/functions/memories?action=search&q=' + encodeURIComponent(searchQuery), {
+        headers: authHeaders()
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var chunks = data.chunks || data.results || [];
+        if (!chunks.length) {
+          container.innerHTML = '<div class="profile-no-memories">Nenhuma memória encontrada para ' + firstName + '.</div>';
+          return;
+        }
+
+        var html = '';
+        chunks.slice(0, 8).forEach(function(chunk) {
+          html += '<div class="profile-memory-card">';
+          if (chunk.title) {
+            html += '<div class="profile-memory-title">' + escapeHtml(chunk.title) + '</div>';
+          }
+          var text = (chunk.content || '').substring(0, 300);
+          html += '<div class="profile-memory-text">' + escapeHtml(text) + '</div>';
+          if ((chunk.content || '').length > 300) {
+            html += '<button class="profile-memory-more" onclick="this.previousElementSibling.classList.toggle(\'expanded\'); this.textContent = this.previousElementSibling.classList.contains(\'expanded\') ? \'ver menos\' : \'ver mais\';">ver mais</button>';
+          }
+          html += '</div>';
+        });
+
+        if (chunks.length > 8) {
+          html += '<div style="color:var(--text-muted);font-size:0.8rem;padding:8px 0;">+ ' + (chunks.length - 8) + ' memórias adicionais</div>';
+        }
+
+        container.innerHTML = html;
+      })
+      .catch(function() {
+        container.innerHTML = '<div class="profile-no-memories">Erro ao buscar memórias.</div>';
+      });
+    }
+
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // Profile panel close button
+    document.getElementById('profileClose').addEventListener('click', closeProfilePanel);
+
+    // Close profile when clicking canvas (not a node)
+    document.getElementById('canvas').addEventListener('click', function(e) {
+      if (!e.target.closest('.tree-node')) {
+        closeProfilePanel();
+        appState.selectedNodeId = null;
+        renderNodes();
+      }
+    });
 
     // ============================================
     // EVENTS
