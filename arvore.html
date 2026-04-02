@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0D0D0D">
+  <meta name="description" content="ALMA — Árvore Genealógica. Explore a história familiar com uma visualização interativa.">
+  <meta property="og:title" content="ALMA — Árvore Genealógica">
+  <meta property="og:description" content="Visualize a história familiar de forma interativa com a árvore genealógica do ALMA.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://projeto-alma.netlify.app">
+  <title>ALMA — Árvore Genealógica</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕊</text></svg>">
+  <style>
+    /* ============================================
+       ÁRVORE GENEALÓGICA — Estilos Específicos
+       ============================================ */
+
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: 100vh;
+      height: 100dvh;
+    }
+
+    /* Header */
+    .tree-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: var(--surface);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      gap: 20px;
+      z-index: 100;
+      font-family: var(--font-body);
+    }
+
+    .tree-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .tree-back-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s;
+      flex-shrink: 0;
+    }
+
+    .tree-back-btn:hover {
+      opacity: 0.8;
+    }
+
+    .tree-title-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .tree-logo {
+      font-family: var(--font-title);
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .tree-separator {
+      color: var(--text-soft);
+      flex-shrink: 0;
+    }
+
+    .tree-subtitle {
+      color: var(--text-soft);
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tree-header-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 2;
+      min-width: 0;
+    }
+
+    .tree-search {
+      background: var(--surface-light);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      width: 100%;
+      max-width: 200px;
+      transition: border-color 0.2s;
+    }
+
+    .tree-search:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .tree-search::placeholder {
+      color: var(--text-muted);
+    }
+
+    .tree-filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tree-filter-btn {
+      background: var(--surface-light);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 4px 10px;
+      color: var(--text-soft);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .tree-filter-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tree-filter-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tree-header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .tree-zoom-controls {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .tree-zoom-btn {
+      background: var(--surface-light);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      width: 30px;
+      height: 30px;
+      color: var(--text-soft);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .tree-zoom-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tree-person-count {
+      color: var(--text-soft);
+      font-size: 0.8rem;
+      white-space: nowrap;
+      padding: 4px 8px;
+      background: var(--surface-light);
+      border-radius: 4px;
+    }
+
+    .tree-data-buttons {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .tree-data-btn {
+      background: var(--surface-light);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: var(--text);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .tree-data-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tree-data-source-badge {
+      color: var(--text-soft);
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      background: var(--accent-dim);
+      border-radius: 4px;
+      border: 1px solid rgba(232, 197, 71, 0.3);
+    }
+
+    /* Canvas Area */
+    .tree-canvas-wrapper {
+      position: relative;
+      flex: 1;
+      background: var(--bg);
+      overflow: hidden;
+      margin-top: 60px;
+      margin-bottom: 50px;
+    }
+
+    .tree-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      user-select: none;
+      background:
+        linear-gradient(rgba(232, 197, 71, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232, 197, 71, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .tree-canvas.grabbing {
+      cursor: grabbing;
+    }
+
+    /* SVG Container */
+    .tree-svg-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .tree-svg-container svg {
+      position: absolute;
+      pointer-events: auto;
+    }
+
+    /* Nodes Container */
+    .tree-nodes {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .tree-node {
+      position: absolute;
+      background: var(--surface);
+      border: 1px solid rgba(42, 42, 74, 0.8);
+      border-top: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 12px;
+      width: 160px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 10;
+    }
+
+    .tree-node.you {
+      border-top-color: var(--accent);
+    }
+
+    .tree-node.child {
+      border-top-color: var(--blue);
+    }
+
+    .tree-node.direct {
+      border-top-color: #8B7355;
+    }
+
+    .tree-node.lateral {
+      border-top-color: #5A6A7A;
+    }
+
+    .tree-node.deceased {
+      border-top-color: #6A4A4A;
+      opacity: 0.75;
+    }
+
+    .tree-node:hover {
+      box-shadow: 0 4px 16px rgba(232, 197, 71, 0.2), 0 2px 8px rgba(0, 0, 0, 0.3);
+      transform: translateY(-2px);
+      border-color: rgba(232, 197, 71, 0.3);
+      pointer-events: auto;
+      z-index: 20;
+    }
+
+    .tree-node.selected {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      box-shadow: 0 4px 20px rgba(232, 197, 71, 0.3), 0 2px 8px rgba(0, 0, 0, 0.3);
+      z-index: 25;
+    }
+
+    .tree-node.highlighted {
+      border-color: var(--accent);
+      box-shadow: 0 4px 20px rgba(232, 197, 71, 0.3);
+    }
+
+    .tree-node-name {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .tree-node-dates {
+      color: var(--text-soft);
+      font-size: 0.75rem;
+      margin-bottom: 6px;
+    }
+
+    .tree-node-tag {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--surface-light);
+    }
+
+    .tree-node.you .tree-node-tag {
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .tree-node.child .tree-node-tag {
+      color: var(--blue);
+      background: var(--blue-dim);
+    }
+
+    .tree-node.direct .tree-node-tag {
+      color: #8B7355;
+      background: rgba(139, 115, 85, 0.15);
+    }
+
+    .tree-node.lateral .tree-node-tag {
+      color: #5A6A7A;
+      background: rgba(90, 106, 122, 0.15);
+    }
+
+    .tree-node.deceased .tree-node-tag {
+      color: #A8A8A8;
+      background: rgba(90, 90, 120, 0.15);
+    }
+
+    /* Tooltip */
+    .tree-tooltip {
+      position: absolute;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.85rem;
+      z-index: 1000;
+      pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      max-width: 220px;
+      word-break: break-word;
+    }
+
+    .tree-tooltip-name {
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .tree-tooltip-info {
+      color: var(--text-soft);
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+
+    /* Legend */
+    .tree-legend {
+      position: fixed;
+      bottom: 60px;
+      left: 20px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      z-index: 50;
+      font-size: 0.8rem;
+    }
+
+    .tree-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .tree-legend-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .tree-legend-dot {
+      width: 12px;
+      height: 3px;
+      border-radius: 1px;
+      flex-shrink: 0;
+    }
+
+    .tree-legend-dot.you {
+      background: var(--accent);
+    }
+
+    .tree-legend-dot.child {
+      background: var(--blue);
+    }
+
+    .tree-legend-dot.direct {
+      background: #8B7355;
+    }
+
+    .tree-legend-dot.lateral {
+      background: #5A6A7A;
+    }
+
+    .tree-legend-dot.deceased {
+      background: #6A4A4A;
+    }
+
+    .tree-legend-label {
+      color: var(--text-soft);
+    }
+
+    /* Footer */
+    .tree-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 50px;
+      background: var(--surface);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      font-size: 0.8rem;
+      color: var(--text-soft);
+      z-index: 100;
+    }
+
+    .tree-footer-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tree-footer-links {
+      display: flex;
+      gap: 16px;
+    }
+
+    .tree-footer-links a {
+      color: var(--accent);
+      font-size: 0.8rem;
+      transition: opacity 0.2s;
+    }
+
+    .tree-footer-links a:hover {
+      opacity: 0.8;
+    }
+
+    /* Modal */
+    .tree-modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tree-modal-backdrop.active {
+      display: flex;
+    }
+
+    .tree-modal {
+      background: var(--surface);
+      border: 1px solid rgba(232, 197, 71, 0.3);
+      border-radius: 12px;
+      padding: 28px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .tree-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 12px;
+    }
+
+    .tree-modal-title {
+      font-family: var(--font-title);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .tree-modal-close {
+      background: none;
+      border: none;
+      color: var(--text-soft);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+    }
+
+    .tree-modal-close:hover {
+      color: var(--accent);
+    }
+
+    .tree-modal-tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .tree-modal-tab {
+      background: none;
+      border: none;
+      color: var(--text-soft);
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
+
+    .tree-modal-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tree-modal-tab-content {
+      display: none;
+    }
+
+    .tree-modal-tab-content.active {
+      display: block;
+    }
+
+    .tree-modal-field {
+      margin-bottom: 16px;
+    }
+
+    .tree-modal-label {
+      display: block;
+      color: var(--text-soft);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .tree-modal-input {
+      width: 100%;
+      background: var(--surface-light);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 10px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+
+    .tree-modal-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .tree-modal-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .tree-dropzone {
+      border: 2px dashed rgba(232, 197, 71, 0.4);
+      border-radius: 8px;
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface-light);
+    }
+
+    .tree-dropzone:hover {
+      border-color: var(--accent);
+      background: rgba(232, 197, 71, 0.08);
+    }
+
+    .tree-dropzone.active {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .tree-dropzone-text {
+      color: var(--text-soft);
+      font-size: 0.9rem;
+    }
+
+    .tree-modal-button {
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      padding: 10px 20px;
+      color: #0D0D0D;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      font-size: 0.9rem;
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .tree-modal-button:hover {
+      opacity: 0.9;
+    }
+
+    .tree-modal-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .tree-header {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 12px;
+        gap: 8px;
+      }
+
+      .tree-header-left {
+        flex: 1 1 100%;
+        order: 1;
+      }
+
+      .tree-header-center {
+        flex: 1 1 100%;
+        order: 3;
+        max-width: none;
+      }
+
+      .tree-header-right {
+        flex: 1 1 100%;
+        order: 2;
+        justify-content: flex-start;
+      }
+
+      .tree-canvas-wrapper {
+        margin-top: 120px;
+      }
+
+      .tree-filters {
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+
+      .tree-filter-btn {
+        padding: 3px 8px;
+        font-size: 0.7rem;
+      }
+
+      .tree-legend {
+        display: none;
+      }
+
+      .tree-node {
+        width: 140px;
+        padding: 10px;
+      }
+
+      .tree-modal {
+        width: 95%;
+        max-height: 70vh;
+        padding: 20px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .tree-header-center {
+        flex-basis: 100%;
+      }
+
+      .tree-filters {
+        display: none;
+      }
+
+      .tree-data-buttons {
+        gap: 4px;
+      }
+
+      .tree-data-btn {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+      }
+
+      .tree-node {
+        width: 120px;
+        padding: 8px;
+      }
+
+      .tree-node-name {
+        font-size: 0.8rem;
+      }
+
+      .tree-node-dates {
+        font-size: 0.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="tree-header">
+    <div class="tree-header-left">
+      <button class="tree-back-btn" id="backBtn" title="Voltar">←</button>
+      <div class="tree-title-section">
+        <div class="tree-logo">ALMA</div>
+        <div class="tree-separator">·</div>
+        <div class="tree-subtitle">Árvore Genealógica</div>
+      </div>
+    </div>
+
+    <div class="tree-header-center">
+      <input
+        type="text"
+        id="searchInput"
+        class="tree-search"
+        placeholder="Buscar pessoa..."
+        aria-label="Buscar na árvore genealógica"
+      >
+      <div class="tree-filters">
+        <button class="tree-filter-btn active" data-filter="all">Todos</button>
+        <button class="tree-filter-btn" data-filter="child">Filhos</button>
+        <button class="tree-filter-btn" data-filter="direct">Linha Direta</button>
+        <button class="tree-filter-btn" data-filter="lateral">Lateral</button>
+        <button class="tree-filter-btn" data-filter="deceased">Falecidos</button>
+      </div>
+    </div>
+
+    <div class="tree-header-right">
+      <div class="tree-zoom-controls">
+        <button class="tree-zoom-btn" id="zoomInBtn" title="Aumentar zoom">+</button>
+        <button class="tree-zoom-btn" id="zoomResetBtn" title="Resetar view">⌂</button>
+        <button class="tree-zoom-btn" id="zoomOutBtn" title="Diminuir zoom">−</button>
+      </div>
+      <div class="tree-person-count" id="personCount">0 pessoas</div>
+      <div class="tree-data-buttons">
+        <button class="tree-data-btn" id="gedcomBtn" title="Importar GEDCOM">📂 GEDCOM</button>
+        <button class="tree-data-btn" id="apiBtn" title="Conectar API">🔗 API</button>
+      </div>
+      <div class="tree-data-source-badge" id="sourceBadge">Interna</div>
+    </div>
+  </header>
+
+  <!-- Canvas -->
+  <div class="tree-canvas-wrapper" id="canvasWrapper">
+    <div class="tree-canvas" id="canvas">
+      <div class="tree-svg-container" id="svgContainer"></div>
+      <div class="tree-nodes" id="nodesContainer"></div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="tree-legend" id="legend">
+    <div class="tree-legend-item">
+      <div class="tree-legend-dot you"></div>
+      <div class="tree-legend-label">Você</div>
+    </div>
+    <div class="tree-legend-item">
+      <div class="tree-legend-dot child"></div>
+      <div class="tree-legend-label">Filhos</div>
+    </div>
+    <div class="tree-legend-item">
+      <div class="tree-legend-dot direct"></div>
+      <div class="tree-legend-label">Linha Direta</div>
+    </div>
+    <div class="tree-legend-item">
+      <div class="tree-legend-dot lateral"></div>
+      <div class="tree-legend-label">Lateral</div>
+    </div>
+    <div class="tree-legend-item">
+      <div class="tree-legend-dot deceased"></div>
+      <div class="tree-legend-label">Falecido</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="tree-footer">
+    <div class="tree-footer-info">
+      <span>ALMA · Árvore Genealógica · Fonte: <span id="sourceLabel">Interna</span></span>
+    </div>
+    <div class="tree-footer-links">
+      <a href="index.html">Painel</a>
+      <a href="admin.html">Base de Dados</a>
+      <a href="#" id="logoutFooter">Sair</a>
+    </div>
+  </footer>
+
+  <!-- Modal -->
+  <div class="tree-modal-backdrop" id="modalBackdrop">
+    <div class="tree-modal" id="modal">
+      <div class="tree-modal-header">
+        <div class="tree-modal-title" id="modalTitle">Importar Dados</div>
+        <button class="tree-modal-close" id="modalClose">&times;</button>
+      </div>
+
+      <div class="tree-modal-tabs">
+        <button class="tree-modal-tab active" data-tab="gedcom">GEDCOM</button>
+        <button class="tree-modal-tab" data-tab="api">API</button>
+      </div>
+
+      <!-- GEDCOM Tab -->
+      <div class="tree-modal-tab-content active" data-tab="gedcom" id="gedcomTab">
+        <div class="tree-modal-field">
+          <label class="tree-modal-label">Arrastar arquivo GEDCOM ou selecionar</label>
+          <div class="tree-dropzone" id="dropzone">
+            <div class="tree-dropzone-text">Arraste um arquivo .ged aqui ou clique para selecionar</div>
+          </div>
+          <input type="file" id="gedcomInput" accept=".ged,.gedcom" style="display:none;">
+        </div>
+      </div>
+
+      <!-- API Tab -->
+      <div class="tree-modal-tab-content" data-tab="api" id="apiTab">
+        <div class="tree-modal-field">
+          <label class="tree-modal-label" for="apiKeyInput">Chave de Aplicação</label>
+          <input
+            type="password"
+            id="apiKeyInput"
+            class="tree-modal-input"
+            placeholder="Cole sua chave aqui"
+          >
+        </div>
+        <button class="tree-modal-button" id="oauthBtn">Conectar com OAuth</button>
+        <button class="tree-modal-button" id="apiConnectBtn" style="margin-top:8px;">Conectar API</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tooltip (created dynamically) -->
+  <div class="tree-tooltip" id="tooltip" style="display:none;"></div>
+
+  <script>
+    'use strict';
+
+    // ============================================
+    // AUTH CHECK
+    // ============================================
+    (function() {
+      var token = localStorage.getItem('alma_token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+    })();
+
+    // ============================================
+    // APP STATE & DATA
+    // ============================================
+
+    var appState = {
+      token: localStorage.getItem('alma_token'),
+      isAdmin: localStorage.getItem('alma_admin') === '1',
+      currentSource: 'interna', // 'interna', 'gedcom', 'api'
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      selectedNodeId: null,
+      currentFilter: 'all',
+      searchQuery: '',
+      people: {},
+      edges: [],
+      layout: {}
+    };
+
+    // ══════════════════════════════════════════════════════
+    // DADOS REAIS — Família Pereira (44 pessoas, 7 gerações)
+    // Fonte: familia_pereira_jr_org.html
+    // Gerações: -6 (mais antiga) a 0 (Maurício) a +1 (filhos)
+    // ══════════════════════════════════════════════════════
+    var initialPeople = {
+      // ── Geração +1: Filhos ──
+      '2':  { id:'2',  name:'Noah Lacerda Pereira',        born:'29 jul 2015', died:null,          type:'child',   generation:1,  relation:'Seu filho',          location:'Florianópolis-SC' },
+      '3':  { id:'3',  name:'Nathan Lacerda Pereira',      born:'23 set 2019', died:null,          type:'child',   generation:1,  relation:'Seu filho',          location:'Cuiabá/MT' },
+      '4':  { id:'4',  name:'Isaac Lacerda Pereira',       born:'23 set 2019', died:null,          type:'child',   generation:1,  relation:'Seu filho',          location:'Cuiabá/MT' },
+      // ── Geração 0: Você + parceira ──
+      '1':  { id:'1',  name:'Maurício M. Pereira Jr.',     born:'26 mai 1980', died:null,          type:'you',     generation:0,  relation:'Você',               location:'Florianópolis-SC' },
+      '8':  { id:'8',  name:'Christyanne Marques Pereira', born:'9 dez 1982',  died:null,          type:'lateral', generation:0,  relation:'Ex-parceira',        location:'Barra do Garças-MT' },
+      // ── Geração -1: Pais + irmão + cunhada ──
+      '5':  { id:'5',  name:'Maurício M. Garcia Pereira',  born:'25 ago 1954', died:'jun 2017',    type:'direct',  generation:-1, relation:'Seu pai',            location:'Itajaí, SC' },
+      '6':  { id:'6',  name:'Nivalda Pereira',             born:'10 set 1946', died:null,          type:'direct',  generation:-1, relation:'Sua mãe',            location:'Florianópolis-SC' },
+      '7':  { id:'7',  name:'Davi Garcia Pereira',         born:'15 jun 1984', died:null,          type:'lateral', generation:-1, relation:'Seu irmão',          location:'Florianópolis-SC' },
+      '20': { id:'20', name:'Janira Silveira',             born:'1984',        died:null,          type:'lateral', generation:-1, relation:'Cunhada',            location:'' },
+      // ── Geração -2: Avós + tios ──
+      '9':  { id:'9',  name:'Marcial Ricardo Pereira',     born:'3 abr 1923',  died:'1 abr 2020',  type:'direct',  generation:-2, relation:'Avô paterno',        location:'Itajaí, SC' },
+      '10': { id:'10', name:'Maria do Carmo Garcia',       born:'1 jun 1925',  died:'25 mar 2020', type:'direct',  generation:-2, relation:'Avó paterna',        location:'Camboriú, SC' },
+      '11': { id:'11', name:'Natalino Garcia',             born:'25 dez 1912', died:'2001',        type:'direct',  generation:-2, relation:'Avô materno',        location:'Brasil' },
+      '12': { id:'12', name:'Nair Josephina Garcia',       born:null,          died:'13 mai 1983', type:'deceased',generation:-2, relation:'Avó materna',        location:'Brasil' },
+      '15': { id:'15', name:'Murilo Garcia Pereira',       born:'1950',        died:null,          type:'lateral', generation:-2, relation:'Tio paterno',        location:'' },
+      '40': { id:'40', name:'Maria Regina Rodrigues',      born:'27 set 1953', died:null,          type:'lateral', generation:-2, relation:'Tia paterna',        location:'Laguna, SC' },
+      '42': { id:'42', name:'Íris Garcia (Neca)',          born:null,          died:null,          type:'lateral', generation:-2, relation:'Tia paterna',        location:'' },
+      '43': { id:'43', name:'Sandro Garcia',               born:null,          died:null,          type:'lateral', generation:-2, relation:'Tio paterno',        location:'' },
+      '44': { id:'44', name:'Marcelo Garcia',              born:null,          died:null,          type:'lateral', generation:-2, relation:'Tio paterno',        location:'' },
+      '17': { id:'17', name:'Neri Francisco Garcia',       born:'1941',        died:null,          type:'lateral', generation:-2, relation:'Tio materno',        location:'' },
+      '18': { id:'18', name:'Nelci Terezinha Lupi',        born:'1944',        died:null,          type:'lateral', generation:-2, relation:'Tia materna',        location:'' },
+      '19': { id:'19', name:'Nelli Teixeira',              born:null,          died:'Falecida',    type:'deceased',generation:-2, relation:'Tia materna',        location:'' },
+      // ── Geração -2: Sobrinhos + primos (mesma camada visual dos tios) ──
+      '13': { id:'13', name:'Lucas Pereira',               born:null,          died:null,          type:'lateral', generation:-1, relation:'Sobrinho',           location:'' },
+      '14': { id:'14', name:'Theo Pereira',                born:null,          died:null,          type:'lateral', generation:-1, relation:'Sobrinho',           location:'' },
+      '29': { id:'29', name:'Mariana Rodrigues Pereira',   born:'25 nov 1981', died:null,          type:'lateral', generation:-1, relation:'Prima',              location:'Florianópolis' },
+      '28': { id:'28', name:'Marcel Rodrigues Pereira',    born:'13 mai 1983', died:'Falecido',    type:'deceased',generation:-1, relation:'Primo',              location:'Florianópolis' },
+      '30': { id:'30', name:'Moema Rodrigues Pereira',     born:'6 mar 1985',  died:null,          type:'lateral', generation:-1, relation:'Prima',              location:'' },
+      '47': { id:'47', name:'Luciano (Gugo) Garcia',       born:null,          died:null,          type:'lateral', generation:-1, relation:'Primo',              location:'' },
+      '50': { id:'50', name:'Ricardo Teixeira',            born:null,          died:null,          type:'lateral', generation:-1, relation:'Primo',              location:'' },
+      '53': { id:'53', name:'Rosemary Teixeira',           born:'27 dez 1960', died:'Falecida',    type:'deceased',generation:-1, relation:'Prima',              location:'' },
+      // ── Geração -3: Bisavós + tios-avôs ──
+      '21': { id:'21', name:'Amaro Neves Pereira',         born:'5 ago 1897',  died:'8 nov 1974',  type:'direct',  generation:-3, relation:'Bisavô',             location:'' },
+      '22': { id:'22', name:'Juliana Joaquina Pereira',    born:'5 mai 1903',  died:'3 fev 1979',  type:'deceased',generation:-3, relation:'Bisavó',             location:'' },
+      '23': { id:'23', name:'Afonso Pereira Garcia',       born:'11 set 1889', died:'26 nov 1972', type:'direct',  generation:-3, relation:'Bisavô',             location:'Camboriú, SC' },
+      '24': { id:'24', name:'Isabel Pereira',              born:'8 jul 1906',  died:'22 nov 1991', type:'deceased',generation:-3, relation:'Bisavó',             location:'Camboriú, SC' },
+      '26': { id:'26', name:'Anastácio J. Pereira',        born:'1867',        died:'1950',        type:'direct',  generation:-3, relation:'Bisavô',             location:'' },
+      '27': { id:'27', name:'Maria Rosa Said',             born:'1880',        died:'1973',        type:'deceased',generation:-3, relation:'Bisavá',             location:'Origem árabe' },
+      '33': { id:'33', name:'Osny Neves Pereira',          born:'17 jun 1927', died:'Falecido',    type:'deceased',generation:-3, relation:'Tio-avô',            location:'Itajaí, SC' },
+      '34': { id:'34', name:'Érico Luiz Pereira',          born:'21 jun 1940', died:'22 abr 1994', type:'deceased',generation:-3, relation:'Tio-avô',            location:'Itajaí, SC' },
+      // ── Geração -4: Trisavós ──
+      '59': { id:'59', name:'Silvano Bento Garcia',        born:'1850',        died:'1922',        type:'direct',  generation:-4, relation:'Trisavô',            location:'' },
+      '60': { id:'60', name:'Maria Anastacia Pereira',     born:'1855',        died:'Falecida',    type:'deceased',generation:-4, relation:'Trisavó',            location:'' },
+      '66': { id:'66', name:'Silvano José Baptista',       born:'1798',        died:'1864',        type:'direct',  generation:-4, relation:'Antepassado direto', location:'' },
+      '67': { id:'67', name:'Maria Joaquina da Conceição', born:'1800',        died:'Falecida',    type:'deceased',generation:-4, relation:'Antepassada direta', location:'' },
+      // ── Geração -5: 5ª geração ──
+      '80': { id:'80', name:'Jeremias Francisco Garcia',   born:'~1820',       died:'19 mai 1877', type:'direct',  generation:-5, relation:'5ª geração',         location:'Nossa Sra. Destêrro' },
+      '81': { id:'81', name:'Anna Maria Baptista',         born:'~1830',       died:'5 jan 1880',  type:'deceased',generation:-5, relation:'5ª geração',         location:'Porto Belo, SC' },
+      '82': { id:'82', name:'Manoel Anastacio Pereira',    born:'~1826',       died:'2 jan 1892',  type:'direct',  generation:-5, relation:'5ª geração',         location:'' },
+      '83': { id:'83', name:'Maria Joaquina dos Santos',   born:'1831',        died:null,          type:'deceased',generation:-5, relation:'5ª geração',         location:'Porto Belo, SC' }
+    };
+
+    var initialEdges = [
+      // Filhos de Maurício + Christyanne
+      { from:'1', to:'2', type:'parent' }, { from:'1', to:'3', type:'parent' }, { from:'1', to:'4', type:'parent' },
+      { from:'8', to:'2', type:'parent' }, { from:'8', to:'3', type:'parent' }, { from:'8', to:'4', type:'parent' },
+      // Maurício filho de pai e mãe
+      { from:'5', to:'1', type:'parent' }, { from:'6', to:'1', type:'parent' },
+      // Davi filho de pai e mãe
+      { from:'5', to:'7', type:'parent' }, { from:'6', to:'7', type:'parent' },
+      // Sobrinhos filhos de Davi
+      { from:'7', to:'13', type:'parent' }, { from:'7', to:'14', type:'parent' },
+      // Primos filhos de Maria Regina
+      { from:'40', to:'29', type:'parent' }, { from:'40', to:'28', type:'parent' }, { from:'40', to:'30', type:'parent' },
+      // Primo filho de Sandro
+      { from:'43', to:'47', type:'parent' },
+      // Primos filhos de Nelli
+      { from:'19', to:'50', type:'parent' }, { from:'19', to:'53', type:'parent' },
+      // Tios paternos filhos de avós paternos
+      { from:'9', to:'15', type:'parent' }, { from:'10', to:'15', type:'parent' },
+      { from:'9', to:'40', type:'parent' }, { from:'10', to:'40', type:'parent' },
+      { from:'9', to:'42', type:'parent' }, { from:'10', to:'42', type:'parent' },
+      { from:'9', to:'43', type:'parent' }, { from:'10', to:'43', type:'parent' },
+      { from:'9', to:'44', type:'parent' }, { from:'10', to:'44', type:'parent' },
+      // Pai filho de avós paternos
+      { from:'9', to:'5', type:'parent' }, { from:'10', to:'5', type:'parent' },
+      // Tios maternos filhos de avós maternos
+      { from:'11', to:'17', type:'parent' }, { from:'12', to:'17', type:'parent' },
+      { from:'11', to:'18', type:'parent' }, { from:'12', to:'18', type:'parent' },
+      { from:'11', to:'19', type:'parent' }, { from:'12', to:'19', type:'parent' },
+      // Mãe filha de avós maternos
+      { from:'11', to:'6', type:'parent' }, { from:'12', to:'6', type:'parent' },
+      // Avô paterno filho de bisavós
+      { from:'21', to:'9', type:'parent' }, { from:'22', to:'9', type:'parent' },
+      // Avó paterna filha de bisavós
+      { from:'23', to:'10', type:'parent' }, { from:'24', to:'10', type:'parent' },
+      // Avô materno filho de bisavós
+      { from:'26', to:'11', type:'parent' }, { from:'27', to:'11', type:'parent' },
+      // Tios-avôs filhos de bisavós paternos
+      { from:'21', to:'33', type:'parent' }, { from:'22', to:'33', type:'parent' },
+      { from:'21', to:'34', type:'parent' }, { from:'22', to:'34', type:'parent' },
+      // Bisavô Afonso filho de trisavós
+      { from:'59', to:'23', type:'parent' }, { from:'60', to:'23', type:'parent' },
+      // Bisavô Amaro filho de antepassados
+      { from:'66', to:'21', type:'parent' }, { from:'67', to:'21', type:'parent' },
+      // Trisavô Silvano Bento filho de 5ª geração
+      { from:'80', to:'59', type:'parent' }, { from:'81', to:'59', type:'parent' },
+      // Trisavó Maria Anastacia filha de 5ª geração
+      { from:'82', to:'60', type:'parent' }, { from:'83', to:'60', type:'parent' },
+      // ── Casais (spouse) ──
+      { from:'1',  to:'8',  type:'spouse' },
+      { from:'5',  to:'6',  type:'spouse' },
+      { from:'9',  to:'10', type:'spouse' },
+      { from:'11', to:'12', type:'spouse' },
+      { from:'21', to:'22', type:'spouse' },
+      { from:'23', to:'24', type:'spouse' },
+      { from:'26', to:'27', type:'spouse' },
+      { from:'59', to:'60', type:'spouse' },
+      { from:'66', to:'67', type:'spouse' },
+      { from:'80', to:'81', type:'spouse' },
+      { from:'82', to:'83', type:'spouse' }
+    ];
+
+    // Initialize
+    appState.people = Object.assign({}, initialPeople);
+    appState.edges = initialEdges.slice();
+
+    // ============================================
+    // UTILITIES
+    // ============================================
+
+    function formatDates(born, died) {
+      var date = (born || '?').toString();
+      if (died) {
+        date += ' — ' + died;
+      }
+      return date;
+    }
+
+    function getPersonType(person) {
+      return person.type || 'lateral';
+    }
+
+    function authHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + appState.token
+      };
+    }
+
+    function calculateLayout() {
+      // Group by generation
+      var byGen = {};
+      Object.values(appState.people).forEach(function(p) {
+        var gen = p.generation || 0;
+        if (!byGen[gen]) byGen[gen] = [];
+        byGen[gen].push(p);
+      });
+
+      appState.layout = {};
+      var vGap = 200;
+      var hGap = 200;
+      var startY = 40;
+      var startX = 100;
+
+      Object.keys(byGen).sort(function(a, b) { return parseInt(a) - parseInt(b); }).forEach(function(gen) {
+        var people = byGen[gen];
+        var y = startY + parseInt(gen) * vGap;
+        var totalWidth = people.length * (160 + hGap);
+        var x = startX;
+
+        people.forEach(function(p) {
+          appState.layout[p.id] = { x: x, y: y };
+          x += 160 + hGap;
+        });
+      });
+    }
+
+    function drawSVGConnections() {
+      var svg = document.getElementById('svgContainer');
+      svg.innerHTML = '';
+
+      var svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svgEl.setAttribute('width', '10000');
+      svgEl.setAttribute('height', '10000');
+      svgEl.style.position = 'absolute';
+      svgEl.style.top = '0';
+      svgEl.style.left = '0';
+      svgEl.style.pointerEvents = 'none';
+
+      // Draw connections
+      appState.edges.forEach(function(edge) {
+        var fromPos = appState.layout[edge.from];
+        var toPos = appState.layout[edge.to];
+
+        if (!fromPos || !toPos) return;
+
+        var x1 = fromPos.x + 80; // center of node
+        var y1 = fromPos.y + 50;
+        var x2 = toPos.x + 80;
+        var y2 = toPos.y;
+
+        var midY = (y1 + y2) / 2;
+
+        if (edge.type === 'parent') {
+          // Organogram style: vertical stem, horizontal bar, drops
+          var line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          var pathData = 'M ' + x1 + ' ' + y1 +
+                         ' L ' + x1 + ' ' + midY +
+                         ' L ' + x2 + ' ' + midY +
+                         ' L ' + x2 + ' ' + y2;
+          line.setAttribute('d', pathData);
+          line.setAttribute('stroke', 'rgba(232, 197, 71, 0.3)');
+          line.setAttribute('stroke-width', '1.5');
+          line.setAttribute('fill', 'none');
+          svgEl.appendChild(line);
+
+          // Arrow at bottom
+          var arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          arrow.setAttribute('x1', x2);
+          arrow.setAttribute('y1', midY + 10);
+          arrow.setAttribute('x2', x2);
+          arrow.setAttribute('y2', y2 - 5);
+          arrow.setAttribute('stroke', 'rgba(232, 197, 71, 0.3)');
+          arrow.setAttribute('stroke-width', '1.5');
+          svgEl.appendChild(arrow);
+        } else if (edge.type === 'spouse') {
+          // Dashed line with diamond
+          var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', x1);
+          line.setAttribute('y1', y1);
+          line.setAttribute('x2', x2);
+          line.setAttribute('y2', y2);
+          line.setAttribute('stroke', 'rgba(232, 197, 71, 0.5)');
+          line.setAttribute('stroke-width', '2');
+          line.setAttribute('stroke-dasharray', '5,3');
+          svgEl.appendChild(line);
+
+          // Diamond at midpoint
+          var midX = (x1 + x2) / 2;
+          var midY2 = (y1 + y2) / 2;
+          var diamond = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          diamond.setAttribute('cx', midX);
+          diamond.setAttribute('cy', midY2);
+          diamond.setAttribute('r', '4');
+          diamond.setAttribute('fill', 'var(--accent)');
+          svgEl.appendChild(diamond);
+        }
+      });
+
+      svg.appendChild(svgEl);
+    }
+
+    function renderNodes() {
+      var container = document.getElementById('nodesContainer');
+      container.innerHTML = '';
+
+      var visiblePeople = Object.values(appState.people);
+
+      // Apply search filter
+      if (appState.searchQuery) {
+        var q = appState.searchQuery.toLowerCase();
+        visiblePeople = visiblePeople.filter(function(p) {
+          return p.name.toLowerCase().includes(q);
+        });
+      }
+
+      // Apply type filter
+      if (appState.currentFilter !== 'all') {
+        visiblePeople = visiblePeople.filter(function(p) {
+          return getPersonType(p) === appState.currentFilter;
+        });
+      }
+
+      visiblePeople.forEach(function(person) {
+        var pos = appState.layout[person.id];
+        if (!pos) return;
+
+        var node = document.createElement('div');
+        node.className = 'tree-node ' + getPersonType(person);
+        node.id = 'node-' + person.id;
+        if (person.died) node.classList.add('deceased');
+        if (appState.selectedNodeId === person.id) node.classList.add('selected');
+
+        node.style.left = pos.x + 'px';
+        node.style.top = pos.y + 'px';
+        node.style.transform = 'translate(' + (appState.panX * appState.zoom) + 'px, ' + (appState.panY * appState.zoom) + 'px) scale(' + appState.zoom + ')';
+        node.style.transformOrigin = 'left top';
+
+        var nameEl = document.createElement('div');
+        nameEl.className = 'tree-node-name';
+        nameEl.textContent = person.name;
+
+        var datesEl = document.createElement('div');
+        datesEl.className = 'tree-node-dates';
+        datesEl.textContent = formatDates(person.born, person.died);
+
+        var typeLabels = {
+          'you': 'Você',
+          'child': 'Filho(a)',
+          'direct': 'Direto',
+          'lateral': 'Lateral',
+          'deceased': 'Falecido'
+        };
+
+        var tagEl = document.createElement('div');
+        tagEl.className = 'tree-node-tag';
+        tagEl.textContent = person.relation || typeLabels[getPersonType(person)] || 'Família';
+
+        node.appendChild(nameEl);
+        node.appendChild(datesEl);
+        node.appendChild(tagEl);
+
+        node.addEventListener('click', function() {
+          appState.selectedNodeId = appState.selectedNodeId === person.id ? null : person.id;
+          renderNodes();
+          highlightConnections();
+        });
+
+        node.addEventListener('mouseenter', function() {
+          showTooltip(person, event);
+        });
+
+        node.addEventListener('mouseleave', function() {
+          hideTooltip();
+        });
+
+        container.appendChild(node);
+      });
+
+      updatePersonCount(visiblePeople.length);
+    }
+
+    function highlightConnections() {
+      if (!appState.selectedNodeId) return;
+
+      var relatedIds = new Set([appState.selectedNodeId]);
+
+      // Find parents and children
+      appState.edges.forEach(function(edge) {
+        if (edge.from === appState.selectedNodeId) {
+          relatedIds.add(edge.to);
+        }
+        if (edge.to === appState.selectedNodeId) {
+          relatedIds.add(edge.from);
+        }
+      });
+
+      document.querySelectorAll('.tree-node').forEach(function(node) {
+        var id = node.id.replace('node-', '');
+        if (relatedIds.has(id)) {
+          node.classList.add('highlighted');
+        } else {
+          node.classList.remove('highlighted');
+        }
+      });
+    }
+
+    function showTooltip(person, event) {
+      var tooltip = document.getElementById('tooltip');
+      var nameEl = document.createElement('div');
+      nameEl.className = 'tree-tooltip-name';
+      nameEl.textContent = person.name;
+
+      var infoEl = document.createElement('div');
+      infoEl.className = 'tree-tooltip-info';
+      var infoLines = [];
+      if (person.relation) infoLines.push('<strong>Relação:</strong> ' + person.relation);
+      infoLines.push('<strong>Nascimento:</strong> ' + (person.born || '?'));
+      infoLines.push('<strong>Falecimento:</strong> ' + (person.died || 'Vivo'));
+      if (person.location) infoLines.push('<strong>Local:</strong> ' + person.location);
+      infoEl.innerHTML = infoLines.join('<br>');
+
+      tooltip.innerHTML = '';
+      tooltip.appendChild(nameEl);
+      tooltip.appendChild(infoEl);
+      tooltip.style.display = 'block';
+      tooltip.style.left = (event.pageX + 10) + 'px';
+      tooltip.style.top = (event.pageY + 10) + 'px';
+    }
+
+    function hideTooltip() {
+      document.getElementById('tooltip').style.display = 'none';
+    }
+
+    function updatePersonCount(count) {
+      document.getElementById('personCount').textContent = count + ' pessoa' + (count !== 1 ? 's' : '');
+    }
+
+    // ============================================
+    // EVENTS
+    // ============================================
+
+    document.getElementById('backBtn').addEventListener('click', function() {
+      window.location.href = 'index.html';
+    });
+
+    document.getElementById('logoutFooter').addEventListener('click', function(e) {
+      e.preventDefault();
+      localStorage.removeItem('alma_token');
+      localStorage.removeItem('alma_admin');
+      window.location.href = 'login.html';
+    });
+
+    // Search
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+      appState.searchQuery = e.target.value;
+      renderNodes();
+    });
+
+    // Filters
+    document.querySelectorAll('.tree-filter-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.tree-filter-btn').forEach(function(b) {
+          b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        appState.currentFilter = btn.getAttribute('data-filter');
+        renderNodes();
+      });
+    });
+
+    // Zoom
+    document.getElementById('zoomInBtn').addEventListener('click', function() {
+      appState.zoom = Math.min(appState.zoom + 0.2, 3);
+      renderNodes();
+    });
+
+    document.getElementById('zoomOutBtn').addEventListener('click', function() {
+      appState.zoom = Math.max(appState.zoom - 0.2, 0.5);
+      renderNodes();
+    });
+
+    document.getElementById('zoomResetBtn').addEventListener('click', function() {
+      appState.zoom = 1;
+      appState.panX = 0;
+      appState.panY = 0;
+      renderNodes();
+    });
+
+    // Pan
+    var isPanning = false;
+    var panStartX = 0;
+    var panStartY = 0;
+
+    document.getElementById('canvas').addEventListener('mousedown', function(e) {
+      if (e.button === 0) {
+        isPanning = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        document.getElementById('canvas').classList.add('grabbing');
+      }
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (isPanning) {
+        var deltaX = (e.clientX - panStartX) / appState.zoom;
+        var deltaY = (e.clientY - panStartY) / appState.zoom;
+        appState.panX += deltaX / 100;
+        appState.panY += deltaY / 100;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        renderNodes();
+      }
+    });
+
+    document.addEventListener('mouseup', function() {
+      isPanning = false;
+      document.getElementById('canvas').classList.remove('grabbing');
+    });
+
+    // Wheel zoom
+    document.getElementById('canvas').addEventListener('wheel', function(e) {
+      e.preventDefault();
+      var delta = e.deltaY > 0 ? -0.1 : 0.1;
+      appState.zoom = Math.max(0.5, Math.min(3, appState.zoom + delta));
+      renderNodes();
+    }, { passive: false });
+
+    // Modal
+    var modal = document.getElementById('modal');
+    var backdrop = document.getElementById('modalBackdrop');
+
+    document.getElementById('gedcomBtn').addEventListener('click', function() {
+      backdrop.classList.add('active');
+      document.querySelector('[data-tab="gedcom"]').click();
+    });
+
+    document.getElementById('apiBtn').addEventListener('click', function() {
+      backdrop.classList.add('active');
+      document.querySelector('[data-tab="api"]').click();
+    });
+
+    document.getElementById('modalClose').addEventListener('click', function() {
+      backdrop.classList.remove('active');
+    });
+
+    backdrop.addEventListener('click', function(e) {
+      if (e.target === backdrop) {
+        backdrop.classList.remove('active');
+      }
+    });
+
+    // Modal tabs
+    document.querySelectorAll('.tree-modal-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var tabName = tab.getAttribute('data-tab');
+        document.querySelectorAll('.tree-modal-tab').forEach(function(t) {
+          t.classList.remove('active');
+        });
+        document.querySelectorAll('.tree-modal-tab-content').forEach(function(c) {
+          c.classList.remove('active');
+        });
+        tab.classList.add('active');
+        document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
+      });
+    });
+
+    // GEDCOM
+    var dropzone = document.getElementById('dropzone');
+    var gedcomInput = document.getElementById('gedcomInput');
+
+    dropzone.addEventListener('click', function() {
+      gedcomInput.click();
+    });
+
+    dropzone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      dropzone.classList.add('active');
+    });
+
+    dropzone.addEventListener('dragleave', function() {
+      dropzone.classList.remove('active');
+    });
+
+    dropzone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      dropzone.classList.remove('active');
+      var files = e.dataTransfer.files;
+      if (files.length > 0) {
+        processGEDCOMFile(files[0]);
+      }
+    });
+
+    gedcomInput.addEventListener('change', function(e) {
+      if (e.target.files.length > 0) {
+        processGEDCOMFile(e.target.files[0]);
+      }
+    });
+
+    function processGEDCOMFile(file) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var text = e.target.result;
+        parseGEDCOM(text);
+        backdrop.classList.remove('active');
+        appState.currentSource = 'gedcom';
+        document.getElementById('sourceLabel').textContent = 'GEDCOM';
+        document.getElementById('sourceLabel').textContent = 'GEDCOM';
+        document.getElementById('sourceLabel').textContent = 'GEDCOM';
+        calculateLayout();
+        drawSVGConnections();
+        renderNodes();
+      };
+      reader.readAsText(file);
+    }
+
+    function parseGEDCOM(text) {
+      // Simple GEDCOM parser
+      var lines = text.split(/\r?\n/);
+      var people = {};
+      var edges = [];
+      var currentId = null;
+      var currentPerson = null;
+
+      lines.forEach(function(line) {
+        var match = line.match(/^(\d+)\s+(\w+)\s*(.*)/);
+        if (!match) return;
+
+        var level = parseInt(match[1]);
+        var tag = match[2];
+        var value = (match[3] || '').trim();
+
+        if (level === 0 && tag === 'INDI') {
+          if (currentPerson) {
+            people[currentId] = currentPerson;
+          }
+          currentId = value.replace(/@/g, '');
+          currentPerson = { id: currentId, generation: 1 };
+        } else if (currentPerson) {
+          if (tag === 'NAME') {
+            var parts = value.split('/');
+            currentPerson.name = (parts[0] || '').trim();
+          } else if (tag === 'BIRT') {
+            // Birth tag
+          } else if (tag === 'DEAT') {
+            currentPerson.died = 'Data desconhecida';
+          } else if (tag === 'DATE' && level === 2) {
+            // Attach to previous tag
+          } else if (tag === 'FAMS') {
+            // Family as spouse
+          } else if (tag === 'FAMC') {
+            // Family as child
+          }
+        }
+      });
+
+      if (currentPerson) {
+        people[currentId] = currentPerson;
+      }
+
+      // Update app state with parsed data
+      appState.people = people;
+      appState.edges = edges;
+    }
+
+    // API buttons
+    document.getElementById('apiConnectBtn').addEventListener('click', function() {
+      var key = document.getElementById('apiKeyInput').value.trim();
+      if (key) {
+        // API connection stub
+        alert('API Connection: Chave recebida. (stub)');
+        appState.currentSource = 'api';
+        document.getElementById('sourceLabel').textContent = 'API';
+        backdrop.classList.remove('active');
+      }
+    });
+
+    document.getElementById('oauthBtn').addEventListener('click', function() {
+      // OAuth stub
+      alert('OAuth: Redirecionando... (stub)');
+    });
+
+    // ============================================
+    // INIT
+    // ============================================
+
+    calculateLayout();
+    drawSVGConnections();
+    renderNodes();
+  </script>
+</body>
+</html>
