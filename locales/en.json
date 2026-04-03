@@ -17,6 +17,9 @@
     "passwordPlaceholder": "Enter your password",
     "submitButton": "Sign In",
     "submitting": "Signing in...",
+    "googleDivider": "or continue with Google",
+    "googleLoadError": "Couldn't load Google sign-in on this device.",
+    "googleError": "Couldn't sign in with Google.",
     "hint": "Each person has their own private access to ALMA.",
     "errorConnection": "Connection error. Please try again.",
     "errorGeneric": "Login failed"

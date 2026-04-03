@@ -17,6 +17,9 @@
     "passwordPlaceholder": "Escribe tu contraseña",
     "submitButton": "Entrar",
     "submitting": "Entrando...",
+    "googleDivider": "o continúa con Google",
+    "googleLoadError": "No pude cargar el acceso con Google en este dispositivo.",
+    "googleError": "No pude iniciar sesión con Google.",
     "hint": "Cada persona tiene su propio acceso privado a ALMA.",
     "errorConnection": "Error de conexión. Intenta de nuevo.",
     "errorGeneric": "Error al iniciar sesión"

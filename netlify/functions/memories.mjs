@@ -8,6 +8,7 @@ import { verifySession as sharedVerifySession, jsonResponse as sharedJsonRespons
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const MODERATION_MODEL = 'claude-haiku-4-5-20251001'; // Fast + cheap for moderation
+const SEARCH_LANG = process.env.SEARCH_LANGUAGE || 'simple';
 
 /**
  * Content moderation — checks if text is offensive, harmful, or inappropriate
@@ -75,6 +76,132 @@ const AUTH_ACTIONS = new Set([
 
 async function verifySession(sql, req) {
   return sharedVerifySession(sql, req);
+}
+
+function isMissingContentCleanError(error) {
+  return !!(error && typeof error.message === 'string' && error.message.includes('content_clean'));
+}
+
+async function searchChunks(sql, terms, category, limit) {
+  try {
+    if (category) {
+      return await sql`
+        SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
+        FROM alma_chunks
+        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms}) AND category = ${category}
+        ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+        LIMIT ${limit}
+      `;
+    }
+
+    return await sql`
+      SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
+      FROM alma_chunks
+      WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
+      ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+      LIMIT ${limit}
+    `;
+  } catch (error) {
+    if (!isMissingContentCleanError(error)) throw error;
+
+    if (category) {
+      return await sql`
+        SELECT id, title, category, content, tags, source_file
+        FROM alma_chunks
+        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms}) AND category = ${category}
+        ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+        LIMIT ${limit}
+      `;
+    }
+
+    return await sql`
+      SELECT id, title, category, content, tags, source_file
+      FROM alma_chunks
+      WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
+      ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+      LIMIT ${limit}
+    `;
+  }
+}
+
+async function listAdminChunks(sql, terms, category, perPage, offset) {
+  try {
+    if (terms) {
+      return await sql`
+        SELECT id, title, category, content, content_clean, tags, source_file, char_count
+        FROM alma_chunks
+        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
+        ${category ? sql`AND category = ${category}` : sql``}
+        ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+        LIMIT ${perPage} OFFSET ${offset}
+      `;
+    }
+
+    if (category) {
+      return await sql`
+        SELECT id, title, category, content, content_clean, tags, source_file, char_count
+        FROM alma_chunks WHERE category = ${category}
+        ORDER BY chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
+      `;
+    }
+
+    return await sql`
+      SELECT id, title, category, content, content_clean, tags, source_file, char_count
+      FROM alma_chunks ORDER BY category, chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
+    `;
+  } catch (error) {
+    if (!isMissingContentCleanError(error)) throw error;
+
+    if (terms) {
+      return await sql`
+        SELECT id, title, category, content, NULL::TEXT as content_clean, tags, source_file, char_count
+        FROM alma_chunks
+        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
+        ${category ? sql`AND category = ${category}` : sql``}
+        ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+        LIMIT ${perPage} OFFSET ${offset}
+      `;
+    }
+
+    if (category) {
+      return await sql`
+        SELECT id, title, category, content, NULL::TEXT as content_clean, tags, source_file, char_count
+        FROM alma_chunks WHERE category = ${category}
+        ORDER BY chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
+      `;
+    }
+
+    return await sql`
+      SELECT id, title, category, content, NULL::TEXT as content_clean, tags, source_file, char_count
+      FROM alma_chunks ORDER BY category, chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
+    `;
+  }
+}
+
+async function updateChunkContent(sql, id, content) {
+  try {
+    await sql`UPDATE alma_chunks SET content = ${content}, char_count = ${content.length},
+      search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(content_clean, ${content})) WHERE id = ${id}`;
+  } catch (error) {
+    if (!isMissingContentCleanError(error)) throw error;
+    await sql`UPDATE alma_chunks SET content = ${content}, char_count = ${content.length},
+      search_vector = to_tsvector(${SEARCH_LANG}, ${content}) WHERE id = ${id}`;
+  }
+}
+
+async function setChunkCleanContent(sql, id, contentClean) {
+  await sql`UPDATE alma_chunks SET content_clean = ${contentClean},
+    search_vector = to_tsvector(${SEARCH_LANG}, ${contentClean}) WHERE id = ${id}`;
+}
+
+async function clearChunkCleanContent(sql, id) {
+  try {
+    await sql`UPDATE alma_chunks SET content_clean = NULL,
+      search_vector = to_tsvector(${SEARCH_LANG}, content) WHERE id = ${id}`;
+  } catch (error) {
+    if (!isMissingContentCleanError(error)) throw error;
+    await sql`UPDATE alma_chunks SET search_vector = to_tsvector(${SEARCH_LANG}, content) WHERE id = ${id}`;
+  }
 }
 
 function jsonResponse(data, status = 200) {
@@ -227,28 +354,20 @@ export default async function handler(req) {
         let rows;
         if (q) {
           const terms = q.split(/\s+/).filter(w => w.length > 2).join(' | ');
-          if (category) {
+          rows = terms ? await searchChunks(sql, terms, category, limit) : [];
+        } else {
+          try {
             rows = await sql`
               SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
-              FROM alma_chunks
-              WHERE search_vector @@ to_tsquery('portuguese', ${terms}) AND category = ${category}
-              ORDER BY ts_rank(search_vector, to_tsquery('portuguese', ${terms})) DESC
-              LIMIT ${limit}
+              FROM alma_chunks WHERE category = ${category} ORDER BY chunk_index ASC LIMIT ${limit}
             `;
-          } else {
+          } catch (error) {
+            if (!isMissingContentCleanError(error)) throw error;
             rows = await sql`
-              SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
-              FROM alma_chunks
-              WHERE search_vector @@ to_tsquery('portuguese', ${terms})
-              ORDER BY ts_rank(search_vector, to_tsquery('portuguese', ${terms})) DESC
-              LIMIT ${limit}
+              SELECT id, title, category, content, tags, source_file
+              FROM alma_chunks WHERE category = ${category} ORDER BY chunk_index ASC LIMIT ${limit}
             `;
           }
-        } else {
-          rows = await sql`
-            SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
-            FROM alma_chunks WHERE category = ${category} ORDER BY chunk_index ASC LIMIT ${limit}
-          `;
         }
         result = { query: q, category, results: rows };
         break;
@@ -275,17 +394,10 @@ export default async function handler(req) {
         if (q) {
           const terms = q.split(/\s+/).filter(w => w.length > 2).join(' | ');
           if (terms) {
-            rows = await sql`
-              SELECT id, title, category, content, content_clean, tags, source_file, char_count
-              FROM alma_chunks
-              WHERE search_vector @@ to_tsquery('portuguese', ${terms})
-              ${category ? sql`AND category = ${category}` : sql``}
-              ORDER BY ts_rank(search_vector, to_tsquery('portuguese', ${terms})) DESC
-              LIMIT ${perPage} OFFSET ${offset}
-            `;
+            rows = await listAdminChunks(sql, terms, category, perPage, offset);
             const countRes = await sql`
               SELECT COUNT(*) as c FROM alma_chunks
-              WHERE search_vector @@ to_tsquery('portuguese', ${terms})
+              WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
               ${category ? sql`AND category = ${category}` : sql``}
             `;
             total = parseInt(countRes[0].c);
@@ -293,18 +405,11 @@ export default async function handler(req) {
             rows = []; total = 0;
           }
         } else if (category) {
-          rows = await sql`
-            SELECT id, title, category, content, content_clean, tags, source_file, char_count
-            FROM alma_chunks WHERE category = ${category}
-            ORDER BY chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
-          `;
+          rows = await listAdminChunks(sql, '', category, perPage, offset);
           const countRes = await sql`SELECT COUNT(*) as c FROM alma_chunks WHERE category = ${category}`;
           total = parseInt(countRes[0].c);
         } else {
-          rows = await sql`
-            SELECT id, title, category, content, content_clean, tags, source_file, char_count
-            FROM alma_chunks ORDER BY category, chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
-          `;
+          rows = await listAdminChunks(sql, '', '', perPage, offset);
           const countRes = await sql`SELECT COUNT(*) as c FROM alma_chunks`;
           total = parseInt(countRes[0].c);
         }
@@ -510,9 +615,7 @@ async function handleUpdateChunk(sql, body) {
   if (!id) return jsonResponse({ error: 'Missing id' }, 400);
 
   if (content !== undefined) {
-    // search_vector uses content_clean if it exists, otherwise content
-    await sql`UPDATE alma_chunks SET content = ${content}, char_count = ${content.length},
-      search_vector = to_tsvector('portuguese', COALESCE(content_clean, ${content})) WHERE id = ${id}`;
+    await updateChunkContent(sql, id, content);
   }
   if (title !== undefined) await sql`UPDATE alma_chunks SET title = ${title} WHERE id = ${id}`;
   if (category !== undefined) await sql`UPDATE alma_chunks SET category = ${category} WHERE id = ${id}`;
@@ -534,8 +637,7 @@ async function handleCleanChunk(sql, body) {
 
   if (content_clean === null || content_clean === '') {
     // Clear: revert to original content for search_vector
-    await sql`UPDATE alma_chunks SET content_clean = NULL,
-      search_vector = to_tsvector('portuguese', content) WHERE id = ${id}`;
+    await clearChunkCleanContent(sql, id);
     return jsonResponse({ success: true, id, cleared: true });
   }
 
@@ -544,8 +646,7 @@ async function handleCleanChunk(sql, body) {
   }
 
   // Set clean version and update search_vector to use it
-  await sql`UPDATE alma_chunks SET content_clean = ${content_clean.trim()},
-    search_vector = to_tsvector('portuguese', ${content_clean.trim()}) WHERE id = ${id}`;
+  await setChunkCleanContent(sql, id, content_clean.trim());
   return jsonResponse({ success: true, id });
 }
 

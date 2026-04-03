@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0D0D0D">
+  <title>ALMA — Exportar Livro</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕊</text></svg>">
+  <style>
+    .page-export {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .export-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid rgba(232,197,71,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .export-header h1 {
+      font-family: var(--font-title);
+      font-size: 1.1rem;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    .export-header nav {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      font-size: 0.82rem;
+    }
+    .export-header nav a {
+      color: var(--text-soft);
+      transition: color 0.2s;
+    }
+    .export-header nav a:hover { color: var(--accent); }
+    .btn-back-export {
+      background: none;
+      border: none;
+      color: var(--text-soft);
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      transition: color 0.2s;
+    }
+    .btn-back-export:hover { color: var(--accent); }
+
+    /* Main */
+    .export-content {
+      flex: 1;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+      width: 100%;
+    }
+
+    /* Intro */
+    .export-intro {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .export-intro h2 {
+      font-family: var(--font-title);
+      font-size: 1.6rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .export-intro p {
+      color: var(--text-soft);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    /* Options form */
+    .export-options {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      margin-bottom: 32px;
+      border: 1px solid rgba(232,197,71,0.08);
+    }
+    .option-group {
+      margin-bottom: 20px;
+    }
+    .option-group label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* Category checkboxes */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 8px;
+    }
+    .category-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid rgba(232,197,71,0.12);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .category-check:hover {
+      border-color: rgba(232,197,71,0.25);
+    }
+    .category-check.checked {
+      border-color: var(--accent);
+      background: rgba(232,197,71,0.08);
+    }
+    .category-check input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .category-check span {
+      font-size: 0.85rem;
+      color: var(--text-soft);
+    }
+    .category-check.checked span {
+      color: var(--accent);
+    }
+    .category-count {
+      margin-left: auto;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Dedication textarea */
+    .dedication-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid rgba(232,197,71,0.15);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      padding: 12px 14px;
+      min-height: 70px;
+      resize: vertical;
+      line-height: 1.5;
+      transition: border-color 0.2s;
+    }
+    .dedication-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .form-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Stats */
+    .export-stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      padding: 8px 14px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      color: var(--text-soft);
+      border: 1px solid rgba(232,197,71,0.08);
+    }
+    .stat-chip strong {
+      color: var(--accent);
+    }
+
+    /* Generate button */
+    .btn-generate-book {
+      width: 100%;
+      padding: 14px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius);
+      font-family: var(--font-title);
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-generate-book:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(232,197,71,0.3);
+    }
+    .btn-generate-book:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-generate-book.loading {
+      color: transparent;
+    }
+    .btn-generate-book.loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 22px;
+      height: 22px;
+      margin: -11px 0 0 -11px;
+      border: 2px solid var(--bg);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Progress bar */
+    .export-progress {
+      display: none;
+      margin-top: 16px;
+    }
+    .export-progress.visible { display: block; }
+    .progress-bar-container {
+      background: var(--bg);
+      border-radius: 6px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 6px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .progress-text {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ── Book preview ── */
+    .book-preview {
+      display: none;
+      margin-top: 24px;
+    }
+    .book-preview.visible { display: block; }
+
+    .book-actions {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn-book-action {
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid rgba(232,197,71,0.2);
+      background: transparent;
+      color: var(--accent);
+    }
+    .btn-book-action:hover {
+      background: rgba(232,197,71,0.1);
+    }
+    .btn-book-action.primary {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+    .btn-book-action.primary:hover {
+      box-shadow: 0 2px 12px rgba(232,197,71,0.25);
+    }
+
+    /* Book container */
+    .book-container {
+      background: #F5F0E8;
+      color: #2A2420;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    /* Book inner content */
+    .book-page {
+      padding: 48px 40px;
+      font-family: Georgia, 'Times New Roman', serif;
+    }
+
+    /* Cover */
+    .book-cover {
+      text-align: center;
+      padding: 80px 40px;
+      background: linear-gradient(135deg, #1A1A2E 0%, #0D0D0D 100%);
+      color: #F0F0F0;
+    }
+    .book-cover-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #E8C547;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+    .book-cover-subtitle {
+      font-size: 1.1rem;
+      color: #8A8A9A;
+      margin-bottom: 32px;
+    }
+    .book-cover-line {
+      width: 60px;
+      height: 2px;
+      background: #E8C547;
+      margin: 0 auto 32px;
+    }
+    .book-cover-dedication {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-style: italic;
+      font-size: 0.95rem;
+      color: #C0B890;
+      line-height: 1.7;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .book-cover-date {
+      margin-top: 40px;
+      font-size: 0.82rem;
+      color: #6A6A7A;
+    }
+
+    /* Chapter */
+    .book-chapter {
+      padding: 40px;
+      border-bottom: 1px solid #D4C9B0;
+    }
+    .book-chapter:last-child {
+      border-bottom: none;
+    }
+    .book-chapter-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #8B6914;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+    .book-chapter-count {
+      font-size: 0.78rem;
+      color: #9A8A6A;
+      margin-bottom: 24px;
+    }
+
+    /* Memory entry in book */
+    .book-memory {
+      margin-bottom: 28px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #E8E0D0;
+    }
+    .book-memory:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    .book-memory-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #3A3020;
+      margin-bottom: 8px;
+    }
+    .book-memory-text {
+      font-size: 0.92rem;
+      line-height: 1.8;
+      color: #4A4030;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .book-memory-source {
+      font-size: 0.72rem;
+      color: #9A8A6A;
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    /* Book closing */
+    .book-closing {
+      text-align: center;
+      padding: 60px 40px;
+      background: linear-gradient(135deg, #1A1A2E 0%, #0D0D0D 100%);
+      color: #8A8A9A;
+      font-size: 0.9rem;
+    }
+    .book-closing-logo {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.3rem;
+      color: #E8C547;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+
+    /* ── Print styles ── */
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body { background: white; margin: 0; padding: 0; }
+      .export-header, .export-intro, .export-options, .export-progress,
+      .book-actions, .btn-back-export { display: none !important; }
+      .export-content { max-width: 100%; padding: 0; margin: 0; }
+      .book-preview { display: block !important; }
+      .book-container {
+        max-height: none;
+        overflow: visible;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .book-cover {
+        page-break-after: always;
+        min-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .book-chapter {
+        page-break-before: always;
+        padding: 40px 50px;
+      }
+      .book-memory {
+        page-break-inside: avoid;
+      }
+      .book-closing {
+        page-break-before: always;
+        min-height: 40vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+    }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+      .export-header nav { gap: 10px; font-size: 0.75rem; }
+      .export-content { padding: 20px 14px 40px; }
+      .export-options { padding: 20px 16px; }
+      .category-grid { grid-template-columns: 1fr; }
+      .book-cover { padding: 50px 24px; }
+      .book-cover-title { font-size: 1.8rem; }
+      .book-chapter { padding: 28px 20px; }
+      .book-actions { flex-direction: column; }
+      .btn-book-action { width: 100%; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-export" style="display:none" id="pageExport">
+
+    <!-- Header -->
+    <header class="export-header">
+      <button class="btn-back-export" id="btnBack" aria-label="Voltar">&#8592;</button>
+      <h1>ALMA — Exportar Livro</h1>
+      <nav>
+        <a href="chat.html">Chat</a>
+        <a href="carta.html">Carta</a>
+        <a href="timeline.html">Timeline</a>
+        <a href="arvore.html">Árvore</a>
+      </nav>
+    </header>
+
+    <!-- Content -->
+    <div class="export-content">
+
+      <!-- Intro -->
+      <div class="export-intro">
+        <h2>O Livro do Legado</h2>
+        <p>Transforme todas as memórias do ALMA em um livro.<br>Para imprimir, guardar ou dar de presente.</p>
+      </div>
+
+      <!-- Options -->
+      <div class="export-options" id="exportOptions">
+        <!-- Stats -->
+        <div class="export-stats" id="exportStats">
+          <div class="stat-chip">Carregando...</div>
+        </div>
+
+        <!-- Categories -->
+        <div class="option-group">
+          <label>Categorias a incluir</label>
+          <div class="category-grid" id="categoryGrid">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Dedication -->
+        <div class="option-group">
+          <label for="txtDedication">Dedicatória <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional)</span></label>
+          <textarea class="dedication-input" id="txtDedication" placeholder="Ex: 'Para Noah, Nathan e Isaac — tudo que sou, sou por vocês.'"></textarea>
+          <p class="form-hint">Aparece na capa do livro.</p>
+        </div>
+
+        <!-- Generate -->
+        <button class="btn-generate-book" id="btnGenerate">Gerar Livro</button>
+
+        <!-- Progress -->
+        <div class="export-progress" id="exportProgress">
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-text" id="progressText">Buscando memórias...</div>
+        </div>
+      </div>
+
+      <!-- Book preview -->
+      <div class="book-preview" id="bookPreview">
+        <div class="book-actions">
+          <button class="btn-book-action primary" id="btnPrint">Salvar como PDF / Imprimir</button>
+          <button class="btn-book-action" id="btnCopyAll">Copiar Texto</button>
+          <button class="btn-book-action" id="btnNewBook">Gerar Novo</button>
+        </div>
+        <div class="book-container" id="bookContainer">
+          <!-- Book content generated here -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // --- Auth guard ---
+    var token = localStorage.getItem('alma_token');
+    var user = localStorage.getItem('alma_user');
+    var isAdmin = localStorage.getItem('alma_admin') === '1';
+
+    if (!token || !user) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    document.getElementById('pageExport').style.display = '';
+
+    function authHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (localStorage.getItem('alma_token') || '')
+      };
+    }
+
+    // --- Back ---
+    document.getElementById('btnBack').addEventListener('click', function() {
+      window.location.href = isAdmin ? 'index.html' : 'chat.html';
+    });
+
+    // --- Category labels ---
+    var categoryLabels = {
+      'valores': 'Valores',
+      'historias': 'Histórias',
+      'conselhos': 'Conselhos',
+      'humor': 'Humor',
+      'reflexoes': 'Reflexões',
+      'correcao': 'Correções',
+      'identidade': 'Identidade',
+      'fe': 'Fé',
+      'familia': 'Família',
+      'profissional': 'Profissional',
+      'filhos': 'Filhos'
+    };
+
+    function getCategoryLabel(cat) {
+      return categoryLabels[cat] || (cat.charAt(0).toUpperCase() + cat.slice(1));
+    }
+
+    // --- Load categories and stats ---
+    var allCategories = [];
+
+    fetch('/.netlify/functions/memories?action=categories', { headers: authHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var cats = data.categories || [];
+        allCategories = cats;
+
+        // Stats
+        var totalChunks = 0;
+        var totalDocs = 0;
+        cats.forEach(function(c) {
+          totalChunks += parseInt(c.chunks || 0);
+          totalDocs += parseInt(c.documents || 0);
+        });
+
+        document.getElementById('exportStats').innerHTML =
+          '<div class="stat-chip"><strong>' + totalChunks + '</strong> memórias</div>' +
+          '<div class="stat-chip"><strong>' + cats.length + '</strong> categorias</div>' +
+          '<div class="stat-chip"><strong>' + totalDocs + '</strong> documentos</div>';
+
+        // Category checkboxes
+        var grid = document.getElementById('categoryGrid');
+        grid.innerHTML = '';
+        cats.forEach(function(cat) {
+          var div = document.createElement('div');
+          div.className = 'category-check checked';
+          div.innerHTML = '<input type="checkbox" checked data-cat="' + escapeHtml(cat.category) + '">' +
+            '<span>' + escapeHtml(getCategoryLabel(cat.category)) + '</span>' +
+            '<span class="category-count">' + cat.chunks + '</span>';
+          div.addEventListener('click', function(e) {
+            if (e.target.tagName === 'INPUT') {
+              div.classList.toggle('checked', e.target.checked);
+            } else {
+              var cb = div.querySelector('input');
+              cb.checked = !cb.checked;
+              div.classList.toggle('checked', cb.checked);
+            }
+          });
+          grid.appendChild(div);
+        });
+      })
+      .catch(function() {
+        document.getElementById('exportStats').innerHTML = '<div class="stat-chip">Erro ao carregar dados</div>';
+      });
+
+    // --- Generate book ---
+    var btnGenerate = document.getElementById('btnGenerate');
+
+    btnGenerate.addEventListener('click', function() {
+      // Get selected categories
+      var selectedCats = [];
+      document.querySelectorAll('#categoryGrid input[type="checkbox"]:checked').forEach(function(cb) {
+        selectedCats.push(cb.getAttribute('data-cat'));
+      });
+
+      if (selectedCats.length === 0) {
+        alert('Selecione ao menos uma categoria.');
+        return;
+      }
+
+      var dedication = document.getElementById('txtDedication').value.trim();
+
+      // UI: loading
+      btnGenerate.classList.add('loading');
+      btnGenerate.disabled = true;
+      btnGenerate.textContent = 'Gerando...';
+
+      var progress = document.getElementById('exportProgress');
+      progress.classList.add('visible');
+
+      fetchAllMemories(selectedCats, function(memsByCategory) {
+        buildBook(memsByCategory, dedication, selectedCats);
+        btnGenerate.classList.remove('loading');
+        btnGenerate.disabled = false;
+        btnGenerate.textContent = 'Gerar Livro';
+        progress.classList.remove('visible');
+      });
+    });
+
+    // --- Fetch all memories paginated ---
+    function fetchAllMemories(selectedCats, callback) {
+      var allMemories = {};
+      var catQueue = selectedCats.slice();
+      var totalFetched = 0;
+      var totalExpected = 0;
+
+      // Count expected
+      allCategories.forEach(function(c) {
+        if (selectedCats.indexOf(c.category) >= 0) {
+          totalExpected += parseInt(c.chunks || 0);
+        }
+      });
+
+      function fetchNextCategory() {
+        if (catQueue.length === 0) {
+          callback(allMemories);
+          return;
+        }
+
+        var cat = catQueue.shift();
+        allMemories[cat] = [];
+        fetchCategoryPage(cat, 1);
+      }
+
+      function fetchCategoryPage(cat, page) {
+        var url = '/.netlify/functions/memories?action=admin_chunks&category=' + encodeURIComponent(cat) + '&page=' + page + '&per_page=50';
+        fetch(url, { headers: authHeaders() })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var chunks = data.chunks || [];
+            allMemories[cat] = allMemories[cat].concat(chunks);
+            totalFetched += chunks.length;
+
+            // Update progress
+            var pct = totalExpected > 0 ? Math.round((totalFetched / totalExpected) * 100) : 0;
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('progressText').textContent =
+              'Carregando: ' + totalFetched + '/' + totalExpected + ' memórias (' + getCategoryLabel(cat) + ')';
+
+            if (data.totalPages && page < data.totalPages) {
+              fetchCategoryPage(cat, page + 1);
+            } else {
+              fetchNextCategory();
+            }
+          })
+          .catch(function() {
+            fetchNextCategory();
+          });
+      }
+
+      fetchNextCategory();
+    }
+
+    // --- Build book HTML ---
+    function buildBook(memsByCategory, dedication, selectedCats) {
+      var container = document.getElementById('bookContainer');
+      var html = '';
+
+      // Cover
+      var now = new Date();
+      var dateStr = now.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      html += '<div class="book-cover">';
+      html += '<div class="book-cover-title">ALMA</div>';
+      html += '<div class="book-cover-subtitle">A Voz do Pai — Arquivo de Legado Emocional</div>';
+      html += '<div class="book-cover-line"></div>';
+      if (dedication) {
+        html += '<div class="book-cover-dedication">"' + escapeHtml(dedication) + '"</div>';
+      }
+      html += '<div class="book-cover-date">Gerado em ' + dateStr + '</div>';
+      html += '</div>';
+
+      // Chapters by category
+      var chapterOrder = ['valores', 'identidade', 'fe', 'familia', 'filhos', 'historias', 'conselhos', 'reflexoes', 'profissional', 'humor', 'correcao'];
+      var ordered = [];
+
+      chapterOrder.forEach(function(cat) {
+        if (memsByCategory[cat] && memsByCategory[cat].length > 0) {
+          ordered.push(cat);
+        }
+      });
+
+      // Add any remaining categories not in the order
+      Object.keys(memsByCategory).forEach(function(cat) {
+        if (ordered.indexOf(cat) < 0 && memsByCategory[cat].length > 0) {
+          ordered.push(cat);
+        }
+      });
+
+      var chapterNum = 1;
+      ordered.forEach(function(cat) {
+        var memories = memsByCategory[cat];
+        if (!memories || memories.length === 0) return;
+
+        html += '<div class="book-chapter">';
+        html += '<div class="book-chapter-title">Capítulo ' + chapterNum + ': ' + escapeHtml(getCategoryLabel(cat)) + '</div>';
+        html += '<div class="book-chapter-count">' + memories.length + ' memória' + (memories.length !== 1 ? 's' : '') + '</div>';
+
+        memories.forEach(function(mem) {
+          html += '<div class="book-memory">';
+          if (mem.title) {
+            html += '<div class="book-memory-title">' + escapeHtml(mem.title) + '</div>';
+          }
+          html += '<div class="book-memory-text">' + escapeHtml(mem.content || '') + '</div>';
+          if (mem.source_file) {
+            html += '<div class="book-memory-source">Fonte: ' + escapeHtml(mem.source_file) + '</div>';
+          }
+          html += '</div>';
+        });
+
+        html += '</div>';
+        chapterNum++;
+      });
+
+      // Closing
+      html += '<div class="book-closing">';
+      html += '<div class="book-closing-logo">ALMA</div>';
+      html += '<div>"O que eu quero que vocês saibam é que foram amados.<br>Sempre. Incondicionalmente. Desde antes de existirem."</div>';
+      html += '</div>';
+
+      container.innerHTML = html;
+
+      // Show preview
+      document.getElementById('exportOptions').style.display = 'none';
+      document.getElementById('bookPreview').classList.add('visible');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // --- Print / PDF ---
+    document.getElementById('btnPrint').addEventListener('click', function() {
+      window.print();
+    });
+
+    // --- Copy all text ---
+    document.getElementById('btnCopyAll').addEventListener('click', function() {
+      var container = document.getElementById('bookContainer');
+      var text = container.innerText || container.textContent;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+          var btn = document.getElementById('btnCopyAll');
+          btn.textContent = 'Copiado!';
+          setTimeout(function() { btn.textContent = 'Copiar Texto'; }, 2000);
+        });
+      }
+    });
+
+    // --- New book ---
+    document.getElementById('btnNewBook').addEventListener('click', function() {
+      document.getElementById('bookPreview').classList.remove('visible');
+      document.getElementById('exportOptions').style.display = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // --- Escape HTML ---
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+  })();
+  </script>
+</body>
+</html>

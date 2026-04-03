@@ -35,6 +35,10 @@ function checkRateLimit(ip) {
 }
 const MAX_CONTEXT_CHUNKS = 8;
 
+function isMissingContentCleanError(error) {
+  return !!(error && typeof error.message === 'string' && error.message.includes('content_clean'));
+}
+
 // --- System Prompt (core identity, no memories — those come from DB) ---
 // This hardcoded prompt is the FALLBACK. The primary source is alma_config key='system_prompt_base'.
 // To customize for your own family: update the DB, not this file.
@@ -294,14 +298,27 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
     const FETCH_POOL = MAX_CONTEXT_CHUNKS * 3; // Fetch 3x to have candidates for reranking
 
     // Primary search: full-text search ranked by relevance
-    let results = await sql`
-      SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
-             ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
-      FROM alma_chunks
-      WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
-      ORDER BY rank DESC
-      LIMIT ${FETCH_POOL}
-    `;
+    let results;
+    try {
+      results = await sql`
+        SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
+               ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
+        FROM alma_chunks
+        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
+        ORDER BY rank DESC
+        LIMIT ${FETCH_POOL}
+      `;
+    } catch (error) {
+      if (!isMissingContentCleanError(error)) throw error;
+      results = await sql`
+        SELECT id, content, title, category, tags, source_file,
+               ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
+        FROM alma_chunks
+        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
+        ORDER BY rank DESC
+        LIMIT ${FETCH_POOL}
+      `;
+    }
 
     // Supplement with tag-based fallback if results are sparse
     if (results.length < FETCH_POOL) {
@@ -314,27 +331,52 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
 
       if (matchedTags.length > 0) {
         const existingIds = results.map(r => Number(r.id) || 0).concat([0]);
-        const tagResults = await sql`
-          SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file, 0 as rank
-          FROM alma_chunks
-          WHERE tags && ${matchedTags}::TEXT[]
-          AND NOT (id = ANY(${existingIds}::int[]))
-          ORDER BY chunk_index ASC
-          LIMIT ${FETCH_POOL - results.length}
-        `;
+        let tagResults;
+        try {
+          tagResults = await sql`
+            SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file, 0 as rank
+            FROM alma_chunks
+            WHERE tags && ${matchedTags}::TEXT[]
+            AND NOT (id = ANY(${existingIds}::int[]))
+            ORDER BY chunk_index ASC
+            LIMIT ${FETCH_POOL - results.length}
+          `;
+        } catch (error) {
+          if (!isMissingContentCleanError(error)) throw error;
+          tagResults = await sql`
+            SELECT id, content, title, category, tags, source_file, 0 as rank
+            FROM alma_chunks
+            WHERE tags && ${matchedTags}::TEXT[]
+            AND NOT (id = ANY(${existingIds}::int[]))
+            ORDER BY chunk_index ASC
+            LIMIT ${FETCH_POOL - results.length}
+          `;
+        }
         results = [...results, ...tagResults];
       }
     }
 
     // Always fetch person-specific memories to guarantee they're in the pool
     const existingIds2 = results.map(r => Number(r.id) || 0).concat([0]);
-    const personResults = await sql`
-      SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file, 0 as rank
-      FROM alma_chunks
-      WHERE ${childLower} = ANY(tags)
-      AND NOT (id = ANY(${existingIds2}::int[]))
-      LIMIT 4
-    `;
+    let personResults;
+    try {
+      personResults = await sql`
+        SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file, 0 as rank
+        FROM alma_chunks
+        WHERE ${childLower} = ANY(tags)
+        AND NOT (id = ANY(${existingIds2}::int[]))
+        LIMIT 4
+      `;
+    } catch (error) {
+      if (!isMissingContentCleanError(error)) throw error;
+      personResults = await sql`
+        SELECT id, content, title, category, tags, source_file, 0 as rank
+        FROM alma_chunks
+        WHERE ${childLower} = ANY(tags)
+        AND NOT (id = ANY(${existingIds2}::int[]))
+        LIMIT 4
+      `;
+    }
     results = [...results, ...personResults];
 
     // --- RERANKING: boost results based on person relevance ---
@@ -384,14 +426,26 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
     // Fallback to simple substring matching if full-text search fails
     console.error('Search error, falling back to LIKE:', e.message);
     const likePattern = `%${searchTerms[0]}%`;
-    const results = await sql`
-      SELECT COALESCE(content_clean, content) as content, title, category, tags, source_file
-      FROM alma_chunks
-      WHERE LOWER(COALESCE(content_clean, content)) LIKE ${likePattern}
-      ORDER BY chunk_index ASC
-      LIMIT ${MAX_CONTEXT_CHUNKS}
-    `;
-    return results;
+    try {
+      const results = await sql`
+        SELECT COALESCE(content_clean, content) as content, title, category, tags, source_file
+        FROM alma_chunks
+        WHERE LOWER(COALESCE(content_clean, content)) LIKE ${likePattern}
+        ORDER BY chunk_index ASC
+        LIMIT ${MAX_CONTEXT_CHUNKS}
+      `;
+      return results;
+    } catch (error) {
+      if (!isMissingContentCleanError(error)) throw error;
+      const results = await sql`
+        SELECT content, title, category, tags, source_file
+        FROM alma_chunks
+        WHERE LOWER(content) LIKE ${likePattern}
+        ORDER BY chunk_index ASC
+        LIMIT ${MAX_CONTEXT_CHUNKS}
+      `;
+      return results;
+    }
   }
 }
 

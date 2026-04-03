@@ -77,14 +77,26 @@ export function showTyping(chatMessages) {
   var el = document.createElement('div');
   el.id = 'typingIndicator';
   el.className = 'message alma typing-indicator';
-  var avatarHtml;
+  var avatarEl = document.createElement('div');
+  avatarEl.className = 'message-avatar';
   if (state.almaPhoto) {
-    avatarHtml = '<div class="message-avatar" style="background-image:url(' + state.almaPhoto + ');background-size:cover;background-position:center;"></div>';
+    avatarEl.style.backgroundImage = 'url("' + String(state.almaPhoto).replace(/"/g, '%22') + '")';
+    avatarEl.style.backgroundSize = 'cover';
+    avatarEl.style.backgroundPosition = 'center';
   } else {
     var typingLabel = state.personType === 'filho' ? (typeof t === 'function' ? t('labels.father') : 'Pai') : state.authorLabel;
-    avatarHtml = '<div class="message-avatar avatar-name">' + typingLabel + '</div>';
+    avatarEl.classList.add('avatar-name');
+    avatarEl.textContent = typingLabel;
   }
-  el.innerHTML = avatarHtml + '<div class="typing-dots"><span></span><span></span><span></span></div>';
+
+  var dots = document.createElement('div');
+  dots.className = 'typing-dots';
+  for (var i = 0; i < 3; i++) {
+    dots.appendChild(document.createElement('span'));
+  }
+
+  el.appendChild(avatarEl);
+  el.appendChild(dots);
   chatMessages.appendChild(el);
   scrollToBottom();
 }
