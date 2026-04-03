@@ -34,10 +34,27 @@ function init() {
   var isChild = state.personType === 'filho';
   state.authorLabel = 'ALMA';
 
-  // Set header
+  // Set header + person-specific subtitle
   var headerTitle = document.getElementById('headerTitle');
   if (headerTitle) {
     headerTitle.innerHTML = 'ALMA <span>\u00b7 ' + escapeHtml(state.personName) + '</span>';
+    // Add personalized subtitle below header if available
+    var hasI18nEarly = (typeof t === 'function' && t('subtitles.child') !== 'subtitles.child');
+    if (hasI18nEarly) {
+      var subKey = 'subtitles.' + state.personName;
+      var subVal = t(subKey);
+      if (!subVal || subVal === subKey) {
+        subVal = isChild ? t('subtitles.child') : t('subtitles.other');
+      }
+      var subEl = document.getElementById('headerSubtitle');
+      if (!subEl) {
+        subEl = document.createElement('p');
+        subEl.id = 'headerSubtitle';
+        subEl.style.cssText = 'color:#A09A8C;font-size:0.7rem;margin:0;letter-spacing:0.5px;font-style:italic;';
+        headerTitle.parentNode.insertBefore(subEl, headerTitle.nextSibling);
+      }
+      subEl.textContent = subVal;
+    }
   }
 
   // Load author name from DB
@@ -122,15 +139,22 @@ function init() {
     });
   }
 
-  // Welcome message
+  // Welcome message (person-specific > child/other fallback)
   if (state.conversationHistory.length === 0) {
     var welcome;
     var hasI18n = (typeof t === 'function' && t('welcome.child') !== 'welcome.child');
 
     if (hasI18n) {
-      welcome = isChild
-        ? t('welcome.child', { name: state.personName })
-        : t('welcome.other', { name: state.personName, authorName: t('labels.authorName') });
+      // Check for person-specific welcome first (e.g. welcome.Nivalda, welcome.Davi)
+      var personKey = 'welcome.' + state.personName;
+      var personWelcome = t(personKey);
+      if (personWelcome && personWelcome !== personKey) {
+        welcome = personWelcome;
+      } else {
+        welcome = isChild
+          ? t('welcome.child', { name: state.personName })
+          : t('welcome.other', { name: state.personName, authorName: t('labels.authorName') });
+      }
     } else {
       if (isChild) {
         welcome = 'Oi, ' + state.personName + '. Eu sei que talvez voc\u00ea esteja lendo isso daqui alguns anos, talvez eu j\u00e1 n\u00e3o esteja por perto pra responder pessoalmente. Por isso criei isso \u2014 pra voc\u00ea poder me perguntar o que quiser. Pode ser sobre a vida, sobre quem eu fui, sobre o que achei certo ou errado, sobre como agir quando ficar dif\u00edcil. Estou aqui. O que voc\u00ea quer saber?';

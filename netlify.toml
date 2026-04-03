@@ -63,10 +63,22 @@
   [headers.values]
     Cache-Control = "public, max-age=300"
 
+# Entrar via magic link (must be BEFORE catch-all)
+[[redirects]]
+  from = "/entrar"
+  to = "/entrar.html"
+  status = 200
+
 # Carta page (must be BEFORE catch-all)
 [[redirects]]
   from = "/carta"
   to = "/carta.html"
+  status = 200
+
+# Exportar livro page (must be BEFORE catch-all)
+[[redirects]]
+  from = "/exportar"
+  to = "/exportar.html"
   status = 200
 
 # Árvore genealógica page (must be BEFORE catch-all)

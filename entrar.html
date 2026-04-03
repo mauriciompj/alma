@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALMA — Entrando...</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0D0D0D;
+      color: #F0EDE6;
+      font-family: Georgia, serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+    .container { padding: 40px 20px; }
+    h1 { color: #E8C547; font-size: 2.5rem; margin-bottom: 16px; letter-spacing: 3px; }
+    p { color: #A09A8C; font-size: 1.1rem; margin-bottom: 8px; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(232,197,71,0.2);
+      border-top-color: #E8C547;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 30px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { color: #C0392B; display: none; margin-top: 20px; }
+    .error a { color: #E8C547; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ALMA</h1>
+    <p>Preparando seu acesso...</p>
+    <div class="spinner" id="spinner"></div>
+    <div class="error" id="error">
+      <p>Link expirado ou inválido.</p>
+      <p><a href="/login">Clique aqui para fazer login</a></p>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var magicToken = params.get('t');
+      if (!magicToken) {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+
+      fetch('/.netlify/functions/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'magic_link', magicToken: magicToken })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          localStorage.setItem('alma_token', data.token);
+          localStorage.setItem('alma_user', data.name);
+          localStorage.setItem('alma_type', data.type);
+          localStorage.setItem('alma_admin', data.admin ? '1' : '0');
+          if (data.birthDate) localStorage.setItem('alma_birthDate', data.birthDate);
+          else localStorage.removeItem('alma_birthDate');
+          sessionStorage.setItem('alma_filho', data.name);
+          sessionStorage.setItem('alma_tipo', data.type);
+          window.location.replace('chat.html');
+        } else {
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('error').style.display = 'block';
+        }
+      })
+      .catch(function() {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+      });
+    })();
+  </script>
+</body>
+</html>

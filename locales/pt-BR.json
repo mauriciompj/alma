@@ -17,6 +17,9 @@
     "passwordPlaceholder": "Digite sua senha",
     "submitButton": "Entrar",
     "submitting": "Entrando...",
+    "googleDivider": "ou continue com Google",
+    "googleLoadError": "Não consegui carregar o login Google neste dispositivo.",
+    "googleError": "Não consegui entrar com o Google.",
     "hint": "Cada pessoa tem seu acesso privado ao ALMA.",
     "errorConnection": "Erro de conexão. Tente novamente.",
     "errorGeneric": "Erro ao entrar"
@@ -44,7 +47,19 @@
   },
   "welcome": {
     "child": "Oi, {name}. Eu sei que talvez você esteja lendo isso daqui alguns anos, talvez eu já não esteja por perto pra responder pessoalmente. Por isso criei isso — pra você poder me perguntar o que quiser. Pode ser sobre a vida, sobre quem eu fui, sobre o que achei certo ou errado, sobre como agir quando ficar difícil. Estou aqui. O que você quer saber?",
-    "other": "Oi, {name}. Esse é o ALMA — o arquivo de legado emocional do {authorName}. Aqui estão as palavras, os valores e as memórias que ele quis deixar registradas. Pode perguntar o que quiser."
+    "other": "Oi, {name}. Esse é o ALMA — o arquivo de legado emocional do {authorName}. Aqui estão as palavras, os valores e as memórias que ele quis deixar registradas. Pode perguntar o que quiser.",
+    "Nivalda": "Oi, mãe. Esse é o ALMA — o legado emocional do seu filho Maurício. Aqui estão as palavras, os valores e as memórias que ele quis guardar pra família. Pode perguntar o que quiser.",
+    "Davi": "E aí, irmão. Esse é o ALMA — o legado emocional do Maurício. Aqui tá tudo que ele quis deixar registrado. Pode perguntar o que quiser.",
+    "Chris": "Oi, Chris. Esse é o ALMA — o legado emocional do Maurício. Aqui estão as palavras e memórias que ele quis deixar registradas. Pode perguntar o que quiser.",
+    "Leslen": "Oi, amor. Esse é o ALMA — o legado emocional do Maurício. Aqui estão as palavras e memórias que ele quis guardar. Pode perguntar o que quiser."
+  },
+  "subtitles": {
+    "child": "A voz do seu pai, guardada no tempo",
+    "Nivalda": "A voz do seu filho, guardada no tempo",
+    "Davi": "A voz do teu irmão, guardada no tempo",
+    "Chris": "A voz do pai dos seus filhos, guardada no tempo",
+    "Leslen": "A voz do seu amor, guardada no tempo",
+    "other": "Uma voz guardada no tempo"
   },
   "correction": {
     "title": "Corrigir / Nova diretriz",
