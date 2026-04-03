@@ -52,16 +52,21 @@
   [headers.values]
     Cache-Control = "no-cache"
 
-# JS/CSS: short cache, SW handles offline
+# JS/CSS/Locales: no-cache to ensure fresh content after deploys
 [[headers]]
   for = "/js/*"
   [headers.values]
-    Cache-Control = "public, max-age=300"
+    Cache-Control = "no-cache"
 
 [[headers]]
   for = "/css/*"
   [headers.values]
-    Cache-Control = "public, max-age=300"
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/locales/*"
+  [headers.values]
+    Cache-Control = "no-cache"
 
 # Entrar via magic link (must be BEFORE catch-all)
 [[redirects]]
