@@ -127,9 +127,7 @@ export function addMessage(type, text, memoriesUsed) {
     voiceBtn.type = 'button';
     voiceBtn.className = 'btn-play-voice';
     updateVoiceButtonState(voiceBtn, 'idle');
-    voiceBtn.addEventListener('click', function () {
-      playVoiceForButton(voiceBtn, text).catch(function () {});
-    });
+    // No individual listener — event delegation on #chatMessages handles all clicks
     content.appendChild(voiceBtn);
   }
 

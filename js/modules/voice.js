@@ -8,6 +8,22 @@ export function setupVoiceToggle() {
   var btn = document.getElementById('btnVoiceToggle');
   if (!btn) return;
 
+  // --- Event delegation: ONE listener handles ALL voice button clicks ---
+  // This eliminates race conditions between message rendering and voice setup.
+  var chatMessages = document.getElementById('chatMessages');
+  if (chatMessages && !chatMessages._voiceDelegated) {
+    chatMessages._voiceDelegated = true;
+    chatMessages.addEventListener('click', function (e) {
+      var voiceBtn = e.target.closest('.btn-play-voice');
+      if (!voiceBtn) return;
+      if (voiceBtn.disabled) return;
+      var content = voiceBtn.closest('.message-content');
+      var textEl = content && content.querySelector('.message-text');
+      var msgText = textEl ? (textEl.textContent || '') : '';
+      playVoiceForButton(voiceBtn, msgText).catch(function () {});
+    });
+  }
+
   fetch('/.netlify/functions/alma-voice', {
     method: 'POST',
     headers: authHeaders(),
@@ -26,14 +42,11 @@ export function setupVoiceToggle() {
         if (content.querySelector('.btn-play-voice')) return;
         var textEl = content.querySelector('.message-text');
         if (!textEl) return;
-        var msgText = textEl.textContent || '';
         var voiceBtn = document.createElement('button');
         voiceBtn.type = 'button';
         voiceBtn.className = 'btn-play-voice';
         updateVoiceButtonState(voiceBtn, 'idle');
-        voiceBtn.addEventListener('click', function () {
-          playVoiceForButton(voiceBtn, msgText).catch(function () {});
-        });
+        // No individual listener needed — delegation handles clicks
         var corrBtn = content.querySelector('.btn-correct');
         if (corrBtn) {
           content.insertBefore(voiceBtn, corrBtn);
