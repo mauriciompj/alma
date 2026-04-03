@@ -9,11 +9,11 @@ import { verifySession, jsonResponse, corsResponse } from './lib/auth.mjs';
 
 
 const ELEVENLABS_API = 'https://api.elevenlabs.io/v1/text-to-speech';
-const DEFAULT_MODEL = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
+const DEFAULT_MODEL = process.env.ELEVENLABS_MODEL_ID || 'eleven_turbo_v2_5';
 const DEFAULT_SETTINGS = {
-  stability: 0.65,
+  stability: 0.55,
   similarity_boost: 1.0,
-  style: 0.15,
+  style: 0.0,
   use_speaker_boost: true,
 };
 
