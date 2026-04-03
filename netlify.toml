@@ -36,6 +36,11 @@
   to = "/.netlify/functions/legacy"
   status = 200
 
+[[redirects]]
+  from = "/api/db-admin"
+  to = "/.netlify/functions/db-admin"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

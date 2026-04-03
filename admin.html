@@ -25,6 +25,7 @@
       <button class="tab" data-tab="diretrizes">Diretrizes</button>
       <button class="tab" data-tab="exportar">Exportar</button>
       <button class="tab" data-tab="herdeiros">Herdeiros</button>
+      <button class="tab" data-tab="banco">BD</button>
     </nav>
 
     <!-- Tab: Conhecimentos -->
@@ -260,6 +261,79 @@
           <button class="admin-btn" id="cancelHeirBtn">Cancelar</button>
         </div>
         <div id="heirStatus" style="margin-top:8px;font-size:0.8rem;color:var(--text-soft);"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Banco de Dados (Claude SQL) -->
+    <div class="tab-panel" id="tab-banco">
+      <div class="import-section">
+        <h3 class="import-title">Banco de Dados — Instruções via IA</h3>
+        <p class="import-desc">Escreva instruções em português e o Claude gera o SQL. Você revisa antes de executar.</p>
+
+        <!-- Export banner -->
+        <div id="dbExportBanner" style="background:rgba(232,197,71,0.08);border:1px solid rgba(232,197,71,0.25);border-radius:10px;padding:14px 18px;margin:16px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="font-size:1.2rem;">💾</span>
+          <span style="color:var(--text-soft);font-size:0.85rem;flex:1;">Recomendado: exporte o backup antes de fazer alterações.</span>
+          <button class="admin-btn" id="dbExportBtn" style="font-size:0.8rem;white-space:nowrap;">Exportar backup agora</button>
+          <span id="dbExportStatus" style="font-size:0.75rem;color:var(--text-soft);"></span>
+        </div>
+
+        <!-- Instruction input -->
+        <div style="margin-top:16px;">
+          <label style="color:var(--text-soft);font-size:0.8rem;display:block;margin-bottom:6px;">Instrução em português:</label>
+          <textarea id="dbInstruction" class="admin-textarea" rows="3" maxlength="2000" placeholder="Ex: Mostre todas as diretrizes ativas da Nivalda&#10;Ex: Adicione uma diretriz global: 'Nunca mencione religião'&#10;Ex: Atualize o person_context_Chris com novo texto&#10;Ex: Quantos chunks existem por categoria?"></textarea>
+          <div style="display:flex;gap:10px;margin-top:10px;align-items:center;">
+            <button class="admin-btn admin-btn-accent" id="dbPreviewBtn">Gerar SQL</button>
+            <span id="dbPreviewStatus" style="font-size:0.8rem;color:var(--text-soft);"></span>
+          </div>
+        </div>
+
+        <!-- SQL Preview -->
+        <div id="dbSqlPreview" style="display:none;margin-top:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <label style="color:var(--accent);font-size:0.85rem;font-weight:600;">SQL gerado:</label>
+            <span id="dbSqlType" style="font-size:0.75rem;padding:2px 8px;border-radius:4px;"></span>
+          </div>
+          <pre id="dbSqlCode" style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:'Fira Code',monospace;font-size:0.82rem;color:#c5c5c5;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;"></pre>
+          <div id="dbSqlWarning" style="display:none;background:rgba(255,100,50,0.08);border:1px solid rgba(255,100,50,0.25);border-radius:8px;padding:10px 14px;margin-top:10px;color:#ff9966;font-size:0.82rem;"></div>
+          <div style="display:flex;gap:10px;margin-top:12px;">
+            <button class="admin-btn admin-btn-accent" id="dbExecuteBtn">Executar</button>
+            <button class="admin-btn" id="dbCancelBtn">Cancelar</button>
+            <button class="admin-btn" id="dbEditSqlBtn" style="font-size:0.8rem;">Editar SQL</button>
+          </div>
+        </div>
+
+        <!-- SQL Editor (hidden by default) -->
+        <div id="dbSqlEditor" style="display:none;margin-top:12px;">
+          <textarea id="dbSqlEditArea" class="admin-textarea" rows="6" style="font-family:'Fira Code',monospace;font-size:0.82rem;"></textarea>
+          <div style="display:flex;gap:10px;margin-top:8px;">
+            <button class="admin-btn admin-btn-accent" id="dbExecuteEditedBtn">Executar SQL editado</button>
+            <button class="admin-btn" id="dbCancelEditBtn">Cancelar edição</button>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div id="dbResults" style="display:none;margin-top:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <label style="color:var(--accent);font-size:0.85rem;font-weight:600;">Resultado:</label>
+            <span id="dbResultStatus" style="font-size:0.8rem;"></span>
+          </div>
+          <div id="dbResultMessage" style="font-size:0.85rem;color:var(--text-soft);margin-bottom:10px;"></div>
+          <div id="dbResultData" style="max-height:400px;overflow:auto;"></div>
+        </div>
+
+        <!-- Quick queries -->
+        <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border);">
+          <label style="color:var(--text-soft);font-size:0.8rem;display:block;margin-bottom:10px;">Consultas rápidas:</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="admin-btn admin-btn-sm db-quick" data-q="Mostre todas as tabelas e quantas linhas cada uma tem">Resumo do BD</button>
+            <button class="admin-btn admin-btn-sm db-quick" data-q="Mostre todas as diretrizes ativas, ordenadas por pessoa">Diretrizes</button>
+            <button class="admin-btn admin-btn-sm db-quick" data-q="Mostre todas as chaves da alma_config (sem valor, só key e updated_at) ordenadas por key">Config keys</button>
+            <button class="admin-btn admin-btn-sm db-quick" data-q="Mostre os últimos 20 chunks criados, com id, title, category e created_at">Últimos chunks</button>
+            <button class="admin-btn admin-btn-sm db-quick" data-q="Mostre o users_json da alma_config">Usuários</button>
+            <button class="admin-btn admin-btn-sm db-quick" data-q="Mostre todas as correções ativas">Correções</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1245,6 +1319,201 @@
     });
 
     loadChunks(1);
+
+    // ================================================================
+    // --- Banco de Dados (Claude SQL) ---
+    // ================================================================
+    var DB_API = '/.netlify/functions/db-admin';
+    var dbPendingSql = '';
+
+    // Export backup
+    document.getElementById('dbExportBtn').addEventListener('click', function() {
+      var status = document.getElementById('dbExportStatus');
+      status.textContent = 'Exportando...';
+      fetch(DB_API, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ action: 'export' })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+          var blob = new Blob([JSON.stringify(data.backup, null, 2)], { type: 'application/json' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'alma_backup_' + new Date().toISOString().slice(0,10) + '.json';
+          a.click();
+          URL.revokeObjectURL(url);
+          status.textContent = '✅ Backup exportado!';
+          status.style.color = '#7c7';
+        } else {
+          status.textContent = '❌ ' + (data.error || 'Erro');
+          status.style.color = '#f66';
+        }
+      }).catch(function(e) {
+        status.textContent = '❌ Erro: ' + e.message;
+        status.style.color = '#f66';
+      });
+    });
+
+    // Preview SQL
+    function previewSql(instruction) {
+      var status = document.getElementById('dbPreviewStatus');
+      var preview = document.getElementById('dbSqlPreview');
+      var results = document.getElementById('dbResults');
+      var editor = document.getElementById('dbSqlEditor');
+      status.textContent = 'Gerando SQL...';
+      preview.style.display = 'none';
+      results.style.display = 'none';
+      editor.style.display = 'none';
+
+      fetch(DB_API, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ action: 'preview', instruction: instruction })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        status.textContent = '';
+        if (data.error && !data.sql) {
+          status.textContent = '❌ ' + data.error;
+          status.style.color = '#f66';
+          return;
+        }
+        dbPendingSql = data.sql;
+        document.getElementById('dbSqlCode').textContent = data.sql;
+        var typeEl = document.getElementById('dbSqlType');
+        if (data.isReadOnly) {
+          typeEl.textContent = 'SELECT (leitura)';
+          typeEl.style.background = 'rgba(100,200,100,0.15)';
+          typeEl.style.color = '#7c7';
+        } else {
+          typeEl.textContent = 'ESCRITA';
+          typeEl.style.background = 'rgba(255,100,50,0.15)';
+          typeEl.style.color = '#f96';
+        }
+        var warning = document.getElementById('dbSqlWarning');
+        if (data.warning) {
+          warning.textContent = data.warning;
+          warning.style.display = 'block';
+        } else {
+          warning.style.display = 'none';
+        }
+        preview.style.display = 'block';
+      }).catch(function(e) {
+        status.textContent = '❌ ' + e.message;
+        status.style.color = '#f66';
+      });
+    }
+
+    document.getElementById('dbPreviewBtn').addEventListener('click', function() {
+      var instruction = document.getElementById('dbInstruction').value.trim();
+      if (!instruction) return;
+      previewSql(instruction);
+    });
+
+    // Execute SQL
+    function executeSql(sqlCmd) {
+      var results = document.getElementById('dbResults');
+      var resultMsg = document.getElementById('dbResultMessage');
+      var resultData = document.getElementById('dbResultData');
+      var resultStatus = document.getElementById('dbResultStatus');
+      results.style.display = 'block';
+      resultMsg.textContent = 'Executando...';
+      resultData.innerHTML = '';
+      resultStatus.textContent = '';
+
+      fetch(DB_API, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ action: 'execute', sqlCommand: sqlCmd })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        resultMsg.textContent = data.message || (data.error ? '❌ ' + data.error : '');
+        resultStatus.textContent = data.success ? '✅' : '❌';
+        if (data.results) {
+          var html = '';
+          data.results.forEach(function(r) {
+            if (r.data && r.data.length > 0) {
+              html += renderTable(r.data);
+            } else if (r.success) {
+              html += '<div style="color:#7c7;font-size:0.82rem;margin:6px 0;">' + r.rows + ' linha(s) afetada(s)</div>';
+            }
+            if (r.error) {
+              html += '<div style="color:#f66;font-size:0.82rem;margin:6px 0;">Erro: ' + r.error + '</div>';
+            }
+          });
+          resultData.innerHTML = html;
+        }
+      }).catch(function(e) {
+        resultMsg.textContent = '❌ ' + e.message;
+        resultStatus.textContent = '❌';
+      });
+    }
+
+    document.getElementById('dbExecuteBtn').addEventListener('click', function() {
+      if (!dbPendingSql) return;
+      executeSql(dbPendingSql);
+    });
+
+    document.getElementById('dbCancelBtn').addEventListener('click', function() {
+      document.getElementById('dbSqlPreview').style.display = 'none';
+      document.getElementById('dbSqlEditor').style.display = 'none';
+      dbPendingSql = '';
+    });
+
+    // Edit SQL manually
+    document.getElementById('dbEditSqlBtn').addEventListener('click', function() {
+      document.getElementById('dbSqlEditArea').value = dbPendingSql;
+      document.getElementById('dbSqlEditor').style.display = 'block';
+    });
+
+    document.getElementById('dbExecuteEditedBtn').addEventListener('click', function() {
+      var edited = document.getElementById('dbSqlEditArea').value.trim();
+      if (!edited) return;
+      dbPendingSql = edited;
+      document.getElementById('dbSqlCode').textContent = edited;
+      executeSql(edited);
+    });
+
+    document.getElementById('dbCancelEditBtn').addEventListener('click', function() {
+      document.getElementById('dbSqlEditor').style.display = 'none';
+    });
+
+    // Quick queries
+    document.querySelectorAll('.db-quick').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.getElementById('dbInstruction').value = btn.dataset.q;
+        previewSql(btn.dataset.q);
+      });
+    });
+
+    // Render result table
+    function renderTable(rows) {
+      if (!rows || rows.length === 0) return '<p style="color:var(--text-soft);font-size:0.82rem;">Sem resultados</p>';
+      var keys = Object.keys(rows[0]);
+      var html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.78rem;">';
+      html += '<thead><tr>';
+      keys.forEach(function(k) {
+        html += '<th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--accent);font-weight:600;white-space:nowrap;">' + k + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+      rows.forEach(function(row) {
+        html += '<tr>';
+        keys.forEach(function(k) {
+          var val = row[k];
+          if (val === null) val = '<span style="color:#666;">NULL</span>';
+          else if (typeof val === 'object') val = JSON.stringify(val).substring(0, 120);
+          else val = String(val).substring(0, 200);
+          html += '<td style="padding:5px 10px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text-soft);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + val + '</td>';
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    // Ctrl+Enter to preview
+    document.getElementById('dbInstruction').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        document.getElementById('dbPreviewBtn').click();
+      }
+    });
+
   })();
   </script>
 </body>

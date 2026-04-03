@@ -11,9 +11,9 @@ import { verifySession, jsonResponse, corsResponse } from './lib/auth.mjs';
 const ELEVENLABS_API = 'https://api.elevenlabs.io/v1/text-to-speech';
 const DEFAULT_MODEL = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
 const DEFAULT_SETTINGS = {
-  stability: 0.5,
-  similarity_boost: 0.85,
-  style: 0.3,
+  stability: 0.65,
+  similarity_boost: 1.0,
+  style: 0.15,
   use_speaker_boost: true,
 };
 
