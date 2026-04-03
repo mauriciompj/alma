@@ -55,7 +55,7 @@
     localStorage.setItem('alma_lang', lang);
 
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/locales/' + lang + '.json', true);
+    xhr.open('GET', '/locales/' + lang + '.json?v=' + Date.now(), true);
     xhr.onload = function() {
       if (xhr.status === 200) {
         try {
