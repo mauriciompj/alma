@@ -11,11 +11,8 @@ export const tagMap = {
   'pai': 'paternidade', 'filho': 'paternidade', 'crian': 'paternidade',
   'alma': 'paternidade', 'famíli': 'paternidade', 'familia': 'paternidade',
   'escola': 'paternidade',
-  // Children by name
-  'noah': 'noah', 'nathan': 'nathan', 'isaac': 'isaac',
   // Family members
-  'nivalda': 'familia', 'leslen': 'familia', 'davi': 'familia',
-  'irmão': 'familia', 'irmao': 'familia', 'chris': 'chris',
+  'irmão': 'familia', 'irmao': 'familia', 'mãe': 'familia', 'mae': 'familia',
   // Values
   'valor': 'valores', 'honra': 'valores', 'corag': 'valores',
   'verdad': 'valores', 'lealdad': 'valores', 'erro': 'valores',

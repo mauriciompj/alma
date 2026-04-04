@@ -27,6 +27,7 @@
       <button class="tab" data-tab="herdeiros">Herdeiros</button>
       <button class="tab" data-tab="banco">BD</button>
     </nav>
+    <div class="admin-tabs-hint" id="adminTabsHint" hidden>Deslize para ver mais abas</div>
 
     <!-- Tab: Conhecimentos -->
     <div class="tab-panel active" id="tab-conhecimentos">
@@ -72,7 +73,7 @@
           <div class="form-row">
             <div class="form-group">
               <label>Nome/Título do documento</label>
-              <input type="text" id="importTitle" class="admin-input" placeholder="Ex: Carta para Noah, Reflexão sobre fé...">
+              <input type="text" id="importTitle" class="admin-input" placeholder="Ex: Carta para minha filha, Reflexão sobre fé...">
             </div>
             <div class="form-group">
               <label>Categoria</label>
@@ -141,12 +142,6 @@
         <div class="directives-person-tabs" id="directivesTabs">
           <button class="dir-tab active" data-person="_all">Todas</button>
           <button class="dir-tab" data-person="_global">Global</button>
-          <button class="dir-tab" data-person="Noah">Noah</button>
-          <button class="dir-tab" data-person="Nathan">Nathan</button>
-          <button class="dir-tab" data-person="Isaac">Isaac</button>
-          <button class="dir-tab" data-person="Chris">Chris</button>
-          <button class="dir-tab" data-person="Leslen">Leslen</button>
-          <button class="dir-tab" data-person="Nivalda">Nivalda</button>
         </div>
 
         <!-- Add new directive form -->
@@ -154,14 +149,8 @@
           <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
             <select id="newDirPerson" class="admin-select" style="min-width:120px;">
               <option value="_global">Global</option>
-              <option value="Noah">Noah</option>
-              <option value="Nathan">Nathan</option>
-              <option value="Isaac">Isaac</option>
-              <option value="Chris">Chris</option>
-              <option value="Leslen">Leslen</option>
-              <option value="Nivalda">Nivalda</option>
             </select>
-            <input type="text" id="newDirText" class="admin-input" style="flex:1;min-width:200px;" placeholder="Nova diretriz... Ex: Nunca compare Noah com os irmãos">
+            <input type="text" id="newDirText" class="admin-input" style="flex:1;min-width:200px;" placeholder="Nova diretriz... Ex: Evite comparações entre irmãos">
             <button class="admin-btn admin-btn-accent" id="addDirBtn" style="white-space:nowrap;">+ Adicionar</button>
           </div>
         </div>
@@ -226,7 +215,7 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div>
             <label class="import-desc" style="display:block;margin-bottom:4px;">Nome</label>
-            <input type="text" id="heirPerson" class="admin-input" placeholder="Ex: Noah">
+            <input type="text" id="heirPerson" class="admin-input" placeholder="Ex: Ana">
           </div>
           <div>
             <label class="import-desc" style="display:block;margin-bottom:4px;">Nível de acesso</label>
@@ -270,33 +259,61 @@
         <h3 class="import-title">Banco de Dados — Instruções via IA</h3>
         <p class="import-desc">Escreva instruções em português e o Claude gera o SQL. Você revisa antes de executar.</p>
 
+        <div class="db-mode-grid">
+          <div class="db-mode-card">
+            <div class="db-mode-kicker">Leitura segura</div>
+            <strong>Consultas e auditoria</strong>
+            <p>Use para listar dados, conferir estado atual e validar antes de alterar qualquer coisa.</p>
+          </div>
+          <div class="db-mode-card db-mode-card-warn">
+            <div class="db-mode-kicker">Escrita com revisão</div>
+            <strong>Alterações no banco</strong>
+            <p>Quando o SQL for mutante, a execução exige confirmação explícita depois do preview.</p>
+          </div>
+        </div>
+
         <!-- Export banner -->
-        <div id="dbExportBanner" style="background:rgba(232,197,71,0.08);border:1px solid rgba(232,197,71,0.25);border-radius:10px;padding:14px 18px;margin:16px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div id="dbExportBanner" class="db-export-banner">
           <span style="font-size:1.2rem;">💾</span>
-          <span style="color:var(--text-soft);font-size:0.85rem;flex:1;">Recomendado: exporte o backup antes de fazer alterações.</span>
+          <span class="db-export-text">Recomendado: exporte o backup antes de fazer alterações.</span>
           <button class="admin-btn" id="dbExportBtn" style="font-size:0.8rem;white-space:nowrap;">Exportar backup agora</button>
           <span id="dbExportStatus" style="font-size:0.75rem;color:var(--text-soft);"></span>
         </div>
 
         <!-- Instruction input -->
-        <div style="margin-top:16px;">
-          <label style="color:var(--text-soft);font-size:0.8rem;display:block;margin-bottom:6px;">Instrução em português:</label>
-          <textarea id="dbInstruction" class="admin-textarea" rows="3" maxlength="2000" placeholder="Ex: Mostre todas as diretrizes ativas da Nivalda&#10;Ex: Adicione uma diretriz global: 'Nunca mencione religião'&#10;Ex: Atualize o person_context_Chris com novo texto&#10;Ex: Quantos chunks existem por categoria?"></textarea>
-          <div style="display:flex;gap:10px;margin-top:10px;align-items:center;">
+        <div class="db-panel-shell" style="margin-top:16px;">
+          <div class="db-section-label-row">
+            <label style="color:var(--text-soft);font-size:0.8rem;display:block;margin-bottom:6px;">Instrução em português:</label>
+            <span class="db-shortcut-hint">`Ctrl+Enter` para gerar</span>
+          </div>
+          <textarea id="dbInstruction" class="admin-textarea" rows="3" maxlength="2000" placeholder="Ex: Mostre todas as diretrizes ativas da pessoa Ana&#10;Ex: Adicione uma diretriz global: 'Evite respostas muito longas'&#10;Ex: Atualize um person_context com novo texto&#10;Ex: Quantos chunks existem por categoria?"></textarea>
+          <div class="db-inline-actions">
             <button class="admin-btn admin-btn-accent" id="dbPreviewBtn">Gerar SQL</button>
             <span id="dbPreviewStatus" style="font-size:0.8rem;color:var(--text-soft);"></span>
           </div>
         </div>
 
         <!-- SQL Preview -->
-        <div id="dbSqlPreview" style="display:none;margin-top:20px;">
+        <div id="dbSqlPreview" class="db-panel-shell" style="display:none;margin-top:20px;">
+          <div class="db-preview-head">
+            <div>
+              <div class="db-section-label-row" style="margin-bottom:8px;">
+                <label style="color:var(--accent);font-size:0.85rem;font-weight:600;">SQL gerado:</label>
+                <span id="dbSqlType" class="db-sql-type"></span>
+              </div>
+              <div id="dbInstructionEcho" class="db-instruction-echo"></div>
+            </div>
+          </div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <label style="color:var(--accent);font-size:0.85rem;font-weight:600;">SQL gerado:</label>
-            <span id="dbSqlType" style="font-size:0.75rem;padding:2px 8px;border-radius:4px;"></span>
           </div>
-          <pre id="dbSqlCode" style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:'Fira Code',monospace;font-size:0.82rem;color:#c5c5c5;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;"></pre>
-          <div id="dbSqlWarning" style="display:none;background:rgba(255,100,50,0.08);border:1px solid rgba(255,100,50,0.25);border-radius:8px;padding:10px 14px;margin-top:10px;color:#ff9966;font-size:0.82rem;"></div>
-          <div style="display:flex;gap:10px;margin-top:12px;">
+          <pre id="dbSqlCode" class="db-sql-code"></pre>
+          <div id="dbSqlWarning" class="db-sql-warning" style="display:none;"></div>
+          <label id="dbWriteConfirmWrap" class="db-confirm-wrap" style="display:none;">
+            <input type="checkbox" id="dbWriteConfirm">
+            <span>Revisei o SQL acima e confirmo que quero executar uma alteração no banco.</span>
+          </label>
+          <div class="db-inline-actions" style="margin-top:12px;">
             <button class="admin-btn admin-btn-accent" id="dbExecuteBtn">Executar</button>
             <button class="admin-btn" id="dbCancelBtn">Cancelar</button>
             <button class="admin-btn" id="dbEditSqlBtn" style="font-size:0.8rem;">Editar SQL</button>
@@ -304,20 +321,25 @@
         </div>
 
         <!-- SQL Editor (hidden by default) -->
-        <div id="dbSqlEditor" style="display:none;margin-top:12px;">
+        <div id="dbSqlEditor" class="db-panel-shell" style="display:none;margin-top:12px;">
+          <div class="db-section-label-row" style="margin-bottom:8px;">
+            <label style="color:var(--text-soft);font-size:0.8rem;">Edição manual</label>
+            <span id="dbEditModeLabel" class="db-edit-mode-label"></span>
+          </div>
           <textarea id="dbSqlEditArea" class="admin-textarea" rows="6" style="font-family:'Fira Code',monospace;font-size:0.82rem;"></textarea>
-          <div style="display:flex;gap:10px;margin-top:8px;">
+          <div class="db-inline-actions" style="margin-top:8px;">
             <button class="admin-btn admin-btn-accent" id="dbExecuteEditedBtn">Executar SQL editado</button>
             <button class="admin-btn" id="dbCancelEditBtn">Cancelar edição</button>
           </div>
         </div>
 
         <!-- Results -->
-        <div id="dbResults" style="display:none;margin-top:20px;">
+        <div id="dbResults" class="db-panel-shell" style="display:none;margin-top:20px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <label style="color:var(--accent);font-size:0.85rem;font-weight:600;">Resultado:</label>
             <span id="dbResultStatus" style="font-size:0.8rem;"></span>
           </div>
+          <div id="dbResultSummary" class="db-result-summary"></div>
           <div id="dbResultMessage" style="font-size:0.85rem;color:var(--text-soft);margin-bottom:10px;"></div>
           <div id="dbResultData" style="max-height:400px;overflow:auto;"></div>
         </div>
@@ -387,6 +409,7 @@
     const API = '/.netlify/functions/memories';
     let currentChunkId = null;
     let isNewChunk = false;
+    var knownPersons = [];
 
     // Auth helper — include session token in all API calls
     function authHeaders() {
@@ -395,16 +418,42 @@
     }
 
     // --- Tabs ---
+    var adminTabsEl = document.querySelector('.admin-tabs');
+    var adminTabsHintEl = document.getElementById('adminTabsHint');
+
+    function scrollTabIntoView(tab) {
+      if (!tab || !adminTabsEl) return;
+      tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+
+    function updateTabsHint() {
+      if (!adminTabsEl || !adminTabsHintEl) return;
+      var hasOverflow = adminTabsEl.scrollWidth > adminTabsEl.clientWidth + 8;
+      var canScrollRight = adminTabsEl.scrollLeft + adminTabsEl.clientWidth < adminTabsEl.scrollWidth - 8;
+      adminTabsHintEl.hidden = !(hasOverflow && canScrollRight);
+    }
+
     document.querySelectorAll('.admin-tabs .tab').forEach(function(tab) {
       tab.addEventListener('click', function() {
         document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
         document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
         tab.classList.add('active');
         document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+        scrollTabIntoView(tab);
         if (tab.dataset.tab === 'correcoes') { loadCorrections(); loadAdminTone(); }
         if (tab.dataset.tab === 'importar') loadImportCategories();
+        updateTabsHint();
       });
     });
+
+    if (adminTabsEl) {
+      adminTabsEl.addEventListener('scroll', updateTabsHint, { passive: true });
+      window.addEventListener('resize', updateTabsHint);
+      requestAnimationFrame(function() {
+        scrollTabIntoView(document.querySelector('.admin-tabs .tab.active'));
+        updateTabsHint();
+      });
+    }
 
     // --- Load stats + heartbeat ---
     fetch(API + '?action=stats').then(r => r.json()).then(function(data) {
@@ -437,6 +486,37 @@
         sel.appendChild(opt);
       });
     });
+
+    function renderDirectivePeople(persons) {
+      knownPersons = (persons || []).map(function(person) { return person.name; });
+
+      var tabs = document.getElementById('directivesTabs');
+      var select = document.getElementById('newDirPerson');
+      if (!tabs || !select) return;
+
+      tabs.querySelectorAll('.dir-tab[data-dynamic="1"]').forEach(function(node) { node.remove(); });
+      select.querySelectorAll('option[data-dynamic="1"]').forEach(function(node) { node.remove(); });
+
+      knownPersons.forEach(function(personName) {
+        var tab = document.createElement('button');
+        tab.className = 'dir-tab';
+        tab.dataset.person = personName;
+        tab.dataset.dynamic = '1';
+        tab.textContent = personName;
+        tabs.appendChild(tab);
+
+        var option = document.createElement('option');
+        option.value = personName;
+        option.textContent = personName;
+        option.dataset.dynamic = '1';
+        select.appendChild(option);
+      });
+    }
+
+    fetch(API + '?action=get_persons', { headers: authHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { renderDirectivePeople(data.persons || []); })
+      .catch(function() { renderDirectivePeople([]); });
 
     // --- Chunks ---
     var currentPage = 1;
@@ -913,13 +993,13 @@
     var currentDirFilter = '_all';
 
     // Tab click within Diretrizes
-    document.querySelectorAll('.dir-tab').forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        document.querySelectorAll('.dir-tab').forEach(function(t) { t.classList.remove('active'); });
-        tab.classList.add('active');
-        currentDirFilter = tab.dataset.person;
-        loadDirectivesList();
-      });
+    document.getElementById('directivesTabs').addEventListener('click', function(event) {
+      var tab = event.target.closest('.dir-tab');
+      if (!tab) return;
+      document.querySelectorAll('.dir-tab').forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      currentDirFilter = tab.dataset.person;
+      loadDirectivesList();
     });
 
     function loadDirectivesList() {
@@ -1113,13 +1193,11 @@
           logEl.textContent += '\nCategorias: ' + exportData.categories.length;
 
           // Export config keys (photos, directives, tone)
-          var configKeys = [
-            'tone_config', 'directives_global',
-            'directives_Noah', 'directives_Nathan', 'directives_Isaac',
-            'directives_Chris', 'directives_Leslen', 'directives_Nivalda',
-            'photo_Noah', 'photo_Nathan', 'photo_Isaac',
-            'photo_Chris', 'photo_Leslen', 'photo_Nivalda'
-          ];
+          var configKeys = ['tone_config', 'directives_global'];
+          knownPersons.forEach(function(personName) {
+            configKeys.push('directives_' + personName);
+            configKeys.push('photo_' + personName);
+          });
           var configs = {};
           for (var i = 0; i < configKeys.length; i++) {
             try {
@@ -1325,6 +1403,97 @@
     // ================================================================
     var DB_API = '/.netlify/functions/db-admin';
     var dbPendingSql = '';
+    var dbPendingIsReadOnly = true;
+    var dbPreviewStatusEl = document.getElementById('dbPreviewStatus');
+    var dbSqlPreviewEl = document.getElementById('dbSqlPreview');
+    var dbResultsEl = document.getElementById('dbResults');
+    var dbSqlEditorEl = document.getElementById('dbSqlEditor');
+    var dbSqlCodeEl = document.getElementById('dbSqlCode');
+    var dbSqlTypeEl = document.getElementById('dbSqlType');
+    var dbSqlWarningEl = document.getElementById('dbSqlWarning');
+    var dbWriteConfirmWrapEl = document.getElementById('dbWriteConfirmWrap');
+    var dbWriteConfirmEl = document.getElementById('dbWriteConfirm');
+    var dbExecuteBtnEl = document.getElementById('dbExecuteBtn');
+    var dbInstructionEchoEl = document.getElementById('dbInstructionEcho');
+    var dbResultSummaryEl = document.getElementById('dbResultSummary');
+    var dbEditModeLabelEl = document.getElementById('dbEditModeLabel');
+
+    function classifySql(sqlText) {
+      var isReadOnly = /^\s*(SELECT|WITH|EXPLAIN)/i.test(sqlText || '') &&
+        !/INSERT|UPDATE|DELETE|CREATE|ALTER|DROP/i.test(sqlText || '');
+      return {
+        isReadOnly: isReadOnly,
+        warning: isReadOnly ? '' : 'Este SQL altera dados. Revise com atenção e confirme antes de executar.'
+      };
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function resetDbPreviewState() {
+      dbPendingSql = '';
+      dbPendingIsReadOnly = true;
+      dbWriteConfirmEl.checked = false;
+      dbWriteConfirmWrapEl.style.display = 'none';
+      dbExecuteBtnEl.disabled = false;
+      dbExecuteBtnEl.textContent = 'Executar';
+      dbSqlWarningEl.style.display = 'none';
+      dbInstructionEchoEl.textContent = '';
+      dbEditModeLabelEl.textContent = '';
+    }
+
+    function applySqlState(sqlText, isReadOnly, warningText, instructionText) {
+      dbPendingSql = sqlText;
+      dbPendingIsReadOnly = !!isReadOnly;
+      dbSqlCodeEl.textContent = sqlText || '';
+      dbInstructionEchoEl.textContent = instructionText ? 'Pedido: ' + instructionText : '';
+
+      if (dbPendingIsReadOnly) {
+        dbSqlTypeEl.textContent = 'Leitura';
+        dbSqlTypeEl.className = 'db-sql-type db-sql-type-read';
+        dbWriteConfirmWrapEl.style.display = 'none';
+        dbWriteConfirmEl.checked = false;
+        dbExecuteBtnEl.disabled = false;
+        dbExecuteBtnEl.textContent = 'Executar consulta';
+        dbEditModeLabelEl.textContent = 'Modo leitura';
+      } else {
+        dbSqlTypeEl.textContent = 'Escrita';
+        dbSqlTypeEl.className = 'db-sql-type db-sql-type-write';
+        dbWriteConfirmWrapEl.style.display = 'flex';
+        dbExecuteBtnEl.disabled = !dbWriteConfirmEl.checked;
+        dbExecuteBtnEl.textContent = 'Executar alteração';
+        dbEditModeLabelEl.textContent = 'Modo escrita';
+      }
+
+      if (warningText) {
+        dbSqlWarningEl.textContent = warningText;
+        dbSqlWarningEl.style.display = 'block';
+      } else {
+        dbSqlWarningEl.style.display = 'none';
+      }
+    }
+
+    function renderResultSummary(data) {
+      var okCount = Array.isArray(data.results) ? data.results.filter(function(r) { return r.success; }).length : 0;
+      var errorCount = Array.isArray(data.results) ? data.results.filter(function(r) { return !r.success; }).length : 0;
+      var rowCount = Array.isArray(data.results)
+        ? data.results.reduce(function(sum, r) { return sum + (typeof r.rows === 'number' ? r.rows : 0); }, 0)
+        : (typeof data.rows === 'number' ? data.rows : 0);
+
+      var cards = [
+        '<div class="db-summary-card"><strong>' + (Array.isArray(data.results) ? data.results.length : (data.data ? 1 : 0)) + '</strong><span>comandos</span></div>',
+        '<div class="db-summary-card"><strong>' + okCount + '</strong><span>sucesso</span></div>',
+        '<div class="db-summary-card"><strong>' + errorCount + '</strong><span>erros</span></div>',
+        '<div class="db-summary-card"><strong>' + rowCount + '</strong><span>linhas</span></div>'
+      ];
+      dbResultSummaryEl.innerHTML = cards.join('');
+    }
 
     // Export backup
     document.getElementById('dbExportBtn').addEventListener('click', function() {
@@ -1356,48 +1525,28 @@
 
     // Preview SQL
     function previewSql(instruction) {
-      var status = document.getElementById('dbPreviewStatus');
-      var preview = document.getElementById('dbSqlPreview');
-      var results = document.getElementById('dbResults');
-      var editor = document.getElementById('dbSqlEditor');
-      status.textContent = 'Gerando SQL...';
-      preview.style.display = 'none';
-      results.style.display = 'none';
-      editor.style.display = 'none';
+      dbPreviewStatusEl.textContent = 'Gerando SQL...';
+      dbPreviewStatusEl.style.color = '';
+      dbSqlPreviewEl.style.display = 'none';
+      dbResultsEl.style.display = 'none';
+      dbSqlEditorEl.style.display = 'none';
+      resetDbPreviewState();
 
       fetch(DB_API, {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ action: 'preview', instruction: instruction })
       }).then(function(r) { return r.json(); }).then(function(data) {
-        status.textContent = '';
+        dbPreviewStatusEl.textContent = '';
         if (data.error && !data.sql) {
-          status.textContent = '❌ ' + data.error;
-          status.style.color = '#f66';
+          dbPreviewStatusEl.textContent = '❌ ' + data.error;
+          dbPreviewStatusEl.style.color = '#f66';
           return;
         }
-        dbPendingSql = data.sql;
-        document.getElementById('dbSqlCode').textContent = data.sql;
-        var typeEl = document.getElementById('dbSqlType');
-        if (data.isReadOnly) {
-          typeEl.textContent = 'SELECT (leitura)';
-          typeEl.style.background = 'rgba(100,200,100,0.15)';
-          typeEl.style.color = '#7c7';
-        } else {
-          typeEl.textContent = 'ESCRITA';
-          typeEl.style.background = 'rgba(255,100,50,0.15)';
-          typeEl.style.color = '#f96';
-        }
-        var warning = document.getElementById('dbSqlWarning');
-        if (data.warning) {
-          warning.textContent = data.warning;
-          warning.style.display = 'block';
-        } else {
-          warning.style.display = 'none';
-        }
-        preview.style.display = 'block';
+        applySqlState(data.sql, data.isReadOnly, data.warning, instruction);
+        dbSqlPreviewEl.style.display = 'block';
       }).catch(function(e) {
-        status.textContent = '❌ ' + e.message;
-        status.style.color = '#f66';
+        dbPreviewStatusEl.textContent = '❌ ' + e.message;
+        dbPreviewStatusEl.style.color = '#f66';
       });
     }
 
@@ -1409,11 +1558,11 @@
 
     // Execute SQL
     function executeSql(sqlCmd) {
-      var results = document.getElementById('dbResults');
       var resultMsg = document.getElementById('dbResultMessage');
       var resultData = document.getElementById('dbResultData');
       var resultStatus = document.getElementById('dbResultStatus');
-      results.style.display = 'block';
+      dbResultsEl.style.display = 'block';
+      dbResultSummaryEl.innerHTML = '';
       resultMsg.textContent = 'Executando...';
       resultData.innerHTML = '';
       resultStatus.textContent = '';
@@ -1424,16 +1573,17 @@
       }).then(function(r) { return r.json(); }).then(function(data) {
         resultMsg.textContent = data.message || (data.error ? '❌ ' + data.error : '');
         resultStatus.textContent = data.success ? '✅' : '❌';
+        renderResultSummary(data);
         if (data.results) {
           var html = '';
           data.results.forEach(function(r) {
             if (r.data && r.data.length > 0) {
-              html += renderTable(r.data);
+              html += '<div class="db-result-card"><div class="db-result-card-head"><strong>' + escapeHtml(r.sql) + '</strong><span class="' + (r.success ? 'db-result-chip-ok' : 'db-result-chip-error') + '">' + (r.success ? 'OK' : 'Erro') + '</span></div>' + renderTable(r.data) + '</div>';
             } else if (r.success) {
-              html += '<div style="color:#7c7;font-size:0.82rem;margin:6px 0;">' + r.rows + ' linha(s) afetada(s)</div>';
+              html += '<div class="db-result-card"><div class="db-result-card-head"><strong>' + escapeHtml(r.sql) + '</strong><span class="db-result-chip-ok">OK</span></div><div style="color:#7c7;font-size:0.82rem;margin:6px 0;">' + r.rows + ' linha(s) afetada(s)</div></div>';
             }
             if (r.error) {
-              html += '<div style="color:#f66;font-size:0.82rem;margin:6px 0;">Erro: ' + r.error + '</div>';
+              html += '<div class="db-result-card"><div class="db-result-card-head"><strong>' + escapeHtml(r.sql) + '</strong><span class="db-result-chip-error">Erro</span></div><div style="color:#f66;font-size:0.82rem;margin:6px 0;">Erro: ' + escapeHtml(r.error) + '</div></div>';
             }
           });
           resultData.innerHTML = html;
@@ -1446,31 +1596,47 @@
 
     document.getElementById('dbExecuteBtn').addEventListener('click', function() {
       if (!dbPendingSql) return;
+      if (!dbPendingIsReadOnly && !dbWriteConfirmEl.checked) return;
       executeSql(dbPendingSql);
     });
 
     document.getElementById('dbCancelBtn').addEventListener('click', function() {
-      document.getElementById('dbSqlPreview').style.display = 'none';
-      document.getElementById('dbSqlEditor').style.display = 'none';
-      dbPendingSql = '';
+      dbSqlPreviewEl.style.display = 'none';
+      dbSqlEditorEl.style.display = 'none';
+      resetDbPreviewState();
     });
 
     // Edit SQL manually
     document.getElementById('dbEditSqlBtn').addEventListener('click', function() {
       document.getElementById('dbSqlEditArea').value = dbPendingSql;
-      document.getElementById('dbSqlEditor').style.display = 'block';
+      var editedState = classifySql(dbPendingSql);
+      applySqlState(dbPendingSql, editedState.isReadOnly, editedState.warning, document.getElementById('dbInstruction').value.trim());
+      dbSqlEditorEl.style.display = 'block';
     });
 
     document.getElementById('dbExecuteEditedBtn').addEventListener('click', function() {
       var edited = document.getElementById('dbSqlEditArea').value.trim();
       if (!edited) return;
-      dbPendingSql = edited;
-      document.getElementById('dbSqlCode').textContent = edited;
+      var editedState = classifySql(edited);
+      applySqlState(edited, editedState.isReadOnly, editedState.warning, document.getElementById('dbInstruction').value.trim());
+      if (!editedState.isReadOnly && !dbWriteConfirmEl.checked) return;
       executeSql(edited);
     });
 
     document.getElementById('dbCancelEditBtn').addEventListener('click', function() {
-      document.getElementById('dbSqlEditor').style.display = 'none';
+      dbSqlEditorEl.style.display = 'none';
+    });
+
+    dbWriteConfirmEl.addEventListener('change', function() {
+      if (!dbPendingIsReadOnly) {
+        dbExecuteBtnEl.disabled = !dbWriteConfirmEl.checked;
+      }
+    });
+
+    document.getElementById('dbSqlEditArea').addEventListener('input', function(e) {
+      var editedState = classifySql(e.target.value.trim());
+      applySqlState(e.target.value.trim(), editedState.isReadOnly, editedState.warning, document.getElementById('dbInstruction').value.trim());
+      dbSqlEditorEl.style.display = 'block';
     });
 
     // Quick queries
@@ -1488,7 +1654,7 @@
       var html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.78rem;">';
       html += '<thead><tr>';
       keys.forEach(function(k) {
-        html += '<th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--accent);font-weight:600;white-space:nowrap;">' + k + '</th>';
+        html += '<th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--accent);font-weight:600;white-space:nowrap;">' + escapeHtml(k) + '</th>';
       });
       html += '</tr></thead><tbody>';
       rows.forEach(function(row) {
@@ -1496,8 +1662,8 @@
         keys.forEach(function(k) {
           var val = row[k];
           if (val === null) val = '<span style="color:#666;">NULL</span>';
-          else if (typeof val === 'object') val = JSON.stringify(val).substring(0, 120);
-          else val = String(val).substring(0, 200);
+          else if (typeof val === 'object') val = escapeHtml(JSON.stringify(val).substring(0, 120));
+          else val = escapeHtml(String(val).substring(0, 200));
           html += '<td style="padding:5px 10px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text-soft);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + val + '</td>';
         });
         html += '</tr>';

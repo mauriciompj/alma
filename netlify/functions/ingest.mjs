@@ -163,10 +163,37 @@ export default async function handler(req) {
         ? title
         : `${title} (${i + 1}/${chunks.length})`;
 
-      await sql`
-        INSERT INTO alma_chunks (document_id, source_file, title, category, chunk_index, content, tags)
-        VALUES (${documentId}, ${sourceFile}, ${chunkTitle}, ${category}, ${i + 1}, ${chunks[i]}, ${tags}::TEXT[])
-      `;
+      try {
+        await sql`
+          INSERT INTO alma_chunks (document_id, source_file, title, category, chunk_index, content, tags, char_count, search_vector)
+          VALUES (
+            ${documentId},
+            ${sourceFile},
+            ${chunkTitle},
+            ${category},
+            ${i + 1},
+            ${chunks[i]},
+            ${tags}::TEXT[],
+            ${chunks[i].length},
+            to_tsvector(${process.env.SEARCH_LANGUAGE || 'simple'}, concat(${chunkTitle}, ' ', ${chunks[i]}))
+          )
+        `;
+      } catch (error) {
+        if (!/document_id/i.test(error.message || '')) throw error;
+        await sql`
+          INSERT INTO alma_chunks (source_file, title, category, chunk_index, content, tags, char_count, search_vector)
+          VALUES (
+            ${sourceFile},
+            ${chunkTitle},
+            ${category},
+            ${i + 1},
+            ${chunks[i]},
+            ${tags}::TEXT[],
+            ${chunks[i].length},
+            to_tsvector(${process.env.SEARCH_LANGUAGE || 'simple'}, concat(${chunkTitle}, ' ', ${chunks[i]}))
+          )
+        `;
+      }
       created++;
     }
 

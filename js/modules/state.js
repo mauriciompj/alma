@@ -8,9 +8,14 @@ export const CORRECTION_ICON_SVG = '<svg viewBox="0 0 24 24" width="14" height="
 
 export const state = {
   conversationHistory: [],
+  adminConversationHistory: [],
+  userConversationHistory: [],
   isLoading: false,
   personName: '',
   personType: '',
+  conversationScope: 'user',
+  isReadOnlyConversation: false,
+  isAdminViewingCard: false,
   lastQuestion: '',
   personPhoto: '',
   almaPhoto: '',

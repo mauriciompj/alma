@@ -6,11 +6,11 @@
 import { state } from './modules/state.js';
 import { authHeaders } from './modules/api.js';
 import { escapeHtml, tt, currentLang, historyKey, hideSuggestions } from './modules/ui.js';
-import { setChatDOM, handleInputChange, handleKeyDown, handleSend, addMessage, renderSavedHistory } from './modules/chat.js';
+import { setChatDOM, handleInputChange, handleKeyDown, handleSend, addMessage, renderSavedHistory, clearMessages, setChatReadOnly } from './modules/chat.js';
 import { setupVoiceToggle } from './modules/voice.js';
 import { createCorrectionModal } from './modules/corrections.js';
 import { setupDirectivesPanel } from './modules/directives.js';
-import { loadHistoryFromDB } from './modules/history.js';
+import { loadHistoryFromDB, readPersistedHistory, clearPersistedHistory, scopedHistoryKey } from './modules/history.js';
 
 // --- DOM Elements ---
 const chatMessages = document.getElementById('chatMessages');
@@ -18,6 +18,11 @@ const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
 const charCount = document.getElementById('charCount');
 const suggestionsEl = document.getElementById('suggestions');
+const chatModeBar = document.getElementById('chatModeBar');
+const chatModeNote = document.getElementById('chatModeNote');
+const chatModeAdminTab = document.getElementById('chatModeAdminTab');
+const chatModeUserTab = document.getElementById('chatModeUserTab');
+const chatReadOnlyBanner = document.getElementById('chatReadOnlyBanner');
 
 // Pass DOM refs to chat module
 setChatDOM({ chatMessages, chatInput, sendBtn, charCount, suggestionsEl });
@@ -26,6 +31,8 @@ setChatDOM({ chatMessages, chatInput, sendBtn, charCount, suggestionsEl });
 function init() {
   state.personName = sessionStorage.getItem('alma_filho') || '';
   state.personType = sessionStorage.getItem('alma_tipo') || localStorage.getItem('alma_type') || 'outro';
+  state.isAdminViewingCard = localStorage.getItem('alma_admin') === '1' && sessionStorage.getItem('alma_admin_view') === '1';
+  state.conversationScope = state.isAdminViewingCard ? 'admin' : 'user';
   if (!state.personName) {
     window.location.href = 'index.html';
     return;
@@ -62,12 +69,16 @@ function init() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.author) state.authorLabel = data.author;
-      setPlaceholder(isChild, state.authorLabel);
+      updateConversationModeUI(isChild, state.authorLabel);
     })
-    .catch(function() { setPlaceholder(isChild, state.authorLabel); });
+    .catch(function() { updateConversationModeUI(isChild, state.authorLabel); });
 
   function setPlaceholder(child, author) {
     if (!chatInput) return;
+    if (state.isReadOnlyConversation) {
+      chatInput.placeholder = 'Conversa do usuário em modo leitura';
+      return;
+    }
     if (typeof t === 'function' && t('chat.placeholderChild') !== 'chat.placeholderChild') {
       var customPh = t('chat.placeholderCustom.' + state.personName.toLowerCase());
       chatInput.placeholder = (customPh && !customPh.startsWith('chat.'))
@@ -75,6 +86,29 @@ function init() {
         : (child ? t('chat.placeholderChild') : t('chat.placeholderOther', { authorName: author }));
     } else {
       chatInput.placeholder = child ? 'Pergunte algo ao seu pai...' : 'Pergunte algo ao ' + author + '...';
+    }
+  }
+
+  function updateConversationModeUI(child, author) {
+    var isUserScope = state.conversationScope === 'user';
+    setChatReadOnly(state.isAdminViewingCard && isUserScope);
+    setPlaceholder(child, author);
+    if (chatModeBar) chatModeBar.style.display = state.isAdminViewingCard ? '' : 'none';
+    if (chatReadOnlyBanner) chatReadOnlyBanner.style.display = state.isReadOnlyConversation ? '' : 'none';
+    if (chatModeAdminTab) {
+      chatModeAdminTab.classList.toggle('active', state.conversationScope === 'admin');
+      chatModeAdminTab.setAttribute('aria-selected', state.conversationScope === 'admin' ? 'true' : 'false');
+    }
+    if (chatModeUserTab) {
+      chatModeUserTab.classList.toggle('active', isUserScope);
+      chatModeUserTab.setAttribute('aria-selected', isUserScope ? 'true' : 'false');
+    }
+    if (chatModeNote) {
+      chatModeNote.textContent = state.isAdminViewingCard
+        ? (isUserScope
+          ? 'Você está vendo a conversa real do usuário. Aqui não é possível enviar mensagens novas.'
+          : 'Esta é a sua conversa de administração com esta pessoa. Ela não aparece para o usuário.')
+        : '';
     }
   }
 
@@ -113,39 +147,12 @@ function init() {
     });
   }
 
-  // Load history
-  var hKey = historyKey(state.personName);
-  if (window.ALMA_DEMO) {
-    state.conversationHistory = [];
-    sessionStorage.removeItem('alma_history_' + hKey);
-  } else {
-    loadHistoryFromDB(hKey).then(function(dbHistory) {
-      if (dbHistory && dbHistory.length > 0) {
-        state.conversationHistory = dbHistory;
-        renderSavedHistory();
-        hideSuggestions(suggestionsEl);
-      }
-    }).catch(function() {
-      var saved = sessionStorage.getItem('alma_history_' + hKey);
-      if (saved) {
-        try {
-          state.conversationHistory = JSON.parse(saved);
-          renderSavedHistory();
-          hideSuggestions(suggestionsEl);
-        } catch (e) {
-          state.conversationHistory = [];
-        }
-      }
-    });
-  }
-
-  // Welcome message (person-specific > child/other fallback)
-  if (state.conversationHistory.length === 0) {
+  function createWelcomeMessage() {
     var welcome;
     var hasI18n = (typeof t === 'function' && t('welcome.child') !== 'welcome.child');
 
     if (hasI18n) {
-      // Check for person-specific welcome first (e.g. welcome.Nivalda, welcome.Davi)
+      // Check for person-specific welcome first (e.g. welcome.Ana, welcome.Carlos)
       var personKey = 'welcome.' + state.personName;
       var personWelcome = t(personKey);
       if (personWelcome && personWelcome !== personKey) {
@@ -162,8 +169,75 @@ function init() {
         welcome = 'Oi, ' + state.personName + '. Esse \u00e9 o ALMA \u2014 o arquivo de legado emocional. Aqui est\u00e3o as palavras, os valores e as mem\u00f3rias que foram deixadas registradas. Pode perguntar o que quiser.';
       }
     }
-    addMessage('alma', welcome);
+    return welcome;
   }
+
+  function renderActiveConversation() {
+    clearMessages();
+    state.lastQuestion = '';
+    if (state.conversationHistory.length > 0) {
+      renderSavedHistory();
+      hideSuggestions(suggestionsEl);
+      return;
+    }
+    if (state.conversationScope === 'admin') {
+      addMessage('alma', createWelcomeMessage(), null, { showCorrection: false });
+      if (suggestionsEl) suggestionsEl.style.display = '';
+      return;
+    }
+    hideSuggestions(suggestionsEl);
+    addMessage('alma', 'Ainda não há conversa salva do usuário.', null, { showCorrection: false });
+  }
+
+  function setActiveConversationScope(scope) {
+    state.conversationScope = scope;
+    state.conversationHistory = scope === 'admin' ? state.adminConversationHistory : state.userConversationHistory;
+    updateConversationModeUI(isChild, state.authorLabel);
+    renderActiveConversation();
+    if (!state.isReadOnlyConversation) chatInput.focus();
+  }
+
+  function loadScopedHistory(scope) {
+    var baseKey = historyKey(state.personName);
+    var scopedKey = scopedHistoryKey(baseKey, scope);
+    if (window.ALMA_DEMO) {
+      clearPersistedHistory(scopedKey);
+      return Promise.resolve([]);
+    }
+    return loadHistoryFromDB(baseKey, scope).catch(function() {
+      var saved = readPersistedHistory(scopedKey);
+      if (!saved) return [];
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return [];
+      }
+    });
+  }
+
+  if (chatModeAdminTab) {
+    chatModeAdminTab.addEventListener('click', function() {
+      setActiveConversationScope('admin');
+    });
+  }
+  if (chatModeUserTab) {
+    chatModeUserTab.addEventListener('click', function() {
+      setActiveConversationScope('user');
+    });
+  }
+
+  Promise.all([
+    loadScopedHistory('user'),
+    state.isAdminViewingCard ? loadScopedHistory('admin') : Promise.resolve([])
+  ]).then(function(histories) {
+    state.userConversationHistory = histories[0] || [];
+    state.adminConversationHistory = state.isAdminViewingCard ? (histories[1] || []) : state.userConversationHistory;
+    setActiveConversationScope(state.conversationScope);
+  }).catch(function() {
+    state.userConversationHistory = [];
+    state.adminConversationHistory = state.isAdminViewingCard ? [] : state.userConversationHistory;
+    setActiveConversationScope(state.conversationScope);
+  });
 
   // Voice controls
   setupVoiceToggle();
@@ -211,7 +285,7 @@ function init() {
   // Setup directives panel
   setupDirectivesPanel();
 
-  chatInput.focus();
+  if (!state.isReadOnlyConversation) chatInput.focus();
 }
 
 // --- Boot ---

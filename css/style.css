@@ -563,6 +563,51 @@ a:hover {
   color: var(--text-muted);
 }
 
+.chat-mode-bar {
+  max-width: var(--max-width);
+  margin: 10px auto 0;
+  padding: 0 20px;
+}
+
+.chat-mode-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  flex-wrap: wrap;
+}
+
+.chat-mode-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-mode-tab:hover {
+  color: var(--text);
+}
+
+.chat-mode-tab.active {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+}
+
+.chat-mode-note {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
 .btn-directives,
 .btn-voice-toggle {
   background: none;
@@ -916,6 +961,17 @@ a:hover {
   position: relative;
 }
 
+.chat-input-readonly {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(232,197,71,0.08);
+  border: 1px solid rgba(232,197,71,0.18);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .chat-input {
   width: 100%;
   background: var(--bg);
@@ -1229,6 +1285,21 @@ a:hover {
 
 /* Mobile: always show the button */
 @media (max-width: 768px) {
+  .chat-mode-bar {
+    padding: 0 12px;
+  }
+
+  .chat-mode-tabs {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .chat-mode-tab {
+    flex: 1 1 0;
+    text-align: center;
+    padding: 10px 12px;
+  }
+
   .btn-correct {
     opacity: 0.6;
   }

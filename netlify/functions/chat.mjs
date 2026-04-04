@@ -5,6 +5,9 @@
 
 import { neon } from '@neondatabase/serverless';
 
+import { MAX_CONTEXT_CHUNKS, MAX_CONTEXT_TOKENS } from './lib/constants.mjs';
+import { parseSearchTerms, matchTags, rerankResults, applyDiversity, applyTokenBudget } from './lib/rag.mjs';
+
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 1000;
@@ -33,79 +36,49 @@ function checkRateLimit(ip) {
   }
   return entry.count <= RATE_LIMIT.maxRequests;
 }
-const MAX_CONTEXT_CHUNKS = 8;
-
 function isMissingContentCleanError(error) {
   return !!(error && typeof error.message === 'string' && error.message.includes('content_clean'));
+}
+
+function uniqueById(rows) {
+  const deduped = [];
+  const seen = new Set();
+
+  for (const row of rows) {
+    const key = row && row.id != null ? String(row.id) : '';
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(row);
+  }
+
+  return deduped;
 }
 
 // --- System Prompt (core identity, no memories — those come from DB) ---
 // This hardcoded prompt is the FALLBACK. The primary source is alma_config key='system_prompt_base'.
 // To customize for your own family: update the DB, not this file.
-const SYSTEM_PROMPT_FALLBACK = `Você é o ALMA — a voz digital do Maurício, pai de Noah, Nathan e Isaac.
+const SYSTEM_PROMPT_FALLBACK = `Você é o ALMA — um arquivo vivo de legado emocional.
 
-O ALMA é um arquivo vivo de legado emocional. É a voz do pai organizada em palavras, valores e memórias — para que os filhos possam entender quem ele foi, o que aprendeu e o que quer para eles, mesmo quando não puder estar presente.
-
-O ALMA existe por AMOR e LEGADO — não por medo, não por vitimismo, não por trauma. Maurício AMA ser pai, AMA ver os filhos crescerem. Ele não é cópia do pai dele. Ele quebrou o ciclo e construiu algo novo.
-
-QUEM É MAURÍCIO:
-- Delegado da Polícia Civil de Mato Grosso (DERRFVA/MT), antes 14 anos na PRF (top 100 Brasil, Corregedor Regional, Superintendente Substituto em SC). 21 anos de segurança pública.
-- Formado em Ciência da Computação, Sistemas de Informação e Direito (6º lugar geral na UFSC).
-- Passou para delegado em 12º lugar com 11 meses de estudo, na mesma semana que enterrou o pai.
-- Pai de três: Noah (primogênito, 2016), Nathan e Isaac (gêmeos, 2020).
-- Converteu-se ao cristianismo em 2009 — fé é fundação, não decoração. Jesus é conclusão lógica.
-- Cresceu com pai alcoólatra. Se construiu sozinho. Quebrou o ciclo geracional — MAS não se define pelo trauma do pai. O passado é parte da história, não a história inteira.
-- Pensa em sistemas: "patch", "código", "SO" como linguagem de processamento emocional.
-- Duro por fora, profundo por dentro. Direto. Protege com verdade.
-- Funciona a 180 km/h — alto desempenho + alto custo interno + alta consciência disso.
-- "Eu seguro" é axioma. Os filhos vivem no campo gravitacional que ele cria.
-
-SOBRE O CASAMENTO: Não funcionou. Erros dos dois lados — Maurício não foi 100% culpado da separação. Ele assume os dele (inclusive traição) sem minimizar. Chris é grande mulher e boa mãe. Separação reorganizou a família, não destruiu. Dois pais separados podem ser melhores que dois juntos e destruídos.
-
-SOBRE MOMENTOS DE ESCURIDÃO: Já passou por exaustão existencial profunda — pressão acumulada, perda do pai, peso da função, separação. Sobreviveu. O que segurou: os filhos, os casos em andamento, a fé. Isso não é ponto central da identidade — é parte de uma jornada maior. Maurício NÃO é vítima. Nunca foi, nunca será.
-
-VALORES INEGOCIÁVEIS:
-1. Proteja o fraco — reflexo automático, forjado protegendo o irmão Davi
-2. Verdade, mesmo que doa — "Se falo, é verdade. Se prometo, cumpro. Se erro, assumo."
-3. Lealdade é sagrada — quem aparece quando tá quebrado, fica pra sempre
-4. Coragem não é ausência de medo — é agir mesmo com medo
-5. Honra quando ninguém tá vendo — caráter é o que faz no privado
-6. Pai presente — rompa o ciclo do abandono
-7. Fé é âncora — Deus é real, não fachada
-
-VALORES AJUSTÁVEIS (cicatrizes): Hiperresponsabilidade e autocobrança brutal. Os filhos têm permissão pra escolher diferente.
-
-OS FILHOS:
-- Noah: primogênito (2016). Perfil completo nas memórias do banco de dados.
-- Nathan: gêmeo (2019). Perfil completo nas memórias do banco de dados.
-- Isaac: gêmeo (2019). Perfil completo nas memórias do banco de dados.
-(Os detalhes psicológicos de cada filho estão protegidos no banco — não no código-fonte.)
-
-FERRAMENTAS MENTAIS: 1) "O que eu posso controlar?" 2) "Qual o pior cenário REAL?" 3) "O que isso quer me ensinar?" 4) "Se eu fosse dar conselho pra mim mesmo?"
+Sua função é responder como a voz de uma pessoa real a partir das memórias, valores, correções e diretrizes fornecidos pelo sistema.
 
 COMO RESPONDER:
-- Fale como Maurício: direto, caloroso, sem enrolação, com profundidade. Seja pai, não formal.
-- Use "você" (não "tu"). Linguagem simples, cotidiana.
-- O tom é de AMOR e LEGADO — não de medo de morrer ou de trauma.
-- Quando difícil, vá fundo. Sem auto-flagelação, sem martírio. Homem real que erra, aprende e segue.
-- Máximo 4 parágrafos. Direto ao ponto.
-- Pode usar palavrão quando fizer sentido (operacional, não gratuito).
-- Amor incondicional claro em cada resposta.
-- Se sobre suicídio: honestidade + "DÁ PRA SOBREVIVER" + CVV 188.
+- Fale com calor humano, clareza e profundidade.
+- Seja direto. Evite formalidade excessiva.
+- Priorize amor, presença, responsabilidade e honestidade emocional.
+- Responda em no máximo 4 parágrafos curtos.
+- Quando faltarem fatos, admita isso com simplicidade.
 
 =============================================
 ⛔ REGRA ABSOLUTA: NUNCA INVENTE NADA ⛔
 =============================================
-Você NÃO é um chatbot criativo. Você é o LEGADO de uma pessoa REAL.
-- NUNCA invente memórias, histórias, datas, nomes, lugares ou detalhes que não estejam nas memórias fornecidas abaixo.
-- NUNCA "complete" ou "imagine" o que Maurício teria dito, sentido ou vivido.
-- NUNCA crie títulos de memórias que não existem no banco.
-- Se a pergunta é sobre um fato específico (data, evento, lembrança) e você NÃO tem essa informação nas memórias abaixo: diga com honestidade que não tem esse registro. Exemplo: "Isso eu não tenho registrado nas minhas memórias, filho. Pode ser que eu ainda não tenha guardado isso aqui."
-- Você PODE falar sobre valores, princípios e conselhos gerais — isso está no seu DNA acima. Mas FATOS, EVENTOS e DETALHES só se estiverem nas memórias.
-- Inventar é TRAIR a confiança dos filhos. É o oposto do propósito do ALMA.
+Você NÃO é um chatbot criativo. Você representa o legado de uma pessoa real.
+- NUNCA invente memórias, histórias, datas, nomes, lugares ou detalhes que não estejam no contexto recuperado.
+- NUNCA complete lacunas com imaginação.
+- Se a pergunta exigir um fato específico e ele não estiver nas memórias abaixo, diga isso com honestidade.
+- Você PODE responder com valores, princípios e conselhos gerais quando eles estiverem presentes no contexto do sistema.
 =============================================
 
-IMPORTANTE: Abaixo você receberá MEMÓRIAS REAIS extraídas dos documentos do ALMA — use-as como base para suas respostas. São as palavras reais do Maurício. Quando relevante, baseie-se nelas.`;
+IMPORTANTE: Abaixo você receberá memórias reais extraídas do banco. Use-as como base factual das respostas.`;
 
 // Restrict CORS to production domain only (set via env var or fallback)
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://projeto-alma.netlify.app';
@@ -208,7 +181,7 @@ export default async function handler(req) {
     const memories = await searchMemories(message, personName, lang);
 
     // 2. Fetch active corrections (scoped: sons share all, others get individual)
-    const corrections = await getCorrections(personName, personContexts);
+    const corrections = await getCorrections(personName, message);
 
     // 3. Fetch tone configuration
     const toneConfig = await getToneConfig();
@@ -249,238 +222,202 @@ export default async function handler(req) {
 }
 
 async function searchMemories(query, personName, lang = 'pt-BR') {
-  // personName parameter: person's name / child's name — used to personalize memory search
-  // lang parameter: user's UI language — used to boost memories in that language
   const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
-
-  // Parse and clean search query: lowercase, remove special chars, split into terms
-  const searchTerms = query
-    .toLowerCase()
-    .replace(/[^\w\sáéíóúâêîôûãõçà]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 2)
-    .slice(0, 8);
+  const searchTerms = parseSearchTerms(query);
+  const childLower = personName.toLowerCase();
+  const FETCH_POOL = MAX_CONTEXT_CHUNKS * 3;
 
   if (searchTerms.length === 0) {
-    const results = await sql`
-      SELECT COALESCE(content_clean, content) as content, title, category, tags, source_file
-      FROM alma_chunks
-      WHERE category IN ('legado_alma', 'valores', 'paternidade')
-      ORDER BY chunk_index ASC
-      LIMIT ${MAX_CONTEXT_CHUNKS}
-    `;
-    return results;
+    try {
+      const baseline = await sql`
+        SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
+               created_at as file_date, 0 as rank
+        FROM alma_chunks
+        WHERE category IN ('legado_alma', 'valores', 'paternidade')
+           OR ${childLower} = ANY(tags)
+        ORDER BY created_at DESC, chunk_index ASC
+        LIMIT ${FETCH_POOL}
+      `;
+      const reranked = rerankResults(baseline, personName, lang, []);
+      return applyTokenBudget(applyDiversity(reranked, 3, FETCH_POOL), MAX_CONTEXT_TOKENS, 3, MAX_CONTEXT_CHUNKS);
+    } catch (error) {
+      if (!isMissingContentCleanError(error)) throw error;
+      const baseline = await sql`
+        SELECT id, content, title, category, tags, source_file, created_at as file_date, 0 as rank
+        FROM alma_chunks
+        WHERE category IN ('legado_alma', 'valores', 'paternidade')
+           OR ${childLower} = ANY(tags)
+        ORDER BY created_at DESC, chunk_index ASC
+        LIMIT ${FETCH_POOL}
+      `;
+      const reranked = rerankResults(baseline, personName, lang, []);
+      return applyTokenBudget(applyDiversity(reranked, 3, FETCH_POOL), MAX_CONTEXT_TOKENS, 3, MAX_CONTEXT_CHUNKS);
+    }
   }
 
-  // Format search query for PostgreSQL full-text search (using | as OR operator)
   const tsQuery = searchTerms.join(' | ');
-
-  // Semantic tag mapping for query terms to memory categories
-  const tagMap = {
-    'pai': 'paternidade', 'medo': 'trauma', 'erro': 'valores',
-    'arrepend': 'valores', 'deus': 'fe', 'fé': 'fe', 'jesus': 'fe',
-    'homem': 'valores', 'mulher': 'amor', 'amor': 'amor',
-    'relacion': 'amor', 'namorad': 'amor', 'casament': 'amor',
-    'chris': 'chris', 'separ': 'amor', 'traiç': 'amor',
-    'noah': 'noah', 'nathan': 'nathan', 'isaac': 'isaac',
-    'polícia': 'policia', 'delegad': 'policia', 'trabalh': 'policia',
-    'suicíd': 'suicidio', 'morr': 'suicidio', 'desist': 'suicidio',
-    'patch': 'patch', 'código': 'patch', 'sistema': 'patch',
-    'alma': 'paternidade', 'valor': 'valores', 'honra': 'valores',
-    'corag': 'valores', 'verdad': 'valores', 'lealdad': 'valores',
-    'filho': 'paternidade', 'crian': 'paternidade',
-  };
-
-  const childLower = personName.toLowerCase();
+  const matchedTags = [...new Set(matchTags(searchTerms).concat(searchTerms))];
+  const likePatterns = searchTerms.map(term => `%${term}%`);
 
   try {
-    // Phase 3.1: Fetch MORE candidates than needed, then rerank with person-awareness
-    const FETCH_POOL = MAX_CONTEXT_CHUNKS * 3; // Fetch 3x to have candidates for reranking
+    const candidates = [];
 
-    // Primary search: full-text search ranked by relevance
-    let results;
     try {
-      results = await sql`
+      const results = await sql`
         SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
+               created_at as file_date,
                ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
         FROM alma_chunks
         WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
         ORDER BY rank DESC
         LIMIT ${FETCH_POOL}
       `;
+      candidates.push(...results);
     } catch (error) {
       if (!isMissingContentCleanError(error)) throw error;
-      results = await sql`
+      const results = await sql`
         SELECT id, content, title, category, tags, source_file,
+               created_at as file_date,
                ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
         FROM alma_chunks
         WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
         ORDER BY rank DESC
         LIMIT ${FETCH_POOL}
       `;
+      candidates.push(...results);
     }
 
-    // Supplement with tag-based fallback if results are sparse
-    if (results.length < FETCH_POOL) {
-      const matchedTags = [];
-      for (const term of searchTerms) {
-        for (const [key, tag] of Object.entries(tagMap)) {
-          if (term.includes(key)) matchedTags.push(tag);
-        }
-      }
-
-      if (matchedTags.length > 0) {
-        const existingIds = results.map(r => Number(r.id) || 0).concat([0]);
-        let tagResults;
-        try {
-          tagResults = await sql`
-            SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file, 0 as rank
-            FROM alma_chunks
-            WHERE tags && ${matchedTags}::TEXT[]
-            AND NOT (id = ANY(${existingIds}::int[]))
-            ORDER BY chunk_index ASC
-            LIMIT ${FETCH_POOL - results.length}
-          `;
-        } catch (error) {
-          if (!isMissingContentCleanError(error)) throw error;
-          tagResults = await sql`
-            SELECT id, content, title, category, tags, source_file, 0 as rank
-            FROM alma_chunks
-            WHERE tags && ${matchedTags}::TEXT[]
-            AND NOT (id = ANY(${existingIds}::int[]))
-            ORDER BY chunk_index ASC
-            LIMIT ${FETCH_POOL - results.length}
-          `;
-        }
-        results = [...results, ...tagResults];
-      }
-    }
-
-    // Always fetch person-specific memories to guarantee they're in the pool
-    const existingIds2 = results.map(r => Number(r.id) || 0).concat([0]);
-    let personResults;
     try {
-      personResults = await sql`
+      const textResults = await sql`
+        SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
+               created_at as file_date, 0 as rank
+        FROM alma_chunks
+        WHERE LOWER(COALESCE(content_clean, content)) LIKE ANY(${likePatterns}::TEXT[])
+           OR LOWER(COALESCE(title, '')) LIKE ANY(${likePatterns}::TEXT[])
+        ORDER BY created_at DESC, chunk_index ASC
+        LIMIT ${FETCH_POOL}
+      `;
+      candidates.push(...textResults);
+    } catch (error) {
+      if (!isMissingContentCleanError(error)) throw error;
+      const textResults = await sql`
+        SELECT id, content, title, category, tags, source_file, created_at as file_date, 0 as rank
+        FROM alma_chunks
+        WHERE LOWER(content) LIKE ANY(${likePatterns}::TEXT[])
+           OR LOWER(COALESCE(title, '')) LIKE ANY(${likePatterns}::TEXT[])
+        ORDER BY created_at DESC, chunk_index ASC
+        LIMIT ${FETCH_POOL}
+      `;
+      candidates.push(...textResults);
+    }
+
+    if (matchedTags.length > 0) {
+      try {
+        const tagResults = await sql`
+          SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
+                 created_at as file_date, 0 as rank
+          FROM alma_chunks
+          WHERE tags && ${matchedTags}::TEXT[]
+          ORDER BY created_at DESC, chunk_index ASC
+          LIMIT ${FETCH_POOL}
+        `;
+        candidates.push(...tagResults);
+      } catch (error) {
+        if (!isMissingContentCleanError(error)) throw error;
+        const tagResults = await sql`
+          SELECT id, content, title, category, tags, source_file, created_at as file_date, 0 as rank
+          FROM alma_chunks
+          WHERE tags && ${matchedTags}::TEXT[]
+          ORDER BY created_at DESC, chunk_index ASC
+          LIMIT ${FETCH_POOL}
+        `;
+        candidates.push(...tagResults);
+      }
+    }
+
+    try {
+      const personResults = await sql`
         SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file, 0 as rank
+               , created_at as file_date
         FROM alma_chunks
         WHERE ${childLower} = ANY(tags)
-        AND NOT (id = ANY(${existingIds2}::int[]))
+           OR category = ${childLower}
+        ORDER BY created_at DESC, chunk_index ASC
         LIMIT 4
       `;
+      candidates.push(...personResults);
     } catch (error) {
       if (!isMissingContentCleanError(error)) throw error;
-      personResults = await sql`
-        SELECT id, content, title, category, tags, source_file, 0 as rank
+      const personResults = await sql`
+        SELECT id, content, title, category, tags, source_file, 0 as rank, created_at as file_date
         FROM alma_chunks
         WHERE ${childLower} = ANY(tags)
-        AND NOT (id = ANY(${existingIds2}::int[]))
+           OR category = ${childLower}
+        ORDER BY created_at DESC, chunk_index ASC
         LIMIT 4
       `;
+      candidates.push(...personResults);
     }
-    results = [...results, ...personResults];
-
-    // --- RERANKING: boost results based on person relevance ---
-    const reranked = results.map(r => {
-      let score = Number(r.rank) || 0;
-      const tags = r.tags || [];
-
-      // Boost 1: Memory is tagged with the current person's name (+0.5)
-      if (tags.includes(childLower)) {
-        score += 0.5;
-      }
-
-      // Boost 2: Memory category matches person (e.g., "noah" category for Noah) (+0.3)
-      if (r.category && r.category.toLowerCase() === childLower) {
-        score += 0.3;
-      }
-
-      // Boost 3: Memory is about children in general when talking to a child (+0.1)
-      const CHILDREN = ['noah', 'nathan', 'isaac'];
-      if (CHILDREN.includes(childLower) && tags.some(t => ['paternidade', 'filhos'].includes(t))) {
-        score += 0.1;
-      }
-
-      // Boost 4: Core identity memories always get a small baseline (+0.05)
-      if (['legado_alma', 'valores', 'paternidade'].includes(r.category)) {
-        score += 0.05;
-      }
-
-      // Boost 5: Memory is in the user's language (+0.8 — highest boost)
-      const langCode = lang === 'pt-BR' ? 'pt' : lang; // normalize
-      if (tags.includes(langCode)) {
-        score += 0.8;
-      }
-      // Penalize memories in OTHER non-PT languages if user chose a specific language
-      if (lang !== 'pt-BR' && !tags.includes(langCode) && (tags.includes('en') || tags.includes('es'))) {
-        score -= 0.3; // push down memories in wrong foreign language
-      }
-
-      return { ...r, finalScore: score };
-    });
-
-    // Sort by final score (highest first), then slice to limit
-    reranked.sort((a, b) => b.finalScore - a.finalScore);
-
-    return reranked.slice(0, MAX_CONTEXT_CHUNKS);
+    const uniqueResults = uniqueById(candidates);
+    const reranked = rerankResults(uniqueResults, personName, lang, searchTerms);
+    const diversified = applyDiversity(reranked, 3, FETCH_POOL);
+    return applyTokenBudget(diversified, MAX_CONTEXT_TOKENS, 3, MAX_CONTEXT_CHUNKS);
   } catch (e) {
-    // Fallback to simple substring matching if full-text search fails
     console.error('Search error, falling back to LIKE:', e.message);
-    const likePattern = `%${searchTerms[0]}%`;
+    const likePatterns = searchTerms.map(term => `%${term}%`);
     try {
       const results = await sql`
-        SELECT COALESCE(content_clean, content) as content, title, category, tags, source_file
+        SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
+               created_at as file_date, 0 as rank
         FROM alma_chunks
-        WHERE LOWER(COALESCE(content_clean, content)) LIKE ${likePattern}
-        ORDER BY chunk_index ASC
-        LIMIT ${MAX_CONTEXT_CHUNKS}
+        WHERE LOWER(COALESCE(content_clean, content)) LIKE ANY(${likePatterns}::TEXT[])
+           OR LOWER(COALESCE(title, '')) LIKE ANY(${likePatterns}::TEXT[])
+        ORDER BY created_at DESC, chunk_index ASC
+        LIMIT ${FETCH_POOL}
       `;
-      return results;
+      const reranked = rerankResults(uniqueById(results), personName, lang, searchTerms);
+      return applyTokenBudget(applyDiversity(reranked, 3, FETCH_POOL), MAX_CONTEXT_TOKENS, 3, MAX_CONTEXT_CHUNKS);
     } catch (error) {
       if (!isMissingContentCleanError(error)) throw error;
       const results = await sql`
-        SELECT content, title, category, tags, source_file
+        SELECT id, content, title, category, tags, source_file, created_at as file_date, 0 as rank
         FROM alma_chunks
-        WHERE LOWER(content) LIKE ${likePattern}
-        ORDER BY chunk_index ASC
-        LIMIT ${MAX_CONTEXT_CHUNKS}
+        WHERE LOWER(content) LIKE ANY(${likePatterns}::TEXT[])
+           OR LOWER(COALESCE(title, '')) LIKE ANY(${likePatterns}::TEXT[])
+        ORDER BY created_at DESC, chunk_index ASC
+        LIMIT ${FETCH_POOL}
       `;
-      return results;
+      const reranked = rerankResults(uniqueById(results), personName, lang, searchTerms);
+      return applyTokenBudget(applyDiversity(reranked, 3, FETCH_POOL), MAX_CONTEXT_TOKENS, 3, MAX_CONTEXT_CHUNKS);
     }
   }
 }
 
-async function getCorrections(personName, personContexts = {}) {
+async function getCorrections(personName, latestQuestion = '') {
   try {
     const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
-    // Determine children dynamically from person contexts
-    const CHILDREN = Object.entries(personContexts)
-      .filter(([_, v]) => v.role === 'filho')
-      .map(([name]) => name);
-    const isChild = CHILDREN.includes(personName);
+    const latestTerms = new Set(parseSearchTerms(latestQuestion));
 
-    let corrections;
-    if (isChild && CHILDREN.length > 0) {
-      // Children share ALL corrections made on any child + global
-      corrections = await sql`
-        SELECT original_question, correction, filho_nome
-        FROM alma_corrections
-        WHERE active = true
-          AND (filho_nome = ANY(${CHILDREN}) OR filho_nome = '' OR filho_nome IS NULL)
-        ORDER BY created_at DESC
-        LIMIT 20
-      `;
-    } else {
-      // Non-son users (Chris, Leslen, etc.) get only their own corrections + global
-      corrections = await sql`
-        SELECT original_question, correction, filho_nome
-        FROM alma_corrections
-        WHERE active = true
-          AND (filho_nome = ${personName} OR filho_nome = '' OR filho_nome IS NULL)
-        ORDER BY created_at DESC
-        LIMIT 20
-      `;
-    }
-    return corrections;
+    const corrections = await sql`
+      SELECT original_question, correction, filho_nome, created_at
+      FROM alma_corrections
+      WHERE active = true
+        AND (filho_nome = ${personName} OR filho_nome = '' OR filho_nome IS NULL)
+      ORDER BY created_at DESC
+      LIMIT 12
+    `;
+
+    return corrections
+      .map(correction => {
+        const questionTerms = parseSearchTerms(correction.original_question || '');
+        const overlap = questionTerms.filter(term => latestTerms.has(term)).length;
+        return { ...correction, overlap };
+      })
+      .sort((a, b) => {
+        if (b.overlap !== a.overlap) return b.overlap - a.overlap;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      })
+      .slice(0, latestTerms.size > 0 ? 6 : 4);
   } catch (e) {
     return [];
   }
@@ -537,7 +474,7 @@ async function getPersonContexts() {
 }
 
 async function getToneConfig() {
-  // Fetch global tone override set by Maurício in admin panel
+  // Fetch global tone override set by the author in admin panel
   try {
     const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
     const rows = await sql`
@@ -551,7 +488,7 @@ async function getToneConfig() {
 }
 
 async function getDirectives(personName) {
-  // Fetch behavior directives: instructions Maurício sets for ALMA's responses in specific contexts
+  // Fetch behavior directives set for ALMA's responses in specific contexts
   try {
     const sql = neon(process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL);
 
@@ -605,8 +542,8 @@ function buildSystemPrompt(basePrompt, memories, corrections, personName, toneCo
     // Sons: speak as father
     prompt += `\n\nVocê está conversando com: ${personName} — ${personCtx}. Fale como PAI.`;
   } else {
-    // Others: speak as Maurício himself, not as father
-    prompt += `\n\nVocê está conversando com: ${personName} — ${personCtx}. Fale como MAURÍCIO (não como "pai"). Use o nome da pessoa naturalmente.`;
+    // Others: speak as the original author, not as father
+    prompt += `\n\nVocê está conversando com: ${personName} — ${personCtx}. Fale como a pessoa autora original (não como "pai"). Use o nome da pessoa naturalmente.`;
   }
 
   // Age-aware response: calculate age from birthDate and adapt tone/depth
@@ -638,16 +575,16 @@ function buildSystemPrompt(basePrompt, memories, corrections, personName, toneCo
     }
   }
 
-  // Add tone override from Maurício (custom instructions on how to sound)
+  // Add tone override from the author (custom instructions on how to sound)
   if (toneConfig && toneConfig.trim()) {
-    prompt += `\n\n=============================================\nINSTRUÇÕES DE TOM DO MAURÍCIO (SEGUIR SEMPRE)\nO próprio Maurício definiu como quer que as respostas soem:\n=============================================\n${toneConfig}\n--- Fim das instruções de tom. ---`;
+    prompt += `\n\n=============================================\nINSTRUÇÕES DE TOM DA PESSOA AUTORA (SEGUIR SEMPRE)\nA própria pessoa definiu como quer que as respostas soem:\n=============================================\n${toneConfig}\n--- Fim das instruções de tom. ---`;
   }
 
-  // Add directives: contextual behavior rules set by Maurício
+  // Add directives: contextual behavior rules set by the author
   const hasGlobalDir = directives.global && directives.global.trim();
   const hasPersonDir = directives.person && directives.person.trim();
   if (hasGlobalDir || hasPersonDir) {
-    prompt += `\n\n=============================================\nDIRETRIZES DO MAURÍCIO PARA ESTA CONVERSA\n=============================================\n`;
+    prompt += `\n\n=============================================\nDIRETRIZES DA PESSOA AUTORA PARA ESTA CONVERSA\n=============================================\n`;
     if (hasGlobalDir) {
       prompt += `DIRETRIZES GERAIS:\n${directives.global.trim()}\n\n`;
     }
@@ -657,7 +594,7 @@ function buildSystemPrompt(basePrompt, memories, corrections, personName, toneCo
     prompt += `--- Fim das diretrizes. Siga-as na conversa com ${personName}. ---`;
   }
 
-  // Add retrieved memories: actual documented content from Maurício's documents
+  // Add retrieved memories: actual documented content from stored documents
   if (memories.length > 0) {
     prompt += `\n\n=============================================\nMEMÓRIAS RELEVANTES DO ALMA (use como base)\n=============================================\n`;
 
@@ -667,12 +604,12 @@ function buildSystemPrompt(basePrompt, memories, corrections, personName, toneCo
 
     prompt += `\n--- Fim das memórias. Use APENAS estas memórias como fonte de fatos. ---`;
   } else {
-    prompt += `\n\n=============================================\n⚠️ NENHUMA MEMÓRIA ENCONTRADA PARA ESTA PERGUNTA\n=============================================\nO banco de memórias NÃO retornou nenhum resultado relevante para o que foi perguntado.\nIsso significa que Maurício ainda NÃO registrou informações sobre este assunto.\n\nVocê DEVE:\n- Dizer honestamente que não tem essa informação registrada\n- Pode responder com VALORES e PRINCÍPIOS gerais (que estão no prompt base)\n- NUNCA invente fatos, memórias, datas ou histórias para preencher a lacuna\n=============================================`;
+    prompt += `\n\n=============================================\n⚠️ NENHUMA MEMÓRIA ENCONTRADA PARA ESTA PERGUNTA\n=============================================\nO banco de memórias NÃO retornou nenhum resultado relevante para o que foi perguntado.\nIsso significa que a pessoa autora ainda NÃO registrou informações sobre este assunto.\n\nVocê DEVE:\n- Dizer honestamente que não tem essa informação registrada\n- Pode responder com VALORES e PRINCÍPIOS gerais (que estão no prompt base)\n- NUNCA invente fatos, memórias, datas ou histórias para preencher a lacuna\n=============================================`;
   }
 
   // Add corrections AFTER memories: corrections override any conflicting memory content
   if (corrections.length > 0) {
-    prompt += `\n\n=============================================\n⚠️ CORREÇÕES DO MAURÍCIO — PRIORIDADE ABSOLUTA ⚠️\nO próprio Maurício revisou respostas anteriores e corrigiu erros.\nSe uma correção contradiz algo nas memórias acima, A CORREÇÃO VENCE.\nIGNORE a informação errada das memórias e USE a correção.\n=============================================\n`;
+    prompt += `\n\n=============================================\n⚠️ CORREÇÕES DA PESSOA AUTORA — PRIORIDADE ABSOLUTA ⚠️\nA própria pessoa revisou respostas anteriores e corrigiu erros.\nSe uma correção contradiz algo nas memórias acima, A CORREÇÃO VENCE.\nIGNORE a informação errada das memórias e USE a correção.\n=============================================\n`;
 
     for (const corr of corrections) {
       if (corr.original_question) {

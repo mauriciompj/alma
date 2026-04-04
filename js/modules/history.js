@@ -7,6 +7,31 @@ import { historyKey } from './ui.js';
 var isDemo = location.hostname.includes('demo');
 var _saveHistoryTimer = null;
 
+export function scopedHistoryKey(person, scope) {
+  return scope === 'admin' ? 'admin_' + person : person;
+}
+
+function historyStorageKey(person) {
+  return 'alma_history_' + person;
+}
+
+function persistLocalHistory(storageKey, messages) {
+  var serialized = JSON.stringify(messages);
+  sessionStorage.setItem(storageKey, serialized);
+  localStorage.setItem(storageKey, serialized);
+}
+
+export function readPersistedHistory(person) {
+  var storageKey = historyStorageKey(person);
+  return sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+}
+
+export function clearPersistedHistory(person) {
+  var storageKey = historyStorageKey(person);
+  sessionStorage.removeItem(storageKey);
+  localStorage.removeItem(storageKey);
+}
+
 export function truncateHistory() {
   if (state.conversationHistory.length > MAX_HISTORY) {
     var first = state.conversationHistory.slice(0, KEEP_FIRST);
@@ -15,34 +40,34 @@ export function truncateHistory() {
   }
 }
 
-export function saveHistory() {
+export function saveHistory(scope) {
   if (window.ALMA_DEMO) return;
 
-  var hKey = historyKey(state.personName);
+  var hKey = scopedHistoryKey(historyKey(state.personName), scope || state.conversationScope);
   try {
-    sessionStorage.setItem('alma_history_' + hKey, JSON.stringify(state.conversationHistory));
+    persistLocalHistory(historyStorageKey(hKey), state.conversationHistory);
   } catch (e) {
     state.conversationHistory = state.conversationHistory.slice(-10);
-    sessionStorage.setItem('alma_history_' + hKey, JSON.stringify(state.conversationHistory));
+    persistLocalHistory(historyStorageKey(hKey), state.conversationHistory);
   }
-  saveHistoryToDB(hKey, state.conversationHistory);
+  saveHistoryToDB(hKey, state.conversationHistory, scope || state.conversationScope);
 }
 
-export function loadHistoryFromDB(person) {
+export function loadHistoryFromDB(person, scope) {
   if (isDemo) return Promise.resolve([]);
-  return fetch('/.netlify/functions/memories?action=get_history&person=' + encodeURIComponent(person), { headers: authHeaders() })
+  return fetch('/.netlify/functions/memories?action=get_history&person=' + encodeURIComponent(person) + '&scope=' + encodeURIComponent(scope || 'user'), { headers: authHeaders() })
     .then(function(r) { return r.json(); })
     .then(function(data) { return data.history || []; });
 }
 
-function saveHistoryToDB(person, messages) {
+function saveHistoryToDB(person, messages, scope) {
   if (isDemo) return;
   if (_saveHistoryTimer) clearTimeout(_saveHistoryTimer);
   _saveHistoryTimer = setTimeout(function() {
     fetch('/.netlify/functions/memories', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ action: 'save_history', person: person, messages: messages })
+      body: JSON.stringify({ action: 'save_history', person: person, scope: scope || 'user', messages: messages })
     }).catch(function() {});
   }, 2000);
 }

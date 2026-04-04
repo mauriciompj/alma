@@ -19,6 +19,11 @@ export function setChatDOM(elements) {
 }
 
 export function handleInputChange() {
+  if (state.isReadOnlyConversation) {
+    charCount.textContent = '0/' + MAX_CHARS;
+    sendBtn.disabled = true;
+    return;
+  }
   var len = chatInput.value.length;
   charCount.textContent = len + '/' + MAX_CHARS;
   charCount.classList.toggle('warn', len > MAX_CHARS - 50);
@@ -37,6 +42,7 @@ export function handleKeyDown(e) {
 }
 
 export async function handleSend() {
+  if (state.isReadOnlyConversation) return;
   var text = chatInput.value.trim();
   if (!text || text.length > MAX_CHARS || state.isLoading) return;
 
@@ -56,7 +62,7 @@ export async function handleSend() {
   try {
     var result = await sendToBackend(text);
     hideTyping();
-    var almaMessageEl = addMessage('alma', result.response, result.memoriesUsed);
+    var almaMessageEl = addMessage('alma', result.response, result.memoriesUsed, { question: text, showCorrection: state.conversationScope === 'user' });
     state.conversationHistory.push({ role: 'assistant', content: result.response });
 
     if (state.voiceAvailable && state.voiceEnabled && almaMessageEl) {
@@ -66,7 +72,7 @@ export async function handleSend() {
       }
     }
     truncateHistory();
-    saveHistory();
+    saveHistory(state.conversationScope);
   } catch (err) {
     hideTyping();
     console.error('ALMA Error:', err);
@@ -77,7 +83,8 @@ export async function handleSend() {
   sendBtn.disabled = chatInput.value.length === 0;
 }
 
-export function addMessage(type, text, memoriesUsed) {
+export function addMessage(type, text, memoriesUsed, options) {
+  options = options || {};
   var msgEl = document.createElement('div');
   msgEl.className = 'message ' + type;
 
@@ -131,14 +138,14 @@ export function addMessage(type, text, memoriesUsed) {
     content.appendChild(voiceBtn);
   }
 
-  if (type === 'alma' && state.conversationHistory.length > 0 && !window.ALMA_HIDE_CORRECTIONS) {
+  if (type === 'alma' && options.showCorrection !== false && state.conversationHistory.length > 0 && !window.ALMA_HIDE_CORRECTIONS) {
     var corrBtn = document.createElement('button');
     corrBtn.className = 'btn-correct';
     corrBtn.appendChild(createIconFragment(CORRECTION_ICON_SVG));
     corrBtn.appendChild(document.createTextNode(' ' + tt('correction.correctButton', null, 'Corrigir')));
     corrBtn.title = tt('correction.correctButton', null, 'Corrigir');
     corrBtn.addEventListener('click', function () {
-      openCorrectionModal(text, state.lastQuestion);
+      openCorrectionModal(text, options.question || state.lastQuestion);
     });
     content.appendChild(corrBtn);
   }
@@ -152,9 +159,29 @@ export function addMessage(type, text, memoriesUsed) {
 }
 
 export function renderSavedHistory() {
+  var lastUserQuestion = '';
   state.conversationHistory.forEach(function (msg) {
     var type = msg.role === 'user' ? 'user' : 'alma';
-    if (msg.role === 'user') state.lastQuestion = msg.content;
-    addMessage(type, msg.content);
+    if (msg.role === 'user') {
+      state.lastQuestion = msg.content;
+      lastUserQuestion = msg.content;
+      addMessage(type, msg.content, null, { showCorrection: false });
+      return;
+    }
+    addMessage(type, msg.content, null, { question: lastUserQuestion, showCorrection: state.conversationScope === 'user' });
   });
+}
+
+export function clearMessages() {
+  if (chatMessages) chatMessages.textContent = '';
+}
+
+export function setChatReadOnly(isReadOnly) {
+  state.isReadOnlyConversation = !!isReadOnly;
+  if (chatInput) {
+    chatInput.readOnly = !!isReadOnly;
+    chatInput.disabled = !!isReadOnly;
+    if (isReadOnly) chatInput.value = '';
+  }
+  handleInputChange();
 }

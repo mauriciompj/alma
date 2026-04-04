@@ -181,26 +181,79 @@ async function listAdminChunks(sql, terms, category, perPage, offset) {
 async function updateChunkContent(sql, id, content) {
   try {
     await sql`UPDATE alma_chunks SET content = ${content}, char_count = ${content.length},
-      search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(content_clean, ${content})) WHERE id = ${id}`;
+      search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || COALESCE(content_clean, ${content})) WHERE id = ${id}`;
   } catch (error) {
     if (!isMissingContentCleanError(error)) throw error;
     await sql`UPDATE alma_chunks SET content = ${content}, char_count = ${content.length},
-      search_vector = to_tsvector(${SEARCH_LANG}, ${content}) WHERE id = ${id}`;
+      search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || ${content}) WHERE id = ${id}`;
   }
 }
 
 async function setChunkCleanContent(sql, id, contentClean) {
   await sql`UPDATE alma_chunks SET content_clean = ${contentClean},
-    search_vector = to_tsvector(${SEARCH_LANG}, ${contentClean}) WHERE id = ${id}`;
+    search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || ${contentClean}) WHERE id = ${id}`;
 }
 
 async function clearChunkCleanContent(sql, id) {
   try {
     await sql`UPDATE alma_chunks SET content_clean = NULL,
-      search_vector = to_tsvector(${SEARCH_LANG}, content) WHERE id = ${id}`;
+      search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || content) WHERE id = ${id}`;
   } catch (error) {
     if (!isMissingContentCleanError(error)) throw error;
-    await sql`UPDATE alma_chunks SET search_vector = to_tsvector(${SEARCH_LANG}, content) WHERE id = ${id}`;
+    await sql`UPDATE alma_chunks SET search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || content) WHERE id = ${id}`;
+  }
+}
+
+async function refreshChunkSearchVector(sql, id) {
+  try {
+    await sql`
+      UPDATE alma_chunks
+      SET search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || COALESCE(content_clean, content))
+      WHERE id = ${id}
+    `;
+  } catch (error) {
+    if (!isMissingContentCleanError(error)) throw error;
+    await sql`
+      UPDATE alma_chunks
+      SET search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || content)
+      WHERE id = ${id}
+    `;
+  }
+}
+
+async function insertChunk(sql, { documentId = null, sourceFile, title, category, chunkIndex, content, tags }) {
+  try {
+    return await sql`
+      INSERT INTO alma_chunks (document_id, source_file, title, category, chunk_index, content, tags, char_count, search_vector)
+      VALUES (
+        ${documentId},
+        ${sourceFile},
+        ${title},
+        ${category},
+        ${chunkIndex},
+        ${content},
+        ${tags}::TEXT[],
+        ${content.length},
+        to_tsvector(${SEARCH_LANG}, concat(${title || ''}, ' ', ${content}))
+      )
+      RETURNING id
+    `;
+  } catch (error) {
+    if (!/document_id/i.test(error.message || '')) throw error;
+    return await sql`
+      INSERT INTO alma_chunks (source_file, title, category, chunk_index, content, tags, char_count, search_vector)
+      VALUES (
+        ${sourceFile},
+        ${title},
+        ${category},
+        ${chunkIndex},
+        ${content},
+        ${tags}::TEXT[],
+        ${content.length},
+        to_tsvector(${SEARCH_LANG}, concat(${title || ''}, ' ', ${content}))
+      )
+      RETURNING id
+    `;
   }
 }
 
@@ -520,13 +573,14 @@ export default async function handler(req) {
 
       case 'get_history': {
         const person = url.searchParams.get('person') || '';
+        const scope = url.searchParams.get('scope') === 'admin' ? 'admin' : 'user';
         if (!person) { result = { error: 'Missing person parameter' }; break; }
         try {
-          const rows = await sql`SELECT value FROM alma_config WHERE key = ${'history_' + person} LIMIT 1`;
+          const rows = await sql`SELECT value FROM alma_config WHERE key = ${historyStorageKey(person, scope)} LIMIT 1`;
           const history = rows.length > 0 ? JSON.parse(rows[0].value) : [];
-          result = { person, history };
+          result = { person, scope, history };
         } catch (e) {
-          result = { person, history: [] };
+          result = { person, scope, history: [] };
         }
         break;
       }
@@ -613,13 +667,18 @@ async function handleSaveConfig(sql, body) {
 async function handleUpdateChunk(sql, body) {
   const { id, content, title, category, tags } = body;
   if (!id) return jsonResponse({ error: 'Missing id' }, 400);
+  let needsReindex = false;
 
   if (content !== undefined) {
     await updateChunkContent(sql, id, content);
   }
-  if (title !== undefined) await sql`UPDATE alma_chunks SET title = ${title} WHERE id = ${id}`;
+  if (title !== undefined) {
+    await sql`UPDATE alma_chunks SET title = ${title} WHERE id = ${id}`;
+    needsReindex = true;
+  }
   if (category !== undefined) await sql`UPDATE alma_chunks SET category = ${category} WHERE id = ${id}`;
   if (tags !== undefined) await sql`UPDATE alma_chunks SET tags = ${tags}::TEXT[] WHERE id = ${id}`;
+  if (needsReindex) await refreshChunkSearchVector(sql, id);
 
   return jsonResponse({ success: true, id });
 }
@@ -654,11 +713,14 @@ async function handleCreateChunk(sql, body) {
   const { title, category, content, tags, source_file } = body;
   if (!content || !title) return jsonResponse({ error: 'Missing content or title' }, 400);
 
-  const result = await sql`
-    INSERT INTO alma_chunks (source_file, title, category, chunk_index, content, tags)
-    VALUES (${source_file || 'admin_manual'}, ${title}, ${category || 'correcao'}, 0, ${content}, ${tags || ['correcao']}::TEXT[])
-    RETURNING id
-  `;
+  const result = await insertChunk(sql, {
+    sourceFile: source_file || 'admin_manual',
+    title,
+    category: category || 'correcao',
+    chunkIndex: 0,
+    content,
+    tags: tags || ['correcao'],
+  });
   return jsonResponse({ success: true, id: result[0].id });
 }
 
@@ -677,12 +739,14 @@ async function handlePromoteCorrection(sql, body) {
     ? `[CORREÇÃO — Pergunta: "${corr.original_question}"]\n${corr.correction}`
     : `[CORREÇÃO]\n${corr.correction}`;
 
-  const chunkResult = await sql`
-    INSERT INTO alma_chunks (source_file, title, category, chunk_index, content, tags)
-    VALUES ('correcao_promovida', ${'Correção #' + corr.id}, 'correcao', 0, ${chunkContent},
-      ${['correcao', 'ajuste_tom']}::TEXT[])
-    RETURNING id
-  `;
+  const chunkResult = await insertChunk(sql, {
+    sourceFile: 'correcao_promovida',
+    title: 'Correção #' + corr.id,
+    category: 'correcao',
+    chunkIndex: 0,
+    content: chunkContent,
+    tags: ['correcao', 'ajuste_tom'],
+  });
 
   // Mark correction as promoted (keep active for system use)
   await sql`UPDATE alma_corrections SET categories = array_append(categories, 'promovida') WHERE id = ${id}`;
@@ -790,7 +854,7 @@ async function handleClassifyInput(sql, body) {
   if (!apiKey) return jsonResponse({ error: 'API key not configured' }, 500);
 
   // Classification prompt (Portuguese — injected into Claude for analysis)
-  const systemPrompt = `Você é um assistente do sistema ALMA. Analise o texto do Maurício e classifique:
+  const systemPrompt = `Você é um assistente do sistema ALMA. Analise o texto da pessoa autora e classifique:
 
 TIPOS:
 1. "correction" — corrige algo errado que o ALMA respondeu (tom, fato, abordagem)
@@ -849,8 +913,13 @@ Responda APENAS em JSON válido (sem markdown):
 
 const MAX_HISTORY_MESSAGES = 100; // Max messages per person stored in DB
 
+function historyStorageKey(person, scope) {
+  return (scope === 'admin' ? 'history_admin_' : 'history_') + person;
+}
+
 async function handleSaveHistory(sql, body) {
   const { person, messages } = body;
+  const scope = body.scope === 'admin' ? 'admin' : 'user';
   if (!person || !messages) return jsonResponse({ error: 'Missing person or messages' }, 400);
 
   // Trim to last MAX_HISTORY_MESSAGES
@@ -859,7 +928,7 @@ async function handleSaveHistory(sql, body) {
   try {
     await sql`
       INSERT INTO alma_config (key, value, updated_at)
-      VALUES (${'history_' + person}, ${JSON.stringify(trimmed)}, NOW())
+      VALUES (${historyStorageKey(person, scope)}, ${JSON.stringify(trimmed)}, NOW())
       ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(trimmed)}, updated_at = NOW()
     `;
     return jsonResponse({ success: true, saved: trimmed.length });
@@ -870,10 +939,11 @@ async function handleSaveHistory(sql, body) {
 
 async function handleClearHistory(sql, body) {
   const { person } = body;
+  const scope = body.scope === 'admin' ? 'admin' : 'user';
   if (!person) return jsonResponse({ error: 'Missing person' }, 400);
 
   try {
-    await sql`DELETE FROM alma_config WHERE key = ${'history_' + person}`;
+    await sql`DELETE FROM alma_config WHERE key = ${historyStorageKey(person, scope)}`;
     return jsonResponse({ success: true });
   } catch (e) {
     return jsonResponse({ error: 'Failed to clear history' }, 500);
@@ -913,10 +983,15 @@ async function handleImportChunks(sql, body) {
     const chunkContent = chunks[i];
     const chunkTitle = chunks.length === 1 ? title : title + ' (' + (i + 1) + '/' + chunks.length + ')';
 
-    await sql`
-      INSERT INTO alma_chunks (document_id, source_file, title, category, chunk_index, content, tags)
-      VALUES (${documentId}, ${sourceFile}, ${chunkTitle}, ${finalCategory}, ${i}, ${chunkContent}, ${finalTags}::TEXT[])
-    `;
+    await insertChunk(sql, {
+      documentId,
+      sourceFile,
+      title: chunkTitle,
+      category: finalCategory,
+      chunkIndex: i,
+      content: chunkContent,
+      tags: finalTags,
+    });
     created++;
   }
 
