@@ -8,7 +8,7 @@
  * Schedule: daily at 08:00 UTC
  *
  * Email alerts:
- *   - 1x interval (30d): email to primary heir (Davi / legacy_admin)
+ *   - 1x interval (30d): email to primary heir (legacy_admin)
  *   - 2x interval (60d): email to all heirs
  *   - Alerts are sent once per threshold (not repeated daily)
  *

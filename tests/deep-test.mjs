@@ -6,13 +6,15 @@
  * Env: TEST_URL (default: https://projeto-alma.netlify.app)
  *       TEST_USER, TEST_PASS
  *       Optional legacy checks:
- *       LEGACY_PASSPHRASE_DAVI
- *       LEGACY_PASSPHRASE_NOAH
- *       LEGACY_PASSPHRASE_ISAAC
- *       LEGACY_PASSPHRASE_NATHAN
- *       LEGACY_PASSPHRASE_NIVALDA
- *       LEGACY_PASSPHRASE_LESLEN
- *       LEGACY_PASSPHRASE_CHRIS
+ *       LEGACY_PASSPHRASE_ADMIN
+ *       LEGACY_PASSPHRASE_CHILD_A
+ *       LEGACY_PASSPHRASE_CHILD_B
+ *       LEGACY_PASSPHRASE_CHILD_C
+ *       LEGACY_PASSPHRASE_READER_A
+ *       LEGACY_PASSPHRASE_READER_B
+ *       LEGACY_PASSPHRASE_READER_C
+ *       TEST_CHAT_PERSON
+ *       TEST_CHAT_DEV_PERSON
  */
 
 import { optionalEnv } from './test-utils.mjs';
@@ -20,14 +22,16 @@ import { optionalEnv } from './test-utils.mjs';
 const BASE = optionalEnv('TEST_URL', 'https://projeto-alma.netlify.app');
 const USER = optionalEnv('TEST_USER');
 const PASS = optionalEnv('TEST_PASS');
+const CHAT_PERSON = optionalEnv('TEST_CHAT_PERSON', 'PessoaFilha');
+const CHAT_DEV_PERSON = optionalEnv('TEST_CHAT_DEV_PERSON', 'PessoaLeitora');
 const LEGACY_CASES = [
-  { env: 'LEGACY_PASSPHRASE_DAVI', label: 'Davi legacy_admin', accessLevel: 'legacy_admin', person: 'Davi', expectPersonalMessage: true, expectTechnicalNotes: true },
-  { env: 'LEGACY_PASSPHRASE_NOAH', label: 'Noah legacy_owner', accessLevel: 'legacy_owner', person: 'Noah' },
-  { env: 'LEGACY_PASSPHRASE_ISAAC', label: 'Isaac legacy_owner', accessLevel: 'legacy_owner', person: 'Isaac' },
-  { env: 'LEGACY_PASSPHRASE_NATHAN', label: 'Nathan legacy_owner', accessLevel: 'legacy_owner', person: 'Nathan' },
-  { env: 'LEGACY_PASSPHRASE_NIVALDA', label: 'Nivalda legacy_read', accessLevel: 'legacy_read', person: 'Nivalda' },
-  { env: 'LEGACY_PASSPHRASE_LESLEN', label: 'Leslen legacy_read', accessLevel: 'legacy_read', person: 'Leslen' },
-  { env: 'LEGACY_PASSPHRASE_CHRIS', label: 'Chris legacy_read', accessLevel: 'legacy_read', person: 'Chris' },
+  { envs: ['LEGACY_PASSPHRASE_ADMIN', 'LEGACY_PASSPHRASE_DAVI'], label: 'Primary heir legacy_admin', accessLevel: 'legacy_admin', expectPersonalMessage: true, expectTechnicalNotes: true },
+  { envs: ['LEGACY_PASSPHRASE_CHILD_A', 'LEGACY_PASSPHRASE_NOAH'], label: 'Child A legacy_owner', accessLevel: 'legacy_owner' },
+  { envs: ['LEGACY_PASSPHRASE_CHILD_B', 'LEGACY_PASSPHRASE_ISAAC'], label: 'Child B legacy_owner', accessLevel: 'legacy_owner' },
+  { envs: ['LEGACY_PASSPHRASE_CHILD_C', 'LEGACY_PASSPHRASE_NATHAN'], label: 'Child C legacy_owner', accessLevel: 'legacy_owner' },
+  { envs: ['LEGACY_PASSPHRASE_READER_A', 'LEGACY_PASSPHRASE_NIVALDA'], label: 'Reader A legacy_read', accessLevel: 'legacy_read' },
+  { envs: ['LEGACY_PASSPHRASE_READER_B', 'LEGACY_PASSPHRASE_LESLEN'], label: 'Reader B legacy_read', accessLevel: 'legacy_read' },
+  { envs: ['LEGACY_PASSPHRASE_READER_C', 'LEGACY_PASSPHRASE_CHRIS'], label: 'Reader C legacy_read', accessLevel: 'legacy_read' },
 ];
 
 const results = [];
@@ -69,9 +73,10 @@ async function run() {
   log('Wrong passphrase rejected', !ld1.unlocked);
 
   for (const legacyCase of LEGACY_CASES) {
-    const passphrase = process.env[legacyCase.env];
+    const passphraseEnv = legacyCase.envs.find(function(envName) { return process.env[envName]; });
+    const passphrase = passphraseEnv ? process.env[passphraseEnv] : '';
     if (!passphrase) {
-      log(legacyCase.label, true, 'skipped (missing env ' + legacyCase.env + ')');
+      log(legacyCase.label, true, 'skipped (missing env ' + legacyCase.envs.join(' or ') + ')');
       continue;
     }
 
@@ -88,10 +93,10 @@ async function run() {
     );
 
     if (legacyCase.expectPersonalMessage) {
-      log('Davi personal message', (legacyData.personalMessage || '').length > 50, (legacyData.personalMessage || '').length + ' chars');
+      log('Primary heir personal message', (legacyData.personalMessage || '').length > 50, (legacyData.personalMessage || '').length + ' chars');
     }
     if (legacyCase.expectTechnicalNotes) {
-      log('Davi tech notes', (legacyData.technicalNotes || '').length > 50, (legacyData.technicalNotes || '').length + ' chars');
+      log('Primary heir tech notes', (legacyData.technicalNotes || '').length > 50, (legacyData.technicalNotes || '').length + ' chars');
     }
   }
 
@@ -157,21 +162,21 @@ async function run() {
 
   const ch1 = await fetch(BASE + '/api/chat', {
     method: 'POST', headers: auth,
-    body: JSON.stringify({ message: 'Pai, o que e coragem?', personName: 'Noah', lang: 'pt-BR' })
+    body: JSON.stringify({ message: 'Pai, o que e coragem?', personName: CHAT_PERSON, lang: 'pt-BR' })
   });
   const cd1 = await ch1.json();
-  log('Chat Noah (PT-BR)', !!cd1.response, cd1.memoriesUsed + ' memories');
+  log('Chat child (PT-BR)', !!cd1.response, cd1.memoriesUsed + ' memories');
 
   const ch2 = await fetch(BASE + '/api/chat', {
     method: 'POST', headers: auth,
-    body: JSON.stringify({ message: 'Como faz deploy?', personName: 'Davi', lang: 'pt-BR' })
+    body: JSON.stringify({ message: 'Como faz deploy?', personName: CHAT_DEV_PERSON, lang: 'pt-BR' })
   });
   const cd2 = await ch2.json();
-  log('Chat Davi (dev)', !!cd2.response, cd2.memoriesUsed + ' memories');
+  log('Chat non-child (dev)', !!cd2.response, cd2.memoriesUsed + ' memories');
 
   const ch3 = await fetch(BASE + '/api/chat', {
     method: 'POST', headers: auth,
-    body: JSON.stringify({ message: 'What is courage?', personName: 'Noah', lang: 'en' })
+    body: JSON.stringify({ message: 'What is courage?', personName: CHAT_PERSON, lang: 'en' })
   });
   const cd3 = await ch3.json();
   log('Chat English', !!cd3.response, cd3.memoriesUsed + ' memories');

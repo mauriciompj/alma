@@ -16,7 +16,7 @@ Esta auditoria identificou **42 pontos de atencao** organizados por prioridade.
 ### 1. GETs publicos expondo dados pessoais
 **Arquivo:** `memories.mjs` (linhas 164-410)
 **Problema:** Todos os endpoints GET sao publicos. Qualquer pessoa com a URL pode:
-- Ler historico de conversa: `GET /api/memories?action=get_history&person=Noah`
+- Ler historico de conversa: `GET /api/memories?action=get_history&person=Ana`
 - Ver lista de usuarios: `GET /api/memories?action=get_persons`
 - Ler qualquer config: `GET /api/memories?action=get_config&key=system_prompt_base`
 - Buscar chunks por texto: `GET /api/memories?action=search&q=suicidio`
@@ -113,7 +113,7 @@ CREATE INDEX idx_documents_category ON alma_documents(category);
 **Fix:** `ALTER TABLE alma_chunks ADD CONSTRAINT ... ON DELETE CASCADE;`
 
 ### 17. alma_conversations vazia
-**Problema:** Tabela existe com 0 registros. Historico esta na alma_config como `history_Noah`.
+**Problema:** Tabela existe com 0 registros. Historico esta na alma_config como `history_Ana`.
 **Sugestao:** Migrar para alma_conversations ou remover tabela nao usada.
 
 ### 18. Chunk de teste no banco

@@ -10,7 +10,7 @@
 #
 #   2. Configure suas credenciais:
 #      echo 'ALMA_URL=https://projeto-alma.netlify.app' >> ~/.alma-env
-#      echo 'ALMA_USER=Mauricio' >> ~/.alma-env
+#      echo 'ALMA_USER=SeuUsuario' >> ~/.alma-env
 #      echo 'ALMA_PASS=SuaSenha' >> ~/.alma-env
 #
 #   3. Instale dependencias:
@@ -115,7 +115,7 @@ fi
 
 if [ -z "$ALMA_USER" ] || [ -z "$ALMA_PASS" ]; then
   echo "ERRO: Configure ALMA_USER e ALMA_PASS em ~/.alma-env" >&2
-  echo "  echo 'ALMA_USER=Mauricio' >> ~/.alma-env" >&2
+  echo "  echo 'ALMA_USER=SeuUsuario' >> ~/.alma-env" >&2
   echo "  echo 'ALMA_PASS=SuaSenha' >> ~/.alma-env" >&2
   exit 1
 fi

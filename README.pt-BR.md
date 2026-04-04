@@ -33,19 +33,13 @@ Não é um chatbot. Não é uma página memorial. É um arquivo vivo de quem voc
 
 ## A História por Trás do ALMA
 
-O ALMA foi construído por um pai.
+O ALMA nasceu de um caso real de legado emocional.
 
-Maurício cresceu com um pai ausente. Quebrou o ciclo. Virou delegado de polícia. Criou três filhos — Noah, Nathan e Isaac — com a presença que ele nunca recebeu.
+A ideia central é simples: muita gente quer deixar mais do que fotos, documentos e patrimônio. Quer deixar voz, contexto, valores, arrependimentos, histórias e conselhos úteis para quem fica.
 
-Mas presença tem prazo de validade. Então ele começou a escrever. Em 16 meses, produziu 74 documentos — mais de 100 mil palavras — registrando tudo: seus valores, seus erros, sua fé, seus medos, o que aprendeu sobre amor, sobre dor, sobre ser homem. Cru. Sem filtro. Real.
+O projeto foi então transformado em plataforma open source para que qualquer pessoa possa montar sua própria instância, com seus próprios textos, sua própria voz e seus próprios relacionamentos.
 
-Depois construiu o ALMA — um sistema onde seus filhos podem perguntar qualquer coisa, a qualquer hora, e receber respostas baseadas nas palavras e memórias reais dele. Não respostas genéricas de IA. A voz dele.
-
-Não tinha diploma de TI. Largou duas faculdades de computação. Construiu mesmo assim — mais de 5.700 linhas de código, do zero.
-
-Depois decidiu dar pro mundo.
-
-**ALMA é gratuito. ALMA é open source. Porque todo pai, toda mãe, toda pessoa que quer deixar algo real merece as ferramentas pra fazer isso.**
+**ALMA é gratuito. ALMA é open source. Porque toda pessoa que quer deixar algo real merece as ferramentas pra fazer isso.**
 
 ---
 
@@ -105,7 +99,7 @@ O ALMA roda em infraestrutura gratuita. Você pode deployar sua instância em me
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/mauriciompj/alma.git
+git clone https://github.com/seu-usuario/alma.git
 cd alma
 
 # 2. Instale as dependências
@@ -178,7 +172,7 @@ alma/
 - **Chunks**: Suas memórias são armazenadas como blocos de texto pesquisáveis no PostgreSQL com indexação `tsvector`. O idioma de busca é configurável via env var `SEARCH_LANGUAGE` (`simple` para universal, `portuguese`, `english`, `spanish`, etc.)
 - **RAG**: Quando alguém pergunta algo, o ALMA busca chunks relevantes via full-text search + mapeamento de tags + reranking por pessoa, e injeta como contexto para a IA
 - **Correções**: Se a IA erra algo, o autor corrige. Correções são injetadas nos prompts futuros com prioridade máxima
-- **Diretrizes**: Regras de comportamento por pessoa ou globais (ex: "Nunca compare o Noah com os irmãos")
+- **Diretrizes**: Regras de comportamento por pessoa ou globais (ex: "Evite comparações entre irmãos")
 - **Contexto por Pessoa**: O ALMA adapta o tom com base em quem está conversando — filho ouve "Pai", irmão ouve "mano", mãe ouve "filho"
 
 ### Adicionando um Novo Idioma
@@ -237,9 +231,9 @@ Licença MIT — livre pra todos, pra sempre. Veja [LICENSE](LICENSE).
 
 ## Uma Última Palavra
 
-> *"Eu corrijo o que herdei. Eu entrego o que não recebi."*
+> *"Legado também é contexto, não só lembrança."*
 
-O ALMA começou como a promessa de um pai pros seus três filhos. Virou algo maior — um convite pra qualquer pessoa que quer deixar pra trás mais do que fotos e bens materiais.
+O ALMA começou como um projeto íntimo e virou algo maior — um convite pra qualquer pessoa que quer deixar pra trás mais do que fotos e bens materiais.
 
 Sua voz importa. Sua história importa. Seus erros e seu amor e seus valores — importam.
 
@@ -248,6 +242,5 @@ O ALMA te dá as ferramentas pra garantir que eles nunca se percam.
 ---
 
 <p align="center">
-  Feito com amor por <a href="https://github.com/mauriciompj">Maurício Maciel Pereira Júnior</a><br>
-  Delegado de Polícia. Pai de três. O patch que corrigiu o código quebrado.
+  Feito com amor pela comunidade do ALMA.
 </p>

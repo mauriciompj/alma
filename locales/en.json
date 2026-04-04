@@ -53,7 +53,7 @@
     "title": "Correct / New directive",
     "originalLabel": "Original response:",
     "inputLabel": "What's wrong? Or what directive do you want to add?",
-    "inputPlaceholder": "E.g.: Don't compare Noah with his brothers. Or: That response was too cold, speak with more warmth...",
+    "inputPlaceholder": "E.g.: Avoid comparing siblings. Or: That response was too cold, speak with more warmth...",
     "analyzeButton": "Analyze",
     "analyzing": "Analyzing...",
     "analyzingAI": "Analyzing with AI...",
@@ -97,7 +97,7 @@
   },
   "labels": {
     "father": "Dad",
-    "authorName": "Maurício"
+    "authorName": "the author"
   },
   "legacy": {
     "prompt": "If you're here, it's because the time has come.\nType the phrase that {authorName} left for you.",

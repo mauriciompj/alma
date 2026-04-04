@@ -1158,116 +1158,30 @@
     };
 
     // ══════════════════════════════════════════════════════
-    // DADOS REAIS — Família Pereira (44 pessoas, 7 gerações)
-    // Fonte: familia_pereira_jr_org.html
-    // Gerações: -6 (mais antiga) a 0 (Maurício) a +1 (filhos)
+    // EXEMPLO GENÉRICO — árvore familiar demonstrativa
+    // Substitua pelos seus próprios dados em uma instância privada.
     // ══════════════════════════════════════════════════════
     var initialPeople = {
-      // ── Geração +1: Filhos ──
-      '2':  { id:'2',  name:'Noah Lacerda Pereira',        born:'29 jul 2015', died:null,          type:'child',   generation:1,  relation:'Seu filho',          location:'Florianópolis-SC' },
-      '3':  { id:'3',  name:'Nathan Lacerda Pereira',      born:'23 set 2019', died:null,          type:'child',   generation:1,  relation:'Seu filho',          location:'Cuiabá/MT' },
-      '4':  { id:'4',  name:'Isaac Lacerda Pereira',       born:'23 set 2019', died:null,          type:'child',   generation:1,  relation:'Seu filho',          location:'Cuiabá/MT' },
-      // ── Geração 0: Você + parceira ──
-      '1':  { id:'1',  name:'Maurício M. Pereira Jr.',     born:'26 mai 1980', died:null,          type:'you',     generation:0,  relation:'Você',               location:'Florianópolis-SC' },
-      '8':  { id:'8',  name:'Christyanne Marques Pereira', born:'9 dez 1982',  died:null,          type:'lateral', generation:0,  relation:'Ex-parceira',        location:'Barra do Garças-MT' },
-      // ── Geração -1: Pais + irmão + cunhada ──
-      '5':  { id:'5',  name:'Maurício M. Garcia Pereira',  born:'25 ago 1954', died:'jun 2017',    type:'direct',  generation:-1, relation:'Seu pai',            location:'Itajaí, SC' },
-      '6':  { id:'6',  name:'Nivalda Pereira',             born:'10 set 1946', died:null,          type:'direct',  generation:-1, relation:'Sua mãe',            location:'Florianópolis-SC' },
-      '7':  { id:'7',  name:'Davi Garcia Pereira',         born:'15 jun 1984', died:null,          type:'lateral', generation:-1, relation:'Seu irmão',          location:'Florianópolis-SC' },
-      '20': { id:'20', name:'Janira Silveira',             born:'1984',        died:null,          type:'lateral', generation:-1, relation:'Cunhada',            location:'' },
-      // ── Geração -2: Avós + tios ──
-      '9':  { id:'9',  name:'Marcial Ricardo Pereira',     born:'3 abr 1923',  died:'1 abr 2020',  type:'direct',  generation:-2, relation:'Avô paterno',        location:'Itajaí, SC' },
-      '10': { id:'10', name:'Maria do Carmo Garcia',       born:'1 jun 1925',  died:'25 mar 2020', type:'direct',  generation:-2, relation:'Avó paterna',        location:'Camboriú, SC' },
-      '11': { id:'11', name:'Natalino Garcia',             born:'25 dez 1912', died:'2001',        type:'direct',  generation:-2, relation:'Avô materno',        location:'Brasil' },
-      '12': { id:'12', name:'Nair Josephina Garcia',       born:null,          died:'13 mai 1983', type:'deceased',generation:-2, relation:'Avó materna',        location:'Brasil' },
-      '15': { id:'15', name:'Murilo Garcia Pereira',       born:'1950',        died:null,          type:'lateral', generation:-2, relation:'Tio paterno',        location:'' },
-      '40': { id:'40', name:'Maria Regina Rodrigues',      born:'27 set 1953', died:null,          type:'lateral', generation:-2, relation:'Tia paterna',        location:'Laguna, SC' },
-      '42': { id:'42', name:'Íris Garcia (Neca)',          born:null,          died:null,          type:'lateral', generation:-2, relation:'Tia paterna',        location:'' },
-      '43': { id:'43', name:'Sandro Garcia',               born:null,          died:null,          type:'lateral', generation:-2, relation:'Tio paterno',        location:'' },
-      '44': { id:'44', name:'Marcelo Garcia',              born:null,          died:null,          type:'lateral', generation:-2, relation:'Tio paterno',        location:'' },
-      '17': { id:'17', name:'Neri Francisco Garcia',       born:'1941',        died:null,          type:'lateral', generation:-2, relation:'Tio materno',        location:'' },
-      '18': { id:'18', name:'Nelci Terezinha Lupi',        born:'1944',        died:null,          type:'lateral', generation:-2, relation:'Tia materna',        location:'' },
-      '19': { id:'19', name:'Nelli Teixeira',              born:null,          died:'Falecida',    type:'deceased',generation:-2, relation:'Tia materna',        location:'' },
-      // ── Geração -2: Sobrinhos + primos (mesma camada visual dos tios) ──
-      '13': { id:'13', name:'Lucas Pereira',               born:null,          died:null,          type:'lateral', generation:-1, relation:'Sobrinho',           location:'' },
-      '14': { id:'14', name:'Theo Pereira',                born:null,          died:null,          type:'lateral', generation:-1, relation:'Sobrinho',           location:'' },
-      '29': { id:'29', name:'Mariana Rodrigues Pereira',   born:'25 nov 1981', died:null,          type:'lateral', generation:-1, relation:'Prima',              location:'Florianópolis' },
-      '28': { id:'28', name:'Marcel Rodrigues Pereira',    born:'13 mai 1983', died:'Falecido',    type:'deceased',generation:-1, relation:'Primo',              location:'Florianópolis' },
-      '30': { id:'30', name:'Moema Rodrigues Pereira',     born:'6 mar 1985',  died:null,          type:'lateral', generation:-1, relation:'Prima',              location:'' },
-      '47': { id:'47', name:'Luciano (Gugo) Garcia',       born:null,          died:null,          type:'lateral', generation:-1, relation:'Primo',              location:'' },
-      '50': { id:'50', name:'Ricardo Teixeira',            born:null,          died:null,          type:'lateral', generation:-1, relation:'Primo',              location:'' },
-      '53': { id:'53', name:'Rosemary Teixeira',           born:'27 dez 1960', died:'Falecida',    type:'deceased',generation:-1, relation:'Prima',              location:'' },
-      // ── Geração -3: Bisavós + tios-avôs ──
-      '21': { id:'21', name:'Amaro Neves Pereira',         born:'5 ago 1897',  died:'8 nov 1974',  type:'direct',  generation:-3, relation:'Bisavô',             location:'' },
-      '22': { id:'22', name:'Juliana Joaquina Pereira',    born:'5 mai 1903',  died:'3 fev 1979',  type:'deceased',generation:-3, relation:'Bisavó',             location:'' },
-      '23': { id:'23', name:'Afonso Pereira Garcia',       born:'11 set 1889', died:'26 nov 1972', type:'direct',  generation:-3, relation:'Bisavô',             location:'Camboriú, SC' },
-      '24': { id:'24', name:'Isabel Pereira',              born:'8 jul 1906',  died:'22 nov 1991', type:'deceased',generation:-3, relation:'Bisavó',             location:'Camboriú, SC' },
-      '26': { id:'26', name:'Anastácio J. Pereira',        born:'1867',        died:'1950',        type:'direct',  generation:-3, relation:'Bisavô',             location:'' },
-      '27': { id:'27', name:'Maria Rosa Said',             born:'1880',        died:'1973',        type:'deceased',generation:-3, relation:'Bisavá',             location:'Origem árabe' },
-      '33': { id:'33', name:'Osny Neves Pereira',          born:'17 jun 1927', died:'Falecido',    type:'deceased',generation:-3, relation:'Tio-avô',            location:'Itajaí, SC' },
-      '34': { id:'34', name:'Érico Luiz Pereira',          born:'21 jun 1940', died:'22 abr 1994', type:'deceased',generation:-3, relation:'Tio-avô',            location:'Itajaí, SC' },
-      // ── Geração -4: Trisavós ──
-      '59': { id:'59', name:'Silvano Bento Garcia',        born:'1850',        died:'1922',        type:'direct',  generation:-4, relation:'Trisavô',            location:'' },
-      '60': { id:'60', name:'Maria Anastacia Pereira',     born:'1855',        died:'Falecida',    type:'deceased',generation:-4, relation:'Trisavó',            location:'' },
-      '66': { id:'66', name:'Silvano José Baptista',       born:'1798',        died:'1864',        type:'direct',  generation:-4, relation:'Antepassado direto', location:'' },
-      '67': { id:'67', name:'Maria Joaquina da Conceição', born:'1800',        died:'Falecida',    type:'deceased',generation:-4, relation:'Antepassada direta', location:'' },
-      // ── Geração -5: 5ª geração ──
-      '80': { id:'80', name:'Jeremias Francisco Garcia',   born:'~1820',       died:'19 mai 1877', type:'direct',  generation:-5, relation:'5ª geração',         location:'Nossa Sra. Destêrro' },
-      '81': { id:'81', name:'Anna Maria Baptista',         born:'~1830',       died:'5 jan 1880',  type:'deceased',generation:-5, relation:'5ª geração',         location:'Porto Belo, SC' },
-      '82': { id:'82', name:'Manoel Anastacio Pereira',    born:'~1826',       died:'2 jan 1892',  type:'direct',  generation:-5, relation:'5ª geração',         location:'' },
-      '83': { id:'83', name:'Maria Joaquina dos Santos',   born:'1831',        died:null,          type:'deceased',generation:-5, relation:'5ª geração',         location:'Porto Belo, SC' }
+      '1': { id:'1', name:'Pessoa Autora', born:'1980', died:null, type:'you', generation:0, relation:'Você', location:'Sua cidade' },
+      '2': { id:'2', name:'Pessoa Companheira', born:'1982', died:null, type:'lateral', generation:0, relation:'Companheira(o)', location:'Sua cidade' },
+      '3': { id:'3', name:'Pessoa Filha 1', born:'2012', died:null, type:'child', generation:1, relation:'Filha(o)', location:'Sua cidade' },
+      '4': { id:'4', name:'Pessoa Filha 2', born:'2016', died:null, type:'child', generation:1, relation:'Filha(o)', location:'Sua cidade' },
+      '5': { id:'5', name:'Pessoa Pai', born:'1955', died:null, type:'direct', generation:-1, relation:'Pai', location:'Sua cidade' },
+      '6': { id:'6', name:'Pessoa Mãe', born:'1958', died:null, type:'direct', generation:-1, relation:'Mãe', location:'Sua cidade' },
+      '7': { id:'7', name:'Pessoa Irmã(o)', born:'1985', died:null, type:'lateral', generation:-1, relation:'Irmã(o)', location:'Sua cidade' }
     };
 
     var initialEdges = [
-      // Filhos de Maurício + Christyanne
-      { from:'1', to:'2', type:'parent' }, { from:'1', to:'3', type:'parent' }, { from:'1', to:'4', type:'parent' },
-      { from:'8', to:'2', type:'parent' }, { from:'8', to:'3', type:'parent' }, { from:'8', to:'4', type:'parent' },
-      // Maurício filho de pai e mãe
-      { from:'5', to:'1', type:'parent' }, { from:'6', to:'1', type:'parent' },
-      // Davi filho de pai e mãe
-      { from:'5', to:'7', type:'parent' }, { from:'6', to:'7', type:'parent' },
-      // Sobrinhos filhos de Davi
-      { from:'7', to:'13', type:'parent' }, { from:'7', to:'14', type:'parent' },
-      // Primos filhos de Maria Regina
-      { from:'40', to:'29', type:'parent' }, { from:'40', to:'28', type:'parent' }, { from:'40', to:'30', type:'parent' },
-      // Primo filho de Sandro
-      { from:'43', to:'47', type:'parent' },
-      // Primos filhos de Nelli
-      { from:'19', to:'50', type:'parent' }, { from:'19', to:'53', type:'parent' },
-      // Tios paternos filhos de avós paternos
-      { from:'9', to:'15', type:'parent' }, { from:'10', to:'15', type:'parent' },
-      { from:'9', to:'40', type:'parent' }, { from:'10', to:'40', type:'parent' },
-      { from:'9', to:'42', type:'parent' }, { from:'10', to:'42', type:'parent' },
-      { from:'9', to:'43', type:'parent' }, { from:'10', to:'43', type:'parent' },
-      { from:'9', to:'44', type:'parent' }, { from:'10', to:'44', type:'parent' },
-      // Pai filho de avós paternos
-      { from:'9', to:'5', type:'parent' }, { from:'10', to:'5', type:'parent' },
-      // Tios maternos filhos de avós maternos
-      { from:'11', to:'17', type:'parent' }, { from:'12', to:'17', type:'parent' },
-      { from:'11', to:'18', type:'parent' }, { from:'12', to:'18', type:'parent' },
-      { from:'11', to:'19', type:'parent' }, { from:'12', to:'19', type:'parent' },
-      // Mãe filha de avós maternos
-      { from:'11', to:'6', type:'parent' }, { from:'12', to:'6', type:'parent' },
-      // Avô paterno filho de bisavós
-      { from:'21', to:'9', type:'parent' }, { from:'22', to:'9', type:'parent' },
-      // Avó paterna filha de bisavós
-      { from:'23', to:'10', type:'parent' }, { from:'24', to:'10', type:'parent' },
-      // Avô materno filho de bisavós
-      { from:'26', to:'11', type:'parent' }, { from:'27', to:'11', type:'parent' },
-      // Tios-avôs filhos de bisavós paternos
-      { from:'21', to:'33', type:'parent' }, { from:'22', to:'33', type:'parent' },
-      { from:'21', to:'34', type:'parent' }, { from:'22', to:'34', type:'parent' },
-      // Bisavô Afonso filho de trisavós
-      { from:'59', to:'23', type:'parent' }, { from:'60', to:'23', type:'parent' },
-      // Bisavô Amaro filho de antepassados
-      { from:'66', to:'21', type:'parent' }, { from:'67', to:'21', type:'parent' },
-      // Trisavô Silvano Bento filho de 5ª geração
-      { from:'80', to:'59', type:'parent' }, { from:'81', to:'59', type:'parent' },
-      // Trisavó Maria Anastacia filha de 5ª geração
-      { from:'82', to:'60', type:'parent' }, { from:'83', to:'60', type:'parent' },
-      // ── Casais (spouse) ──
-      { from:'1',  to:'8',  type:'spouse' },
-      { from:'5',  to:'6',  type:'spouse' },
+      { from:'1', to:'3', type:'parent' },
+      { from:'2', to:'3', type:'parent' },
+      { from:'1', to:'4', type:'parent' },
+      { from:'2', to:'4', type:'parent' },
+      { from:'5', to:'1', type:'parent' },
+      { from:'6', to:'1', type:'parent' },
+      { from:'5', to:'7', type:'parent' },
+      { from:'6', to:'7', type:'parent' },
+      { from:'1', to:'2', type:'spouse' },
+      { from:'5', to:'6', type:'spouse' }
       { from:'9',  to:'10', type:'spouse' },
       { from:'11', to:'12', type:'spouse' },
       { from:'21', to:'22', type:'spouse' },

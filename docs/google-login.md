@@ -46,19 +46,19 @@ Exemplo:
 ```json
 [
   {
-    "username": "noah",
+    "username": "ana",
     "password": "$2b$12$hashbcrypt...",
-    "name": "Noah",
+    "name": "Ana",
     "type": "filho",
-    "googleEmail": "noah@exemplo.com"
+    "googleEmail": "ana@exemplo.com"
   },
   {
-    "username": "mauricio@exemplo.com",
+    "username": "admin@exemplo.com",
     "password": "$2b$12$hashbcrypt...",
-    "name": "Maurício",
+    "name": "Admin",
     "type": "admin",
     "admin": true,
-    "email": "mauricio@exemplo.com"
+    "email": "admin@exemplo.com"
   }
 ]
 ```

@@ -12,10 +12,10 @@
  *   npm run test:prod                             # prod (public endpoints only — login uses demo creds, will 401)
  *
  *   # Full prod test with real credentials (bash):
- *   TEST_USER=Mauricio TEST_PASS=YourPass npm run test:prod
+ *   TEST_USER=SeuUsuario TEST_PASS=YourPass npm run test:prod
  *
  *   # Full prod test with real credentials (PowerShell):
- *   $env:TEST_USER="Mauricio"; $env:TEST_PASS="YourPass"; npm run test:prod
+ *   $env:TEST_USER="SeuUsuario"; $env:TEST_PASS="YourPass"; npm run test:prod
  *
  * Tests are grouped by concern:
  *   1. Login & token management

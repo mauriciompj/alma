@@ -29,13 +29,13 @@ console.log('\n── Reranking: Person Boost ──');
 {
   const results = [
     { id: 1, content: 'memória genérica', category: 'valores', tags: [], rank: 0.5, source_file: 'a' },
-    { id: 2, content: 'memória do Noah', category: 'noah', tags: ['noah'], rank: 0.3, source_file: 'b' },
+    { id: 2, content: 'memória da Ana', category: 'ana', tags: ['ana'], rank: 0.3, source_file: 'b' },
   ];
-  const ranked = rerankResults(results, 'Noah', 'pt-BR', ['coragem']);
+  const ranked = rerankResults(results, 'Ana', 'pt-BR', ['coragem']);
 
-  assert(ranked[0].id === 2, 'Noah-tagged memory ranks first');
+  assert(ranked[0].id === 2, 'Person-tagged memory ranks first');
   assert(ranked[0].finalScore > ranked[1].finalScore, 'Person boost gives higher score');
-  assertClose(ranked[0].finalScore, 0.3 + 0.5 + 0.3, 0.01, 'Noah gets +0.5 (tag) +0.3 (category)');
+  assertClose(ranked[0].finalScore, 0.3 + 0.5 + 0.3, 0.01, 'Person gets +0.5 (tag) +0.3 (category)');
 }
 
 console.log('\n── Reranking: Language Boost ──');
@@ -45,7 +45,7 @@ console.log('\n── Reranking: Language Boost ──');
     { id: 2, content: 'memória pt', category: 'valores', tags: ['pt'], rank: 0.4, source_file: 'b' },
     { id: 3, content: 'memória sem tag', category: 'valores', tags: [], rank: 0.4, source_file: 'c' },
   ];
-  const rankedEn = rerankResults(results, 'Chris', 'en', []);
+  const rankedEn = rerankResults(results, 'Alex', 'en', []);
   assert(rankedEn[0].id === 1, 'English memory ranks first for English user');
   // EN gets: 0.4 + 0.05 (core) + 0.8 (lang match) = 1.25
   // Untagged: 0.4 + 0.05 (core) = 0.45
@@ -55,7 +55,7 @@ console.log('\n── Reranking: Language Boost ──');
   const enScore = rankedEn[0].finalScore;
   assert(enScore > 1.0, 'English tagged memory gets substantial boost for EN user');
 
-  const rankedPt = rerankResults(results, 'Chris', 'pt-BR', []);
+  const rankedPt = rerankResults(results, 'Alex', 'pt-BR', []);
   assert(rankedPt[0].id === 2, 'PT memory ranks first for PT-BR user');
 }
 
@@ -65,7 +65,7 @@ console.log('\n── Reranking: Child Parenting Boost ──');
     { id: 1, content: 'sobre ser pai', category: 'paternidade', tags: ['paternidade'], rank: 0.3, source_file: 'a' },
     { id: 2, content: 'sobre trabalho', category: 'policia', tags: ['policia'], rank: 0.3, source_file: 'b' },
   ];
-  const ranked = rerankResults(results, 'Nathan', 'pt-BR', []);
+  const ranked = rerankResults(results, 'PessoaFilha', 'pt-BR', []);
   assert(ranked[0].id === 1, 'Parenting memory boosted for child user');
   assert(ranked[0].finalScore > ranked[1].finalScore, 'Parenting boost + core identity > policia');
 }
@@ -76,7 +76,7 @@ console.log('\n── Reranking: Core Identity Baseline ──');
     { id: 1, content: 'valor', category: 'valores', tags: [], rank: 0.0, source_file: 'a' },
     { id: 2, content: 'random', category: 'misc', tags: [], rank: 0.0, source_file: 'b' },
   ];
-  const ranked = rerankResults(results, 'Leslen', 'pt-BR', []);
+  const ranked = rerankResults(results, 'Pessoa', 'pt-BR', []);
   assert(ranked[0].id === 1, 'Core identity category gets baseline boost');
   assertClose(ranked[0].finalScore, 0.05, 0.001, 'Valores gets +0.05');
   assertClose(ranked[1].finalScore, 0.0, 0.001, 'Misc gets no boost');
@@ -91,7 +91,7 @@ console.log('\n── Reranking: Recency Boost ──');
     { id: 1, content: 'old', category: 'valores', tags: [], rank: 0.5, source_file: 'a', file_date: old.toISOString() },
     { id: 2, content: 'recent', category: 'valores', tags: [], rank: 0.5, source_file: 'b', file_date: recent.toISOString() },
   ];
-  const ranked = rerankResults(results, 'Chris', 'pt-BR', []);
+  const ranked = rerankResults(results, 'Pessoa', 'pt-BR', []);
   assert(ranked[0].id === 2, 'Recent memory ranks higher than old');
   assert(ranked[0].finalScore > ranked[1].finalScore, 'Recency boost applies');
 }
@@ -102,7 +102,7 @@ console.log('\n── Reranking: Term Overlap ──');
     { id: 1, content: 'coragem e medo são dois lados', category: 'valores', tags: [], rank: 0.3, source_file: 'a' },
     { id: 2, content: 'algo sobre trabalho policial', category: 'policia', tags: [], rank: 0.3, source_file: 'b' },
   ];
-  const ranked = rerankResults(results, 'Noah', 'pt-BR', ['coragem', 'medo']);
+  const ranked = rerankResults(results, 'Ana', 'pt-BR', ['coragem', 'medo']);
   assert(ranked[0].id === 1, 'Memory with more term matches ranks first');
   assert(ranked[0].finalScore > ranked[1].finalScore, 'Term overlap gives meaningful score difference');
 }
@@ -202,8 +202,8 @@ console.log('\n── Tag Matching ──');
 }
 
 {
-  const tags = matchTags(['noah', 'pai']);
-  assert(tags.includes('noah'), '"noah" → noah');
+  const tags = matchTags(['mae', 'pai']);
+  assert(tags.includes('familia'), '"mae" → familia');
   assert(tags.includes('paternidade'), '"pai" → paternidade');
 }
 
@@ -263,7 +263,7 @@ console.log('\n── Tag Map Coverage ──');
   assert(entries.length >= 45, `Tag map has ${entries.length} entries (≥ 45)`);
 
   const categories = new Set(Object.values(tagMap));
-  const expected = ['paternidade', 'valores', 'fe', 'amor', 'trauma', 'suicidio', 'policia', 'patch', 'noah', 'nathan', 'isaac', 'familia', 'chris'];
+  const expected = ['paternidade', 'valores', 'fe', 'amor', 'trauma', 'suicidio', 'policia', 'patch', 'familia'];
   for (const cat of expected) {
     assert(categories.has(cat), `Category "${cat}" present in tagMap`);
   }
@@ -274,7 +274,7 @@ console.log('\n── Tag Map Coverage ──');
 // =============================================
 console.log('\n── Edge Cases ──');
 {
-  const ranked = rerankResults([], 'Noah', 'pt-BR', ['test']);
+  const ranked = rerankResults([], 'Ana', 'pt-BR', ['test']);
   assert(ranked.length === 0, 'Empty results = empty reranking');
 }
 

@@ -4,7 +4,6 @@
 
 <p align="center">
   <a href="https://alma-demo.netlify.app"><img src="https://img.shields.io/badge/Live_Demo-alma--demo.netlify.app-D8AA32?style=for-the-badge&logo=netlify&logoColor=white" alt="Live Demo"></a>
-  <a href="https://projeto-alma.netlify.app"><img src="https://img.shields.io/badge/Production-projeto--alma.netlify.app-1A1A2E?style=for-the-badge&logo=netlify&logoColor=white" alt="Production"></a>
 </p>
 
 <p align="center">
@@ -51,17 +50,13 @@ It's not a chatbot. It's not a memorial page. It's a living archive of who you a
 
 ## The Story Behind ALMA
 
-ALMA was built by a father.
+ALMA started from a real emotional-legacy use case.
 
-Mauricio grew up with an absent father in Brazil. He broke the cycle. Became a police chief. Raised three sons with the kind of presence he never received.
+The core idea is simple: many people want to leave behind more than photos, documents, and assets. They want to leave voice, context, values, mistakes, stories, and guidance for the people they love.
 
-But presence has an expiration date. So he started writing. Over 16 months, he produced 74 documents — more than 100,000 words — documenting everything: his values, his mistakes, his faith, his fears, what he learned about love, about pain, about being a man. Raw. Unfiltered. Real.
+The project was then turned into an open-source platform so anyone can run their own version with their own writing, relationships, memories, and tone.
 
-Then he built ALMA — a system where his sons can ask him anything, anytime, and get answers rooted in his actual words and memories. Not generic AI responses. His voice.
-
-Then he decided to give it to the world.
-
-**ALMA is free. ALMA is open source. Because every father, every mother, every person who wants to leave something real behind deserves the tools to do it.**
+**ALMA is free. ALMA is open source. Because every person who wants to leave something real behind deserves the tools to do it.**
 
 ---
 
@@ -122,7 +117,7 @@ ALMA runs on free infrastructure. You can deploy your own instance in under 30 m
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/mauriciompj/alma.git
+git clone https://github.com/your-user/alma.git
 cd alma
 
 # 2. Install dependencies
@@ -219,7 +214,7 @@ ALMA takes data protection seriously:
 - **RAG**: When someone asks a question, ALMA searches for relevant chunks using full-text search + tag mapping + person-aware reranking, then injects them as context for the AI
 - **Person-aware reranking**: Memories tagged with the current person's name get boosted in search results
 - **Corrections**: If the AI gets something wrong, the author corrects it. Corrections are injected into future prompts with highest priority
-- **Directives**: Per-person or global behavioral rules (e.g., "Never compare Noah with his brothers")
+- **Directives**: Per-person or global behavioral rules (e.g., "Avoid comparing siblings")
 - **Person Context**: ALMA adapts its tone based on who's talking — a child hears "Dad", a sibling hears "bro", a mother hears "son"
 
 ### Adding a New Language
@@ -278,9 +273,9 @@ MIT License — free for everyone, forever. See [LICENSE](LICENSE).
 
 ## A Final Word
 
-> *"I fix what I inherited. I deliver what I never received."*
+> *"Legacy is context, not just remembrance."*
 
-ALMA started as one father's promise to his three sons. It became something bigger — an invitation for anyone who wants to leave behind more than photos and possessions.
+ALMA started as a deeply personal project and became something bigger — an invitation for anyone who wants to leave behind more than photos and possessions.
 
 Your voice matters. Your story matters. Your mistakes and your love and your values — they matter.
 
@@ -289,6 +284,5 @@ ALMA gives you the tools to make sure they're never lost.
 ---
 
 <p align="center">
-  Built with love by <a href="https://github.com/mauriciompj">Mauricio Maciel Pereira Junior</a><br>
-  Police Chief. Father of three. Patch that fixed the broken code.
+  Built with love by the ALMA community.
 </p>
