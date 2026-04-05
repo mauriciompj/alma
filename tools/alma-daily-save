@@ -1,0 +1,50 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ============================================================================
+# alma-daily-save — Salva a resposta do check-in diario no ALMA
+# ============================================================================
+
+set -e
+
+source "$(dirname "$0")/alma-lib.sh" 2>/dev/null || source "$PREFIX/bin/alma-lib.sh" 2>/dev/null || source "$HOME/bin/alma-lib.sh" 2>/dev/null || {
+  echo "ERRO: alma-lib.sh nao encontrado" >&2
+  exit 1
+}
+
+alma_load_config
+alma_check_creds || exit 1
+
+TEXT="${1:-}"
+if [ -z "$TEXT" ] && [ ! -t 0 ]; then
+  TEXT=$(cat)
+fi
+
+if [ -z "$(printf '%s' "$TEXT" | tr -d '[:space:]')" ]; then
+  alma_toast "ALMA: Check-in vazio"
+  exit 0
+fi
+
+DATE_LABEL=$(date +"%Y-%m-%d")
+PREVIEW=$(printf '%s' "$TEXT" | head -c 50 | tr '\n' ' ')
+TITLE="Check-in diario $DATE_LABEL — $PREVIEW..."
+CONTENT="Check-in diario — $DATE_LABEL
+
+$TEXT"
+
+if RESP=$(alma_ingest "$CONTENT" "$TITLE" "memorias_pessoais" '["checkin_diario","dia","termux_daily"]' "termux_daily_checkin" 2>&1); then
+  CHUNKS=$(echo "$RESP" | jq -r '.chunks_created // 1')
+  alma_vibrate 200
+  alma_toast "ALMA: Check-in salvo ($CHUNKS chunks)"
+  command -v termux-notification-remove >/dev/null 2>&1 && termux-notification-remove alma_daily_checkin >/dev/null 2>&1 || true
+  exit 0
+fi
+
+ERROR=$(echo "$RESP" | jq -r '.error // empty' 2>/dev/null)
+if [ -z "$ERROR" ]; then
+  ERROR=$(echo "$RESP" | tail -n 1)
+fi
+if [ -z "$ERROR" ]; then
+  ERROR="erro"
+fi
+
+alma_toast "ALMA erro: $ERROR"
+exit 1

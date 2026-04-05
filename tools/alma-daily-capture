@@ -1,0 +1,27 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ============================================================================
+# alma-daily-capture — Abre a pergunta diaria e salva no ALMA
+# ============================================================================
+
+set -e
+
+source "$(dirname "$0")/alma-lib.sh" 2>/dev/null || source "$PREFIX/bin/alma-lib.sh" 2>/dev/null || source "$HOME/bin/alma-lib.sh" 2>/dev/null || {
+  echo "ERRO: alma-lib.sh nao encontrado" >&2
+  exit 1
+}
+
+alma_load_config
+alma_check_creds || exit 1
+
+alma_toast "ALMA: Como foi teu dia?" middle
+alma_vibrate 150
+
+DIALOG_RESULT=$(termux-dialog text -t "ALMA — Como foi teu dia?" -i "Conta o que marcou seu dia. Pode falar pelo mic do teclado." 2>/dev/null || echo "{}")
+TEXT=$(echo "$DIALOG_RESULT" | jq -r '.text // empty')
+
+if [ -z "$TEXT" ]; then
+  alma_toast "ALMA: Check-in cancelado"
+  exit 0
+fi
+
+"$HOME/bin/alma-daily-save" "$TEXT"

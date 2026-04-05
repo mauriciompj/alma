@@ -34,7 +34,7 @@ pkg install -y -q pandoc poppler 2>/dev/null || echo "  (pandoc/poppler nao disp
 # 4. Baixar todos os scripts
 echo "[4/7] Baixando scripts do GitHub..."
 BASE="https://raw.githubusercontent.com/mauriciompj/alma/main/tools"
-SCRIPTS="alma-lib.sh alma-send alma-quick alma-record alma-voice alma-checkin termux-url-opener termux-file-editor"
+SCRIPTS="alma-lib.sh alma-send alma-quick alma-record alma-voice alma-checkin alma-daily-save alma-daily-capture alma-daily-reminder termux-url-opener termux-file-editor termux-file-receiver"
 FAIL=0
 for f in $SCRIPTS; do
   curl -sL "$BASE/$f" -o ~/bin/$f
@@ -62,6 +62,11 @@ cp ~/bin/alma-quick ~/.shortcuts/tasks/ALMA
 chmod +x ~/.shortcuts/tasks/ALMA
 echo "  Widget: ~/.shortcuts/tasks/ALMA"
 
+if command -v termux-job-scheduler >/dev/null 2>&1; then
+  ~/bin/alma-daily-reminder --install >/dev/null 2>&1 || true
+  echo "  Check-in diario: 21:00"
+fi
+
 # 6. Credenciais
 echo "[6/7] Verificando credenciais..."
 if [ -f ~/.alma-env ]; then
@@ -83,12 +88,12 @@ fi
 # 6b. API keys para midia (audio/imagem)
 echo "[6b/7] Verificando API keys para midia..."
 if [ -f ~/.alma-env ]; then
-  if grep -q "OPENAI_API_KEY" ~/.alma-env; then
-    echo "  OPENAI_API_KEY: configurada (Whisper — transcricao de audio)"
+  if grep -q "GEMINI_API_KEY" ~/.alma-env; then
+    echo "  GEMINI_API_KEY: configurada (Gemini — transcricao de audio)"
   else
     echo ""
-    echo "  OPCIONAL: Para transcrever audios automaticamente (Whisper):"
-    echo "  echo 'OPENAI_API_KEY=sk-...' >> ~/.alma-env"
+    echo "  OPCIONAL: Para transcrever audios automaticamente (Gemini):"
+    echo "  echo 'GEMINI_API_KEY=AIza...' >> ~/.alma-env"
     echo ""
   fi
   if grep -q "ANTHROPIC_API_KEY" ~/.alma-env; then
@@ -126,6 +131,8 @@ echo "Comandos disponiveis:"
 echo "  alma-send \"texto\"     — envia texto"
 echo "  alma-send -f arq.txt  — envia arquivo"
 echo "  alma-quick             — widget de voz"
+echo "  alma-daily-reminder    — notifica 'Como foi teu dia?' todo dia"
+echo "  alma-daily-capture     — abre a pergunta diaria manualmente"
 echo ""
 echo "Widget: remova e adicione o Termux:Widget na home screen."
 echo "Tasker:  configure alma_voz.sh como acao do Termux:Tasker."

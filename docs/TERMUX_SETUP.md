@@ -50,11 +50,15 @@ curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-send
 curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-quick -o ~/bin/alma-quick
 curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-record -o ~/bin/alma-record
 curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-voice -o ~/bin/alma-voice
+curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-daily-save -o ~/bin/alma-daily-save
+curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-daily-capture -o ~/bin/alma-daily-capture
+curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma-daily-reminder -o ~/bin/alma-daily-reminder
 curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/alma_voz.sh -o ~/.termux/tasker/alma_voz.sh
 curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/termux-url-opener -o ~/bin/termux-url-opener
 curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/termux-file-editor -o ~/bin/termux-file-editor
+curl -sL https://raw.githubusercontent.com/mauriciompj/alma/main/tools/termux-file-receiver -o ~/bin/termux-file-receiver
 
-chmod +x ~/bin/alma-lib.sh ~/bin/alma-send ~/bin/alma-quick ~/bin/alma-record ~/bin/alma-voice ~/bin/termux-url-opener ~/bin/termux-file-editor ~/.termux/tasker/alma_voz.sh
+chmod +x ~/bin/alma-lib.sh ~/bin/alma-send ~/bin/alma-quick ~/bin/alma-record ~/bin/alma-voice ~/bin/alma-daily-save ~/bin/alma-daily-capture ~/bin/alma-daily-reminder ~/bin/termux-url-opener ~/bin/termux-file-editor ~/bin/termux-file-receiver ~/.termux/tasker/alma_voz.sh
 ```
 
 ## Step 4 — Configure Credentials
@@ -65,8 +69,8 @@ ALMA_URL=https://projeto-alma.netlify.app
 ALMA_USER=YourUsername
 ALMA_PASS=YourPassword
 
-# Optional: for automatic audio transcription (Whisper)
-OPENAI_API_KEY=sk-...
+# Optional: for automatic audio transcription (Gemini)
+GEMINI_API_KEY=AIza...
 
 # Optional: for automatic image description (Claude Vision)
 ANTHROPIC_API_KEY=sk-ant-...
@@ -127,9 +131,9 @@ This enables: **"Ok Google, ALMA [your message]"** → captured and sent automat
 | Login failed | Check ~/.alma-env credentials |
 | "command not found: alma-send" | Ensure ~/bin is in PATH: `echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc` |
 | Token expired | Token is cached 5 min in ~/.cache/alma_token. Delete it: `rm ~/.cache/alma_token` |
-| Whisper failed | Check `OPENAI_API_KEY` in ~/.alma-env. Get one at platform.openai.com |
+| Gemini failed | Check `GEMINI_API_KEY` in ~/.alma-env. Get one at ai.google.dev |
 | Claude Vision failed | Check `ANTHROPIC_API_KEY` in ~/.alma-env. Get one at console.anthropic.com |
-| Audio too large | Whisper accepts up to 25MB. Trim the audio before sharing. |
+| Audio too large | The current helper accepts up to 20MB per audio file. Trim before sharing. |
 | Falls back to manual | API key missing or network error — check ~/.alma-env and internet |
 
 ---
@@ -143,12 +147,15 @@ alma-lib.sh              <- shared library (auth cache, retry, helpers)
   |
   |-- alma-send           <- CLI: send text, files, pipe to ALMA
   |-- alma-quick          <- widget: 1-tap voice capture (uses alma-lib.sh)
+  |-- alma-daily-save     <- salva resposta do check-in diario
+  |-- alma-daily-capture  <- abre a pergunta "Como foi teu dia?"
+  |-- alma-daily-reminder <- agenda/dispara o lembrete diario
   |-- alma-record         <- terminal: record audio + transcribe + send
   |-- alma-voice          <- terminal: speech-to-text with confirmation
   |-- alma_voz.sh         <- Tasker bridge: "Ok Google" -> ALMA (uses alma-send)
   |-- termux-url-opener   <- Android Share: text/URLs (delegates to alma-send)
-  |-- termux-file-editor  <- Android Share: files (extract + alma-send)
-  `-- termux-file-receiver <- legacy (kept for compatibility)
+  |-- termux-file-editor  <- Android Share: files (extract, ask category, send)
+  `-- termux-file-receiver <- compatibility path with the same extraction/category flow
 ```
 
 ### alma-send (main CLI tool)
@@ -180,6 +187,20 @@ alma-quick valores "My title" # category + custom title
 ```
 
 Flow: opens Android dialog → tap mic on keyboard → speak → sends automatically.
+
+### Check-in diario (21:00)
+
+Depois do setup, o Termux agenda um lembrete diario para `21:00`.
+Quando ele disparar, voce recebe a notificacao `ALMA — Como foi teu dia?` com dois caminhos:
+- tocar no corpo da notificacao equivale a `Responder`
+- `Responder` — salva a resposta direto no ALMA
+- `Gravar` — abre a captura guiada
+
+```bash
+alma-daily-reminder --status
+alma-daily-reminder --test
+alma-daily-capture
+```
 
 ### alma-record (audio recording)
 
@@ -223,8 +244,10 @@ Supported formats:
 - `.txt .md .csv .json .log` — sent directly
 - `.pdf` — converted via pdftotext
 - `.docx .doc .odt .rtf` — converted via pandoc
-- `.m4a .ogg .opus .mp3 .wav .aac` — **auto-transcribed via Whisper API** (fallback: manual)
+- `.m4a .ogg .opus .mp3 .wav .aac` — **auto-transcribed via Gemini API** (fallback: manual)
 - `.jpg .jpeg .png .gif .webp` — **auto-described via Claude Vision** (fallback: manual)
+
+Before saving, the script asks for a category. Audio and image shares are converted to text first, then stored like any other memory.
 
 ---
 
@@ -234,31 +257,32 @@ When you share audio or images from WhatsApp (or any app) to Termux, the process
 
 ### How it works
 1. **Share** → Termux (or Termux EDIT)
-2. **Audio** (.m4a .ogg .opus .mp3 .wav .aac): Whisper API transcribes automatically (~5 seconds)
+2. **Audio** (.m4a .ogg .opus .mp3 .wav .aac): Gemini API transcribes automatically (~5 seconds)
 3. **Images** (.jpg .jpeg .png .gif .webp): Claude Vision describes automatically (~5 seconds)
-4. The resulting text is stored in ALMA like any other memory
+4. You choose the category before saving
+5. The resulting text is stored in ALMA like any other memory
+
+Important: the original binary file is not preserved in the database today. ALMA stores the extracted text, transcription, or description.
 
 If the API fails (no key, network error), it falls back to the manual dialog.
 
 ### Required API Keys in ~/.alma-env
 
 ```bash
-OPENAI_API_KEY=sk-...            # Whisper (audio transcription)
+GEMINI_API_KEY=AIza...           # Gemini (audio transcription)
 ANTHROPIC_API_KEY=sk-ant-...     # Claude Vision (image description)
 ```
 
 Get your keys at:
-- OpenAI: https://platform.openai.com/api-keys
+- Google AI Studio: https://aistudio.google.com/app/apikey
 - Anthropic: https://console.anthropic.com/settings/keys
 
-### Estimated Cost
-- Whisper: ~$0.006/minute of audio (~R$0.03 per voice message)
-- Claude Vision: ~$0.004/image (~R$0.02 per photo)
-- Typical usage (10 audios + 5 photos/day): ~R$2/month
+### Cost
+- Pricing varies by provider and model. Check your Google AI Studio and Anthropic dashboards before heavy use.
 
 ### Limits
-- Audio: max 25MB per file (Whisper limit)
-- Images: max ~15MB per image (Claude Vision limit)
+- Audio: max 20MB per file in the current helper
+- Images: the helper auto-resizes large files, but very large images can still fail after resize
 
 ---
 
@@ -291,7 +315,7 @@ To update all scripts to the latest version from GitHub:
 
 ```bash
 cd ~/bin
-for f in alma-lib.sh alma-send alma-quick alma-record alma-voice termux-url-opener termux-file-editor; do
+for f in alma-lib.sh alma-send alma-quick alma-record alma-voice alma-daily-save alma-daily-capture alma-daily-reminder termux-url-opener termux-file-editor termux-file-receiver; do
   curl -sL "https://raw.githubusercontent.com/mauriciompj/alma/main/tools/$f" -o "$f"
   chmod +x "$f"
 done

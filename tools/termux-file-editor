@@ -9,7 +9,7 @@
 #   .txt .md .csv .json .log  — sent directly
 #   .pdf                       — converted via pdftotext (pkg install poppler)
 #   .docx .doc .odt .rtf      — converted via pandoc (pkg install pandoc)
-#   .m4a .ogg .opus .mp3 .wav .aac — audio: auto-transcribed via Whisper API
+#   .m4a .ogg .opus .mp3 .wav .aac — audio: auto-transcribed via Gemini API
 #   .jpg .jpeg .png .gif .webp     — image: auto-described via Claude Vision
 #
 # INSTALL:
@@ -31,13 +31,13 @@ source "$(dirname "$0")/alma-lib.sh" 2>/dev/null || source "$PREFIX/bin/alma-lib
 
 alma_load_config 2>/dev/null
 alma_check_creds 2>/dev/null || {
-  termux-toast -g bottom "ALMA: Configure ~/.alma-env" 2>/dev/null
+  alma_toast "ALMA: Configure ~/.alma-env" 2>/dev/null
   exit 1
 }
 
 FILE="$1"
 if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
-  termux-toast -g bottom "ALMA: Arquivo nao encontrado" 2>/dev/null
+  alma_toast "ALMA: Arquivo nao encontrado" 2>/dev/null
   exit 1
 fi
 
@@ -89,7 +89,7 @@ print('\n'.join([p.text for p in doc.paragraphs]))
       ERR_MSG=$(cat ${TMPDIR:-/tmp}/alma_whisper_err 2>/dev/null)
       alma_toast "Transcricao falhou. Digitando manual..." middle
       DIALOG=$(termux-dialog text -t "ALMA — Transcreva o audio" \
-        -i "${ERR_MSG:-Whisper indisponivel. Digite o conteudo}" 2>/dev/null || echo '{"text":""}')
+        -i "${ERR_MSG:-Gemini indisponivel. Digite o conteudo}" 2>/dev/null || echo '{"text":""}')
       TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
     fi
     if [ -n "$TEXT" ]; then TEXT="[Audio transcrito: $FILENAME] $TEXT"; fi
@@ -117,15 +117,23 @@ if [ -z "$TEXT" ]; then
   exit 1
 fi
 
+CHAR_COUNT=${#TEXT}
+alma_toast "ALMA: $CHAR_COUNT chars extraidos. Escolha categoria..." middle
+
+CATEGORY=$(alma_pick_category "ALMA — Categoria") || {
+  alma_toast "Cancelado."
+  exit 0
+}
+
 # Send via alma-send (handles auth, retry, chunking)
 case "$EXT" in
   m4a|ogg|opus|mp3|wav|aac)
-    echo "$TEXT" | alma-send -t "$FILENAME" -s "android_share_audio" -g "$EXT,audio,transcricao_whisper"
+    printf '%s' "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_audio" -g "$EXT,audio,transcricao_gemini"
     ;;
   jpg|jpeg|png|gif|webp)
-    echo "$TEXT" | alma-send -t "$FILENAME" -s "android_share_imagem" -g "$EXT,imagem,descricao_claude"
+    printf '%s' "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_imagem" -g "$EXT,imagem,descricao_claude"
     ;;
   *)
-    echo "$TEXT" | alma-send -t "$FILENAME" -s "android_share_file" -g "$EXT,arquivo"
+    printf '%s' "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_file" -g "$EXT,arquivo"
     ;;
 esac

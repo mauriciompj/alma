@@ -62,15 +62,20 @@ else
 fi
 
 # Enviar via alma-lib
-RESP=$(alma_ingest "$TEXT" "$TITLE" "$CATEGORY" '["termux_voice","voz","quick"]' "termux_quick")
-
-if [ $? -eq 0 ]; then
+if RESP=$(alma_ingest "$TEXT" "$TITLE" "$CATEGORY" '["termux_voice","voz","quick"]' "termux_quick" 2>&1); then
   CHUNKS=$(echo "$RESP" | jq -r '.chunks_created')
   alma_vibrate 200
   alma_toast "ALMA salvo! ${CHAR_COUNT} chars (${CHUNKS} chunks)"
   alma_notify "ALMA — Memoria salva" "$(echo "$TEXT" | head -c 50)..."  "alma_capture"
 else
-  ERROR=$(echo "$RESP" | jq -r '.error // "erro"' 2>/dev/null)
+  ERROR=$(echo "$RESP" | jq -r '.error // empty' 2>/dev/null)
+  if [ -z "$ERROR" ]; then
+    ERROR=$(echo "$RESP" | tail -n 1)
+  fi
+  if [ -z "$ERROR" ]; then
+    ERROR="erro"
+  fi
   alma_toast "ALMA erro: $ERROR"
   alma_vibrate 300
+  exit 1
 fi

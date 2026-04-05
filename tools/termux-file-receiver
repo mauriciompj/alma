@@ -15,8 +15,8 @@
 # FORMATOS SUPORTADOS:
 #   .txt .md .csv .json  — texto direto
 #   .pdf                 — extrai texto via pdftotext
-#   .docx                — extrai texto via python-docx
-#   .m4a .ogg .opus .mp3 — audio (transcreve via mic ou salva referencia)
+#   .docx .doc .odt .rtf — extrai texto via pandoc/python-docx
+#   .m4a .ogg .opus .mp3 — audio (transcreve via Gemini ou fallback manual)
 #
 # ============================================================================
 
@@ -38,7 +38,7 @@ ALMA_PASS="${ALMA_PASS:-}"
 FILE="$1"
 
 if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
-  termux-toast -g bottom "ALMA: Arquivo nao encontrado"
+  alma_toast "ALMA: Arquivo nao encontrado"
   exit 1
 fi
 
@@ -47,7 +47,7 @@ EXT="${FILENAME##*.}"
 EXT=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
 FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || stat -f%z "$FILE" 2>/dev/null || echo "0")
 
-termux-toast -g middle "ALMA: Processando $FILENAME ($FILESIZE bytes)"
+alma_toast "ALMA: Processando $FILENAME ($FILESIZE bytes)" middle
 
 # ============================================================
 # Extrair texto baseado no formato
@@ -63,40 +63,41 @@ case "$EXT" in
     if command -v pdftotext &>/dev/null; then
       TEXT=$(pdftotext "$FILE" - 2>/dev/null)
     else
-      termux-toast -g bottom "ALMA: Instale poppler (pkg install poppler) pra processar PDF"
+      alma_toast "ALMA: Instale poppler (pkg install poppler) pra processar PDF"
       exit 1
     fi
     ;;
 
-  docx)
-    if command -v python3 &>/dev/null && python3 -c "import docx" 2>/dev/null; then
+  docx|doc|odt|rtf)
+    if command -v pandoc &>/dev/null; then
+      TEXT=$(pandoc "$FILE" -t plain 2>/dev/null)
+    elif command -v python3 &>/dev/null && python3 -c "import docx" 2>/dev/null; then
       TEXT=$(python3 -c "
-import docx
-doc = docx.Document('$FILE')
-for p in doc.paragraphs:
-    print(p.text)
-" 2>/dev/null)
+import docx, sys
+doc = docx.Document(sys.argv[1])
+print('\n'.join([p.text for p in doc.paragraphs]))
+" "$FILE" 2>/dev/null)
     else
       # Fallback: extrair XML interno do DOCX (eh um ZIP)
       TEXT=$(unzip -p "$FILE" word/document.xml 2>/dev/null | sed 's/<[^>]*>//g' | tr -s ' \n' || echo "")
       if [ -z "$TEXT" ]; then
-        termux-toast -g bottom "ALMA: Nao consegui extrair texto do DOCX"
+        alma_toast "ALMA: Nao consegui extrair texto do arquivo"
         exit 1
       fi
     fi
     ;;
 
   m4a|ogg|opus|mp3|wav|aac)
-    termux-toast -g middle "ALMA: Transcrevendo audio..."
+    alma_toast "ALMA: Transcrevendo audio..." middle
     TEXT=$(alma_transcribe_audio "$FILE" 2>${TMPDIR:-/tmp}/alma_whisper_err)
     if [ -z "$TEXT" ]; then
       ERR_MSG=$(cat ${TMPDIR:-/tmp}/alma_whisper_err 2>/dev/null)
-      termux-toast -g middle "Transcricao falhou. Digitando manual..."
+      alma_toast "Transcricao falhou. Digitando manual..." middle
       DIALOG=$(termux-dialog text -t "ALMA — Transcreva o audio" \
-        -i "${ERR_MSG:-Whisper indisponivel. Digite o conteudo}" 2>/dev/null || echo '{"text":""}')
+        -i "${ERR_MSG:-Gemini indisponivel. Digite o conteudo}" 2>/dev/null || echo '{"text":""}')
       TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
       if [ -z "$TEXT" ]; then
-        termux-toast -g bottom "ALMA: Transcricao vazia, cancelado"
+        alma_toast "ALMA: Transcricao vazia, cancelado"
         exit 0
       fi
     fi
@@ -104,16 +105,16 @@ for p in doc.paragraphs:
     ;;
 
   jpg|jpeg|png|gif|webp)
-    termux-toast -g middle "ALMA: Analisando imagem..."
+    alma_toast "ALMA: Analisando imagem..." middle
     TEXT=$(alma_describe_image "$FILE" 2>${TMPDIR:-/tmp}/alma_vision_err)
     if [ -z "$TEXT" ]; then
       ERR_MSG=$(cat ${TMPDIR:-/tmp}/alma_vision_err 2>/dev/null)
-      termux-toast -g middle "Analise falhou. Descrevendo manual..."
+      alma_toast "Analise falhou. Descrevendo manual..." middle
       DIALOG=$(termux-dialog text -t "ALMA — Descreva a imagem" \
         -i "${ERR_MSG:-Claude Vision indisponivel. Descreva a imagem}" 2>/dev/null || echo '{"text":""}')
       TEXT=$(echo "$DIALOG" | jq -r '.text // empty')
       if [ -z "$TEXT" ]; then
-        termux-toast -g bottom "ALMA: Descricao vazia, cancelado"
+        alma_toast "ALMA: Descricao vazia, cancelado"
         exit 0
       fi
     fi
@@ -121,55 +122,40 @@ for p in doc.paragraphs:
     ;;
 
   *)
-    termux-toast -g bottom "ALMA: Formato .$EXT nao suportado"
+    alma_toast "ALMA: Formato .$EXT nao suportado"
     exit 1
     ;;
 esac
 
 if [ -z "$TEXT" ]; then
-  termux-toast -g bottom "ALMA: Nenhum texto extraido de $FILENAME"
+  alma_toast "ALMA: Nenhum texto extraido de $FILENAME"
   exit 1
 fi
 
 CHAR_COUNT=${#TEXT}
-termux-toast -g middle "ALMA: $CHAR_COUNT chars extraidos. Escolha categoria..."
+alma_toast "ALMA: $CHAR_COUNT chars extraidos. Escolha categoria..." middle
 
 # ============================================================
 # Categoria
 # ============================================================
-DIALOG=$(termux-dialog sheet -t "ALMA — Categoria" -v "Memorias pessoais,Valores,Fe,Paternidade,Relacionamentos,Familia,Profissao,Trauma,Identidade,Amor,Legado ALMA,Tecnologia/IA,Psicologia,Cancelar" 2>/dev/null || echo '{"index":-1}')
-INDEX=$(echo "$DIALOG" | jq -r '.index // -1')
-
-case "$INDEX" in
-  0) CATEGORY="memorias_pessoais" ;;
-  1) CATEGORY="valores" ;;
-  2) CATEGORY="fe" ;;
-  3) CATEGORY="paternidade" ;;
-  4) CATEGORY="relacionamentos" ;;
-  5) CATEGORY="familia" ;;
-  6) CATEGORY="profissao" ;;
-  7) CATEGORY="trauma" ;;
-  8) CATEGORY="identidade" ;;
-  9) CATEGORY="amor" ;;
-  10) CATEGORY="legado_alma" ;;
-  11) CATEGORY="tecnologia_ia" ;;
-  12) CATEGORY="psicologia" ;;
-  *) termux-toast -g bottom "Cancelado."; exit 0 ;;
-esac
+CATEGORY=$(alma_pick_category "ALMA — Categoria") || {
+  alma_toast "Cancelado."
+  exit 0
+}
 
 # ============================================================
 # Enviar via alma-send (handles auth, retry, chunking)
 # ============================================================
-termux-toast -g middle "ALMA: Enviando..."
+alma_toast "ALMA: Enviando..." middle
 
 case "$EXT" in
   m4a|ogg|opus|mp3|wav|aac)
-    echo "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_audio" -g "$EXT,audio,transcricao_whisper"
+    printf '%s' "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_audio" -g "$EXT,audio,transcricao_gemini"
     ;;
   jpg|jpeg|png|gif|webp)
-    echo "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_imagem" -g "$EXT,imagem,descricao_claude"
+    printf '%s' "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_imagem" -g "$EXT,imagem,descricao_claude"
     ;;
   *)
-    echo "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_file" -g "$EXT,arquivo"
+    printf '%s' "$TEXT" | alma-send -t "$FILENAME" -c "$CATEGORY" -s "android_share_file" -g "$EXT,arquivo"
     ;;
 esac

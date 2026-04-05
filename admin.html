@@ -37,6 +37,12 @@
           <select id="chunkCategory" class="admin-select">
             <option value="">Todas as categorias</option>
           </select>
+          <select id="chunkSort" class="admin-select">
+            <option value="created_desc">Mais novos primeiro</option>
+            <option value="created_asc">Mais antigos primeiro</option>
+            <option value="title_asc">Titulo A-Z</option>
+            <option value="title_desc">Titulo Z-A</option>
+          </select>
           <button class="admin-btn" id="chunkSearchBtn">Buscar</button>
         </div>
         <button class="admin-btn admin-btn-accent" id="newChunkBtn">+ Novo conhecimento</button>
@@ -524,9 +530,11 @@
       currentPage = page || 1;
       var q = document.getElementById('chunkSearch').value.trim();
       var cat = document.getElementById('chunkCategory').value;
+      var sort = document.getElementById('chunkSort').value;
       var url = API + '?action=admin_chunks&page=' + currentPage + '&per_page=15';
       if (q) url += '&q=' + encodeURIComponent(q);
       if (cat) url += '&category=' + encodeURIComponent(cat);
+      if (sort) url += '&sort=' + encodeURIComponent(sort);
 
       document.getElementById('chunksList').innerHTML = '<div class="loading">Carregando...</div>';
 
@@ -582,6 +590,7 @@
       if (e.key === 'Enter') loadChunks(1);
     });
     document.getElementById('chunkCategory').addEventListener('change', function() { loadChunks(1); });
+    document.getElementById('chunkSort').addEventListener('change', function() { loadChunks(1); });
 
     // --- Edit chunk ---
     window.editChunk = function(id) {
@@ -593,9 +602,11 @@
       // Search current page for the chunk, fallback to dedicated search
       var q = document.getElementById('chunkSearch').value.trim();
       var cat = document.getElementById('chunkCategory').value;
+      var sort = document.getElementById('chunkSort').value;
       var url = API + '?action=admin_chunks&page=' + currentPage + '&per_page=15';
       if (q) url += '&q=' + encodeURIComponent(q);
       if (cat) url += '&category=' + encodeURIComponent(cat);
+      if (sort) url += '&sort=' + encodeURIComponent(sort);
 
       fetch(url, { headers: authHeaders() }).then(r => r.json()).then(function(data) {
         var chunk = data.chunks && data.chunks.find(function(c) { return c.id === id; });

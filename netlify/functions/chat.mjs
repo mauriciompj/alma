@@ -266,9 +266,9 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
       const results = await sql`
         SELECT id, COALESCE(content_clean, content) as content, title, category, tags, source_file,
                created_at as file_date,
-               ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
+               ts_rank(search_vector, to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${tsQuery})) as rank
         FROM alma_chunks
-        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
+        WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${tsQuery})
         ORDER BY rank DESC
         LIMIT ${FETCH_POOL}
       `;
@@ -278,9 +278,9 @@ async function searchMemories(query, personName, lang = 'pt-BR') {
       const results = await sql`
         SELECT id, content, title, category, tags, source_file,
                created_at as file_date,
-               ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${tsQuery})) as rank
+               ts_rank(search_vector, to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${tsQuery})) as rank
         FROM alma_chunks
-        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${tsQuery})
+        WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${tsQuery})
         ORDER BY rank DESC
         LIMIT ${FETCH_POOL}
       `;

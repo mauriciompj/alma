@@ -26,7 +26,7 @@
 #   termux-clipboard-get | alma-send        # cola do clipboard (Termux)
 #
 # OPCOES:
-#   -f <arquivo>     Envia arquivo (.txt, .md, .csv, .json)
+#   -f <arquivo>     Envia arquivo textual ja processado (.txt, .md, .csv, .json)
 #   -t <titulo>      Define titulo (senao gera automatico)
 #   -c <categoria>   Define categoria (default: memorias_pessoais)
 #   -g <tags>        Tags separadas por virgula
@@ -162,8 +162,8 @@ fi
 echo "Enviando..."
 
 # Escape content for JSON
-CONTENT_JSON=$(echo "$CONTENT" | jq -Rs .)
-TITLE_JSON=$(echo "${TITLE:-}" | jq -Rs .)
+CONTENT_JSON=$(printf '%s' "$CONTENT" | jq -Rs .)
+TITLE_JSON=$(printf '%s' "${TITLE:-}" | jq -Rs .)
 
 # Retry up to 3 times on network failure
 RETRY=0

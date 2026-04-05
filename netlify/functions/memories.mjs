@@ -88,8 +88,8 @@ async function searchChunks(sql, terms, category, limit) {
       return await sql`
         SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
         FROM alma_chunks
-        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms}) AND category = ${category}
-        ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+        WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms}) AND category = ${category}
+        ORDER BY ts_rank(search_vector, to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})) DESC
         LIMIT ${limit}
       `;
     }
@@ -97,8 +97,8 @@ async function searchChunks(sql, terms, category, limit) {
     return await sql`
       SELECT id, title, category, COALESCE(content_clean, content) as content, tags, source_file
       FROM alma_chunks
-      WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
-      ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+      WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})
+      ORDER BY ts_rank(search_vector, to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})) DESC
       LIMIT ${limit}
     `;
   } catch (error) {
@@ -108,8 +108,8 @@ async function searchChunks(sql, terms, category, limit) {
       return await sql`
         SELECT id, title, category, content, tags, source_file
         FROM alma_chunks
-        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms}) AND category = ${category}
-        ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+        WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms}) AND category = ${category}
+        ORDER BY ts_rank(search_vector, to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})) DESC
         LIMIT ${limit}
       `;
     }
@@ -117,22 +117,30 @@ async function searchChunks(sql, terms, category, limit) {
     return await sql`
       SELECT id, title, category, content, tags, source_file
       FROM alma_chunks
-      WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
-      ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+      WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})
+      ORDER BY ts_rank(search_vector, to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})) DESC
       LIMIT ${limit}
     `;
   }
 }
 
-async function listAdminChunks(sql, terms, category, perPage, offset) {
+async function listAdminChunks(sql, terms, category, perPage, offset, sortKey = 'created_desc') {
   try {
     if (terms) {
       return await sql`
         SELECT id, title, category, content, content_clean, tags, source_file, char_count
         FROM alma_chunks
-        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
+        WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})
         ${category ? sql`AND category = ${category}` : sql``}
-        ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+        ORDER BY
+          CASE WHEN ${sortKey} = 'created_asc' THEN created_at END ASC NULLS LAST,
+          CASE WHEN ${sortKey} = 'title_asc' THEN LOWER(COALESCE(title, '')) END ASC NULLS LAST,
+          CASE WHEN ${sortKey} = 'title_desc' THEN LOWER(COALESCE(title, '')) END DESC NULLS LAST,
+          CASE WHEN ${sortKey} = 'created_asc' THEN id END ASC,
+          CASE WHEN ${sortKey} = 'title_asc' THEN id END ASC,
+          CASE WHEN ${sortKey} = 'title_desc' THEN id END DESC,
+          created_at DESC NULLS LAST,
+          id DESC
         LIMIT ${perPage} OFFSET ${offset}
       `;
     }
@@ -141,13 +149,32 @@ async function listAdminChunks(sql, terms, category, perPage, offset) {
       return await sql`
         SELECT id, title, category, content, content_clean, tags, source_file, char_count
         FROM alma_chunks WHERE category = ${category}
-        ORDER BY chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
+        ORDER BY
+          CASE WHEN ${sortKey} = 'created_asc' THEN created_at END ASC NULLS LAST,
+          CASE WHEN ${sortKey} = 'title_asc' THEN LOWER(COALESCE(title, '')) END ASC NULLS LAST,
+          CASE WHEN ${sortKey} = 'title_desc' THEN LOWER(COALESCE(title, '')) END DESC NULLS LAST,
+          CASE WHEN ${sortKey} = 'created_asc' THEN id END ASC,
+          CASE WHEN ${sortKey} = 'title_asc' THEN id END ASC,
+          CASE WHEN ${sortKey} = 'title_desc' THEN id END DESC,
+          created_at DESC NULLS LAST,
+          id DESC
+        LIMIT ${perPage} OFFSET ${offset}
       `;
     }
 
     return await sql`
       SELECT id, title, category, content, content_clean, tags, source_file, char_count
-      FROM alma_chunks ORDER BY category, chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
+      FROM alma_chunks
+      ORDER BY
+        CASE WHEN ${sortKey} = 'created_asc' THEN created_at END ASC NULLS LAST,
+        CASE WHEN ${sortKey} = 'title_asc' THEN LOWER(COALESCE(title, '')) END ASC NULLS LAST,
+        CASE WHEN ${sortKey} = 'title_desc' THEN LOWER(COALESCE(title, '')) END DESC NULLS LAST,
+        CASE WHEN ${sortKey} = 'created_asc' THEN id END ASC,
+        CASE WHEN ${sortKey} = 'title_asc' THEN id END ASC,
+        CASE WHEN ${sortKey} = 'title_desc' THEN id END DESC,
+        created_at DESC NULLS LAST,
+        id DESC
+      LIMIT ${perPage} OFFSET ${offset}
     `;
   } catch (error) {
     if (!isMissingContentCleanError(error)) throw error;
@@ -156,9 +183,17 @@ async function listAdminChunks(sql, terms, category, perPage, offset) {
       return await sql`
         SELECT id, title, category, content, NULL::TEXT as content_clean, tags, source_file, char_count
         FROM alma_chunks
-        WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
+        WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})
         ${category ? sql`AND category = ${category}` : sql``}
-        ORDER BY ts_rank(search_vector, to_tsquery(${SEARCH_LANG}, ${terms})) DESC
+        ORDER BY
+          CASE WHEN ${sortKey} = 'created_asc' THEN created_at END ASC NULLS LAST,
+          CASE WHEN ${sortKey} = 'title_asc' THEN LOWER(COALESCE(title, '')) END ASC NULLS LAST,
+          CASE WHEN ${sortKey} = 'title_desc' THEN LOWER(COALESCE(title, '')) END DESC NULLS LAST,
+          CASE WHEN ${sortKey} = 'created_asc' THEN id END ASC,
+          CASE WHEN ${sortKey} = 'title_asc' THEN id END ASC,
+          CASE WHEN ${sortKey} = 'title_desc' THEN id END DESC,
+          created_at DESC NULLS LAST,
+          id DESC
         LIMIT ${perPage} OFFSET ${offset}
       `;
     }
@@ -167,13 +202,32 @@ async function listAdminChunks(sql, terms, category, perPage, offset) {
       return await sql`
         SELECT id, title, category, content, NULL::TEXT as content_clean, tags, source_file, char_count
         FROM alma_chunks WHERE category = ${category}
-        ORDER BY chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
+        ORDER BY
+          CASE WHEN ${sortKey} = 'created_asc' THEN created_at END ASC NULLS LAST,
+          CASE WHEN ${sortKey} = 'title_asc' THEN LOWER(COALESCE(title, '')) END ASC NULLS LAST,
+          CASE WHEN ${sortKey} = 'title_desc' THEN LOWER(COALESCE(title, '')) END DESC NULLS LAST,
+          CASE WHEN ${sortKey} = 'created_asc' THEN id END ASC,
+          CASE WHEN ${sortKey} = 'title_asc' THEN id END ASC,
+          CASE WHEN ${sortKey} = 'title_desc' THEN id END DESC,
+          created_at DESC NULLS LAST,
+          id DESC
+        LIMIT ${perPage} OFFSET ${offset}
       `;
     }
 
     return await sql`
       SELECT id, title, category, content, NULL::TEXT as content_clean, tags, source_file, char_count
-      FROM alma_chunks ORDER BY category, chunk_index ASC LIMIT ${perPage} OFFSET ${offset}
+      FROM alma_chunks
+      ORDER BY
+        CASE WHEN ${sortKey} = 'created_asc' THEN created_at END ASC NULLS LAST,
+        CASE WHEN ${sortKey} = 'title_asc' THEN LOWER(COALESCE(title, '')) END ASC NULLS LAST,
+        CASE WHEN ${sortKey} = 'title_desc' THEN LOWER(COALESCE(title, '')) END DESC NULLS LAST,
+        CASE WHEN ${sortKey} = 'created_asc' THEN id END ASC,
+        CASE WHEN ${sortKey} = 'title_asc' THEN id END ASC,
+        CASE WHEN ${sortKey} = 'title_desc' THEN id END DESC,
+        created_at DESC NULLS LAST,
+        id DESC
+      LIMIT ${perPage} OFFSET ${offset}
     `;
   }
 }
@@ -181,26 +235,26 @@ async function listAdminChunks(sql, terms, category, perPage, offset) {
 async function updateChunkContent(sql, id, content) {
   try {
     await sql`UPDATE alma_chunks SET content = ${content}, char_count = ${content.length},
-      search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || COALESCE(content_clean, ${content})) WHERE id = ${id}`;
+      search_vector = to_tsvector(CAST(${SEARCH_LANG} AS regconfig), COALESCE(title, '') || ' ' || COALESCE(content_clean, ${content})) WHERE id = ${id}`;
   } catch (error) {
     if (!isMissingContentCleanError(error)) throw error;
     await sql`UPDATE alma_chunks SET content = ${content}, char_count = ${content.length},
-      search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || ${content}) WHERE id = ${id}`;
+      search_vector = to_tsvector(CAST(${SEARCH_LANG} AS regconfig), COALESCE(title, '') || ' ' || ${content}) WHERE id = ${id}`;
   }
 }
 
 async function setChunkCleanContent(sql, id, contentClean) {
   await sql`UPDATE alma_chunks SET content_clean = ${contentClean},
-    search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || ${contentClean}) WHERE id = ${id}`;
+    search_vector = to_tsvector(CAST(${SEARCH_LANG} AS regconfig), COALESCE(title, '') || ' ' || ${contentClean}) WHERE id = ${id}`;
 }
 
 async function clearChunkCleanContent(sql, id) {
   try {
     await sql`UPDATE alma_chunks SET content_clean = NULL,
-      search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || content) WHERE id = ${id}`;
+      search_vector = to_tsvector(CAST(${SEARCH_LANG} AS regconfig), COALESCE(title, '') || ' ' || content) WHERE id = ${id}`;
   } catch (error) {
     if (!isMissingContentCleanError(error)) throw error;
-    await sql`UPDATE alma_chunks SET search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || content) WHERE id = ${id}`;
+    await sql`UPDATE alma_chunks SET search_vector = to_tsvector(CAST(${SEARCH_LANG} AS regconfig), COALESCE(title, '') || ' ' || content) WHERE id = ${id}`;
   }
 }
 
@@ -208,14 +262,14 @@ async function refreshChunkSearchVector(sql, id) {
   try {
     await sql`
       UPDATE alma_chunks
-      SET search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || COALESCE(content_clean, content))
+      SET search_vector = to_tsvector(CAST(${SEARCH_LANG} AS regconfig), COALESCE(title, '') || ' ' || COALESCE(content_clean, content))
       WHERE id = ${id}
     `;
   } catch (error) {
     if (!isMissingContentCleanError(error)) throw error;
     await sql`
       UPDATE alma_chunks
-      SET search_vector = to_tsvector(${SEARCH_LANG}, COALESCE(title, '') || ' ' || content)
+      SET search_vector = to_tsvector(CAST(${SEARCH_LANG} AS regconfig), COALESCE(title, '') || ' ' || content)
       WHERE id = ${id}
     `;
   }
@@ -234,7 +288,10 @@ async function insertChunk(sql, { documentId = null, sourceFile, title, category
         ${content},
         ${tags}::TEXT[],
         ${content.length},
-        to_tsvector(${SEARCH_LANG}, concat(${title || ''}, ' ', ${content}))
+        to_tsvector(
+          CAST(${SEARCH_LANG} AS regconfig),
+          COALESCE(CAST(${title || ''} AS text), '') || ' ' || CAST(${content} AS text)
+        )
       )
       RETURNING id
     `;
@@ -250,7 +307,10 @@ async function insertChunk(sql, { documentId = null, sourceFile, title, category
         ${content},
         ${tags}::TEXT[],
         ${content.length},
-        to_tsvector(${SEARCH_LANG}, concat(${title || ''}, ' ', ${content}))
+        to_tsvector(
+          CAST(${SEARCH_LANG} AS regconfig),
+          COALESCE(CAST(${title || ''} AS text), '') || ' ' || CAST(${content} AS text)
+        )
       )
       RETURNING id
     `;
@@ -441,16 +501,17 @@ export default async function handler(req) {
         const perPage = Math.min(50, parseInt(url.searchParams.get('per_page') || '20'));
         const category = url.searchParams.get('category') || '';
         const q = url.searchParams.get('q') || '';
+        const sort = url.searchParams.get('sort') || 'created_desc';
         const offset = (page - 1) * perPage;
 
         let rows, total;
         if (q) {
           const terms = q.split(/\s+/).filter(w => w.length > 2).join(' | ');
           if (terms) {
-            rows = await listAdminChunks(sql, terms, category, perPage, offset);
+            rows = await listAdminChunks(sql, terms, category, perPage, offset, sort);
             const countRes = await sql`
               SELECT COUNT(*) as c FROM alma_chunks
-              WHERE search_vector @@ to_tsquery(${SEARCH_LANG}, ${terms})
+              WHERE search_vector @@ to_tsquery(CAST(${SEARCH_LANG} AS regconfig), ${terms})
               ${category ? sql`AND category = ${category}` : sql``}
             `;
             total = parseInt(countRes[0].c);
@@ -458,15 +519,15 @@ export default async function handler(req) {
             rows = []; total = 0;
           }
         } else if (category) {
-          rows = await listAdminChunks(sql, '', category, perPage, offset);
+          rows = await listAdminChunks(sql, '', category, perPage, offset, sort);
           const countRes = await sql`SELECT COUNT(*) as c FROM alma_chunks WHERE category = ${category}`;
           total = parseInt(countRes[0].c);
         } else {
-          rows = await listAdminChunks(sql, '', '', perPage, offset);
+          rows = await listAdminChunks(sql, '', '', perPage, offset, sort);
           const countRes = await sql`SELECT COUNT(*) as c FROM alma_chunks`;
           total = parseInt(countRes[0].c);
         }
-        result = { chunks: rows, total, page, perPage, totalPages: Math.ceil(total / perPage) };
+        result = { chunks: rows, total, page, perPage, totalPages: Math.ceil(total / perPage), sort };
         break;
       }
 

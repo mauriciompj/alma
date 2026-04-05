@@ -33,7 +33,7 @@ for (const chunk of chunks) {
       INSERT INTO alma_chunks (title, category, content, tags, source_file, char_count, chunk_index, search_vector)
       VALUES (${chunk.title}, ${chunk.category}, ${chunk.content}, ${chunk.tags || [chunk.category]}::TEXT[],
               ${chunk.source_file || 'import_json'}, ${chunk.content.length}, 0,
-              to_tsvector(${SEARCH_LANG}, ${chunk.title || ''} || ' ' || ${chunk.content}))
+              to_tsvector(CAST(${SEARCH_LANG} AS regconfig), ${chunk.title || ''} || ' ' || ${chunk.content}))
     `;
     ok++;
     process.stdout.write('.');

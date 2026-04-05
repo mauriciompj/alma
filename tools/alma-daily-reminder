@@ -1,0 +1,115 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# ============================================================================
+# alma-daily-reminder — Notificacao diaria "Como foi teu dia?"
+# ============================================================================
+
+set -e
+
+source "$(dirname "$0")/alma-lib.sh" 2>/dev/null || source "$PREFIX/bin/alma-lib.sh" 2>/dev/null || source "$HOME/bin/alma-lib.sh" 2>/dev/null || {
+  echo "ERRO: alma-lib.sh nao encontrado" >&2
+  exit 1
+}
+
+alma_load_config 2>/dev/null || true
+
+JOB_ID="${ALMA_DAILY_REMINDER_JOB_ID:-701}"
+PERIOD_MS="${ALMA_DAILY_REMINDER_PERIOD_MS:-3600000}"
+TARGET_HOUR="${ALMA_DAILY_REMINDER_HOUR:-21}"
+TARGET_MINUTE="${ALMA_DAILY_REMINDER_MINUTE:-0}"
+STATE_FILE="${HOME}/.cache/alma_daily_checkin_last_prompt"
+CAPTURE_SCRIPT="${HOME}/bin/alma-daily-capture"
+SAVE_SCRIPT="${HOME}/bin/alma-daily-save"
+NOTIF_ID="alma_daily_checkin"
+
+send_notification() {
+  local mark_sent="${1:-true}"
+  local reply_action="$SAVE_SCRIPT \"\$REPLY\""
+  local capture_action="$CAPTURE_SCRIPT"
+  local main_action="$reply_action"
+  local today
+
+  if ! command -v termux-notification >/dev/null 2>&1; then
+    echo "ERRO: termux-notification nao encontrado" >&2
+    return 1
+  fi
+
+  mkdir -p "${HOME}/.cache"
+  today=$(date +"%Y-%m-%d")
+  if [ "$mark_sent" = "true" ]; then
+    printf '%s' "$today" > "$STATE_FILE"
+  fi
+
+  termux-notification \
+    --id "$NOTIF_ID" \
+    --title "ALMA — Como foi teu dia?" \
+    --content "Toque para gravar ou responda aqui." \
+    --group alma \
+    --priority high \
+    --button1 "Responder" \
+    --button1-action "$reply_action" \
+    --button2 "Gravar" \
+    --button2-action "$capture_action" \
+    --action "$main_action"
+
+  alma_toast "ALMA: Check-in diario pronto" middle
+}
+
+install_job() {
+  if ! command -v termux-job-scheduler >/dev/null 2>&1; then
+    echo "ERRO: termux-job-scheduler nao encontrado" >&2
+    return 1
+  fi
+
+  termux-job-scheduler \
+    --job-id "$JOB_ID" \
+    --script "$0" \
+    --period-ms "$PERIOD_MS" \
+    --persisted true \
+    --battery-not-low false
+
+  echo "ALMA: lembrete diario agendado para ${TARGET_HOUR}:$(printf '%02d' "$TARGET_MINUTE")"
+}
+
+show_status() {
+  local last="nenhum"
+  [ -f "$STATE_FILE" ] && last=$(cat "$STATE_FILE" 2>/dev/null || echo "nenhum")
+  echo "Horario alvo: ${TARGET_HOUR}:$(printf '%02d' "$TARGET_MINUTE")"
+  echo "Ultimo lembrete enviado: $last"
+  if command -v termux-job-scheduler >/dev/null 2>&1; then
+    termux-job-scheduler --pending
+  fi
+}
+
+if [ "$1" = "--install" ]; then
+  install_job
+  exit 0
+fi
+
+if [ "$1" = "--force" ] || [ "$1" = "--test" ]; then
+  send_notification false
+  exit 0
+fi
+
+if [ "$1" = "--status" ]; then
+  show_status
+  exit 0
+fi
+
+if [ ! -x "$CAPTURE_SCRIPT" ] || [ ! -x "$SAVE_SCRIPT" ]; then
+  echo "ERRO: scripts do check-in diario nao encontrados em ~/bin" >&2
+  exit 1
+fi
+
+TODAY=$(date +"%Y-%m-%d")
+if [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE" 2>/dev/null || true)" = "$TODAY" ]; then
+  exit 0
+fi
+
+NOW_MINUTES=$((10#$(date +"%H") * 60 + 10#$(date +"%M")))
+TARGET_TOTAL=$((10#$TARGET_HOUR * 60 + 10#$TARGET_MINUTE))
+
+if [ "$NOW_MINUTES" -lt "$TARGET_TOTAL" ]; then
+  exit 0
+fi
+
+send_notification true

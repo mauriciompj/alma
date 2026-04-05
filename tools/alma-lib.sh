@@ -21,9 +21,7 @@ alma_load_config() {
 alma_check_creds() {
   if [ -z "$ALMA_USER" ] || [ -z "$ALMA_PASS" ]; then
     echo "ERRO: Configure ALMA_USER e ALMA_PASS em ~/.alma-env" >&2
-    if command -v termux-toast &>/dev/null; then
-      termux-toast -g bottom "ALMA: Configure ~/.alma-env"
-    fi
+    alma_toast "ALMA: Configure ~/.alma-env"
     return 1
   fi
 }
@@ -42,9 +40,13 @@ alma_login() {
     fi
   fi
 
-  local resp=$(curl -s --max-time 10 -X POST "$ALMA_URL/api/auth" \
+  local resp
+  if ! resp=$(curl -s --max-time 10 -X POST "$ALMA_URL/api/auth" \
     -H "Content-Type: application/json" \
-    -d "{\"action\":\"login\",\"username\":\"$ALMA_USER\",\"password\":\"$ALMA_PASS\"}")
+    -d "{\"action\":\"login\",\"username\":\"$ALMA_USER\",\"password\":\"$ALMA_PASS\"}"); then
+    echo "ERRO: Falha de rede no login" >&2
+    return 1
+  fi
 
   local token=$(echo "$resp" | jq -r '.token // empty')
   if [ -z "$token" ]; then
@@ -68,11 +70,12 @@ alma_ingest() {
   local tags_json="${4:-[]}"
   local source="${5:-termux}"
 
-  local token=$(alma_login)
+  local token
+  if ! token="$(alma_login)"; then return 1; fi
   if [ -z "$token" ]; then return 1; fi
 
-  local content_json=$(echo "$content" | jq -Rs .)
-  local title_json=$(echo "$title" | jq -Rs .)
+  local content_json=$(printf '%s' "$content" | jq -Rs .)
+  local title_json=$(printf '%s' "$title" | jq -Rs .)
 
   local retry=0
   local max_retry=3
@@ -80,7 +83,7 @@ alma_ingest() {
   local resp=""
 
   while [ $retry -lt $max_retry ]; do
-    resp=$(curl -s --max-time 30 -X POST "$ALMA_URL/api/ingest" \
+    if ! resp=$(curl -s --max-time 30 -X POST "$ALMA_URL/api/ingest" \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer $token" \
       -d "{
@@ -89,7 +92,9 @@ alma_ingest() {
         \"category\": \"$category\",
         \"tags\": $tags_json,
         \"source\": \"$source\"
-      }")
+      }"); then
+      resp='{"error":"Falha de rede ao enviar para o ALMA"}'
+    fi
 
     success=$(echo "$resp" | jq -r '.success // empty')
     if [ "$success" = "true" ]; then break; fi
@@ -112,7 +117,10 @@ alma_ingest() {
 # --- Toast helpers ---
 alma_toast() {
   if command -v termux-toast &>/dev/null; then
-    termux-toast -g "${2:-bottom}" "$1"
+    local bg="${ALMA_TOAST_BG:-#17324D}"
+    local fg="${ALMA_TOAST_FG:-#F5F7FA}"
+    termux-toast -g "${2:-bottom}" -b "$bg" -c "$fg" "$1" 2>/dev/null || \
+      termux-toast -g "${2:-bottom}" "$1"
   else
     echo "$1"
   fi
@@ -126,6 +134,32 @@ alma_notify() {
   if command -v termux-notification &>/dev/null; then
     termux-notification --id "${3:-alma}" --title "$1" --content "$2" --group alma
   fi
+}
+
+# --- Shared category picker for Termux share flows ---
+alma_pick_category() {
+  local prompt="${1:-ALMA — Categoria}"
+  local dialog index
+
+  dialog=$(termux-dialog sheet -t "$prompt" -v "Memorias pessoais,Valores,Fe,Paternidade,Relacionamentos,Familia,Profissao,Trauma,Identidade,Amor,Legado ALMA,Tecnologia/IA,Psicologia,Cancelar" 2>/dev/null || echo '{"index":-1}')
+  index=$(echo "$dialog" | jq -r '.index // -1')
+
+  case "$index" in
+    0) echo "memorias_pessoais" ;;
+    1) echo "valores" ;;
+    2) echo "fe" ;;
+    3) echo "paternidade" ;;
+    4) echo "relacionamentos" ;;
+    5) echo "familia" ;;
+    6) echo "profissao" ;;
+    7) echo "trauma" ;;
+    8) echo "identidade" ;;
+    9) echo "amor" ;;
+    10) echo "legado_alma" ;;
+    11) echo "tecnologia_ia" ;;
+    12) echo "psicologia" ;;
+    *) return 1 ;;
+  esac
 }
 
 # --- Auto-generate title ---

@@ -37,25 +37,10 @@ else
 fi
 
 # Escolher categoria
-DIALOG=$(termux-dialog sheet -t "ALMA — Salvar memoria" -v "Memorias pessoais,Valores,Fe,Paternidade,Relacionamentos,Familia,Profissao,Trauma,Identidade,Amor,Legado ALMA,Tecnologia/IA,Psicologia,Cancelar" 2>/dev/null || echo '{"index":-1}')
-INDEX=$(echo "$DIALOG" | jq -r '.index // -1')
-
-case "$INDEX" in
-  0) CATEGORY="memorias_pessoais" ;;
-  1) CATEGORY="valores" ;;
-  2) CATEGORY="fe" ;;
-  3) CATEGORY="paternidade" ;;
-  4) CATEGORY="relacionamentos" ;;
-  5) CATEGORY="familia" ;;
-  6) CATEGORY="profissao" ;;
-  7) CATEGORY="trauma" ;;
-  8) CATEGORY="identidade" ;;
-  9) CATEGORY="amor" ;;
-  10) CATEGORY="legado_alma" ;;
-  11) CATEGORY="tecnologia_ia" ;;
-  12) CATEGORY="psicologia" ;;
-  *) alma_toast "Cancelado."; exit 0 ;;
-esac
+CATEGORY=$(alma_pick_category "ALMA — Salvar memoria") || {
+  alma_toast "Cancelado."
+  exit 0
+}
 
 # Titulo opcional
 TITLE_DIALOG=$(termux-dialog text -t "Titulo (opcional)" -i "" 2>/dev/null || echo '{"text":""}')
@@ -65,7 +50,7 @@ alma_toast "ALMA: Enviando..." middle
 
 # Enviar via alma-send (handles auth, retry)
 if [ -n "$CUSTOM_TITLE" ]; then
-  echo "$SHARED" | alma-send -t "$CUSTOM_TITLE" -c "$CATEGORY" -s "android_share" -g "$CATEGORY,compartilhado"
+  printf '%s' "$SHARED" | alma-send -t "$CUSTOM_TITLE" -c "$CATEGORY" -s "android_share" -g "$CATEGORY,compartilhado"
 else
-  echo "$SHARED" | alma-send -c "$CATEGORY" -s "android_share" -g "$CATEGORY,compartilhado"
+  printf '%s' "$SHARED" | alma-send -c "$CATEGORY" -s "android_share" -g "$CATEGORY,compartilhado"
 fi
