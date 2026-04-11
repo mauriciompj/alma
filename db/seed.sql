@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS alma_chunks (
   chunk_index INTEGER DEFAULT 0,
   char_count INTEGER,
   search_vector TSVECTOR,
+  media_url TEXT,             -- v5 Dual-Save: canonical URL of the original binary (audio/image) in object storage
+  media_type VARCHAR(100),    -- v5 Dual-Save: MIME type of the preserved binary (e.g. 'audio/ogg', 'image/jpeg')
+  event_year INTEGER,         -- v6 Temporal Axis: year the narrated fact occurred (NOT the upload date). Nullable.
+  entities TEXT[] DEFAULT '{}', -- v6 Entity Graph: canonical names/places/concepts extracted from the chunk
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -62,6 +66,54 @@ CREATE TABLE IF NOT EXISTS alma_directives (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- =============================================================================
+-- v5 Migration — Dual-Save media grounding
+-- =============================================================================
+-- Idempotent additive upgrade for existing deploys. Safe to re-run.
+-- alma_documents is guarded with IF EXISTS because older installs may not have
+-- that table yet (ingest.mjs falls back gracefully when it's missing).
+-- =============================================================================
+
+ALTER TABLE IF EXISTS alma_chunks
+  ADD COLUMN IF NOT EXISTS media_url TEXT,
+  ADD COLUMN IF NOT EXISTS media_type VARCHAR(100);
+
+ALTER TABLE IF EXISTS alma_documents
+  ADD COLUMN IF NOT EXISTS media_url TEXT,
+  ADD COLUMN IF NOT EXISTS media_type VARCHAR(100);
+
+-- Partial index to quickly find memories that have (or lack) media grounding
+CREATE INDEX IF NOT EXISTS idx_alma_chunks_media_url
+  ON alma_chunks (media_url) WHERE media_url IS NOT NULL;
+
+-- =============================================================================
+-- v6 Migration — Temporal Axis + Entity Graph (Teia do Tempo e Entidade)
+-- =============================================================================
+-- First plumbing step toward a cognitive graph. This attack is strictly
+-- structural: it adds the columns and indexes, but does NOT introduce
+-- embeddings (pgvector) and does NOT wire any LLM extractor. The fields are
+-- optional on ingest and may be populated by clients (Termux, web admin) or
+-- by a future server-side extractor.
+--
+-- Idempotent additive upgrade for existing deploys. Safe to re-run.
+-- =============================================================================
+
+ALTER TABLE IF EXISTS alma_chunks
+  ADD COLUMN IF NOT EXISTS event_year INTEGER,
+  ADD COLUMN IF NOT EXISTS entities TEXT[] DEFAULT '{}';
+
+ALTER TABLE IF EXISTS alma_documents
+  ADD COLUMN IF NOT EXISTS event_year INTEGER,
+  ADD COLUMN IF NOT EXISTS entities TEXT[] DEFAULT '{}';
+
+-- GIN index for array containment / overlap queries (e.g. entities && ARRAY['Maurício'])
+CREATE INDEX IF NOT EXISTS idx_alma_chunks_entities
+  ON alma_chunks USING GIN (entities);
+
+-- Partial btree for time-range queries (e.g. "memories from 2024"); skips NULLs
+CREATE INDEX IF NOT EXISTS idx_alma_chunks_event_year
+  ON alma_chunks (event_year) WHERE event_year IS NOT NULL;
 
 -- =============================================================================
 -- Initial data: Create your first user

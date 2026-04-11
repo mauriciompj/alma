@@ -30,6 +30,14 @@ alma_check_creds() {
 _ALMA_TOKEN_CACHE="$HOME/.cache/alma_token"
 _ALMA_TOKEN_TTL=300
 
+# --- v5 Dual-Save: one-shot state file ---
+# Written by alma_transcribe_audio / alma_describe_image after a successful
+# upload of the original binary to S3/R2. Consumed (and deleted) by alma_ingest
+# in the next call, so the URL gets attached to the chunk row in Neon.
+# The subshell issue: TEXT=$(alma_transcribe_audio ...) runs in a subshell, so
+# exported globals don't propagate. A filesystem handoff does.
+_ALMA_MEDIA_STATE="$HOME/.cache/alma_last_media"
+
 alma_login() {
   # Check cache first
   if [ -f "$_ALMA_TOKEN_CACHE" ]; then
@@ -62,13 +70,26 @@ alma_login() {
 }
 
 # --- Send content to ALMA (with retry) ---
-# Usage: alma_ingest "content" "title" "category" "tags_json" "source"
+# Usage: alma_ingest "content" "title" "category" "tags_json" "source" [media_url] [media_type]
+#
+# v5 Dual-Save: if media_url/media_type aren't passed explicitly, alma_ingest
+# consumes (one-shot) the state file written by alma_transcribe_audio /
+# alma_describe_image. The state file is deleted after consumption so a later
+# text-only capture doesn't accidentally reattach stale media.
 alma_ingest() {
   local content="$1"
   local title="$2"
   local category="${3:-memorias_pessoais}"
   local tags_json="${4:-[]}"
   local source="${5:-termux}"
+  local media_url="${6:-}"
+  local media_type="${7:-}"
+
+  # Consume one-shot state from transcribe/describe if caller didn't pass explicitly.
+  if [ -z "$media_url" ] && [ -f "$_ALMA_MEDIA_STATE" ]; then
+    media_url=$(awk 'NR==1' "$_ALMA_MEDIA_STATE" 2>/dev/null)
+    media_type=$(awk 'NR==2' "$_ALMA_MEDIA_STATE" 2>/dev/null)
+  fi
 
   local token
   if ! token="$(alma_login)"; then return 1; fi
@@ -76,6 +97,16 @@ alma_ingest() {
 
   local content_json=$(printf '%s' "$content" | jq -Rs .)
   local title_json=$(printf '%s' "$title" | jq -Rs .)
+
+  # Serialize media fields as JSON — null if absent, quoted string if present.
+  local media_url_json="null"
+  local media_type_json="null"
+  if [ -n "$media_url" ]; then
+    media_url_json=$(printf '%s' "$media_url" | jq -Rs .)
+  fi
+  if [ -n "$media_type" ]; then
+    media_type_json=$(printf '%s' "$media_type" | jq -Rs .)
+  fi
 
   local retry=0
   local max_retry=3
@@ -91,7 +122,9 @@ alma_ingest() {
         \"title\": $title_json,
         \"category\": \"$category\",
         \"tags\": $tags_json,
-        \"source\": \"$source\"
+        \"source\": \"$source\",
+        \"media_url\": $media_url_json,
+        \"media_type\": $media_type_json
       }"); then
       resp='{"error":"Falha de rede ao enviar para o ALMA"}'
     fi
@@ -104,6 +137,10 @@ alma_ingest() {
       sleep $retry
     fi
   done
+
+  # One-shot: always clear state file so next ingest starts fresh,
+  # regardless of success/failure. Prevents stale-media reattachment.
+  rm -f "$_ALMA_MEDIA_STATE" 2>/dev/null
 
   if [ "$success" = "true" ]; then
     echo "$resp"
@@ -171,10 +208,77 @@ alma_auto_title() {
   echo "$prefix $date_str — $preview..."
 }
 
+# --- Upload original binary to S3/R2 (v5 Dual-Save) ---
+# Usage: alma_upload_media "/path/to/file" [mime-type]
+# Env required (all in ~/.alma-env):
+#   ALMA_S3_BUCKET         — bucket name (e.g. "alma-memorias")
+#   ALMA_S3_ENDPOINT       — endpoint URL (e.g. "https://<account>.r2.cloudflarestorage.com")
+#   ALMA_S3_PUBLIC_BASE    — public URL prefix (e.g. "https://media.meudominio.com"
+#                             or the R2 pub-*.r2.dev URL)
+#   AWS_ACCESS_KEY_ID      — aws-cli credentials (R2 token with write access)
+#   AWS_SECRET_ACCESS_KEY  —
+#   ALMA_S3_PREFIX         — optional key prefix (default: "alma-media/")
+#   AWS_REGION             — optional, default "auto" for R2
+# Returns: public URL on stdout; empty + non-zero exit on failure (non-fatal).
+# Install aws-cli on Termux:  pkg install python && pip install awscli
+alma_upload_media() {
+  local file="$1"
+  local mime="${2:-application/octet-stream}"
+
+  if [ ! -f "$file" ]; then
+    echo "ERRO: Arquivo nao encontrado para upload: $file" >&2
+    return 1
+  fi
+  if [ -z "$ALMA_S3_BUCKET" ] || [ -z "$ALMA_S3_ENDPOINT" ] || [ -z "$ALMA_S3_PUBLIC_BASE" ]; then
+    echo "AVISO: S3 nao configurado (ALMA_S3_BUCKET/ALMA_S3_ENDPOINT/ALMA_S3_PUBLIC_BASE). Upload ignorado." >&2
+    return 1
+  fi
+  if ! command -v aws &>/dev/null; then
+    echo "AVISO: aws-cli nao instalado (pkg install python && pip install awscli). Upload ignorado." >&2
+    return 1
+  fi
+
+  local prefix="${ALMA_S3_PREFIX:-alma-media/}"
+  prefix="${prefix%/}/"
+  local base
+  base=$(basename "$file")
+  # Key: <prefix>YYYY/MM/<epoch>_<basename> — time-partitioned + collision-safe
+  local key="${prefix}$(date +%Y/%m)/$(date +%s)_${base}"
+  local s3_uri="s3://${ALMA_S3_BUCKET}/${key}"
+
+  # aws-cli writes progress to stderr; --only-show-errors mutes success spam.
+  # Region defaults to 'auto' for Cloudflare R2.
+  if ! aws s3 cp "$file" "$s3_uri" \
+    --endpoint-url "$ALMA_S3_ENDPOINT" \
+    --content-type "$mime" \
+    --region "${AWS_REGION:-auto}" \
+    --only-show-errors >&2; then
+    echo "ERRO: Upload S3 falhou para $file" >&2
+    return 1
+  fi
+
+  local public_base="${ALMA_S3_PUBLIC_BASE%/}"
+  echo "${public_base}/${key}"
+}
+
+# --- Internal: record dual-save state for the next alma_ingest ---
+# Always overwrites. Empty values mean "no media attached to next ingest".
+_alma_write_media_state() {
+  local url="$1"
+  local mime="$2"
+  mkdir -p "$(dirname "$_ALMA_MEDIA_STATE")" 2>/dev/null
+  printf '%s\n%s\n' "$url" "$mime" > "$_ALMA_MEDIA_STATE" 2>/dev/null || true
+}
+
 # --- Transcribe audio file via Google Gemini API ---
 # Usage: alma_transcribe_audio "/path/to/audio.ogg"
 # Requires: GEMINI_API_KEY in ~/.alma-env
 # Returns: transcription text on stdout, empty on failure
+#
+# DUAL-SAVE CONTRACT (v5): the caller's original binary file is NEVER deleted
+# by this function. On successful transcription, the binary is uploaded via
+# alma_upload_media() and its public URL + MIME are written to the one-shot
+# state file for the next alma_ingest() call to consume.
 alma_transcribe_audio() {
   local file="$1"
   if [ -z "$GEMINI_API_KEY" ]; then
@@ -240,8 +344,17 @@ alma_transcribe_audio() {
     local err
     err=$(echo "$resp" | jq -r '.error.message // empty' 2>/dev/null)
     echo "ERRO: Gemini falhou${err:+ — $err}" >&2
+    # Clear any stale dual-save state so a later ingest doesn't attach wrong media
+    _alma_write_media_state "" ""
     return 1
   fi
+
+  # v5 Dual-Save: upload ORIGINAL binary (never the resized/normalized copy).
+  # Best-effort — if S3 isn't configured or upload fails, we still return the
+  # transcription and ingest proceeds text-only (no regression vs. v4 behavior).
+  local _media_url=""
+  _media_url=$(alma_upload_media "$file" "$mime" 2>/dev/null) || _media_url=""
+  _alma_write_media_state "$_media_url" "$mime"
 
   echo "$text"
 }
@@ -250,6 +363,12 @@ alma_transcribe_audio() {
 # Usage: alma_describe_image "/path/to/image.jpg"
 # Requires: ANTHROPIC_API_KEY in ~/.alma-env
 # Returns: description text on stdout, empty on failure
+#
+# DUAL-SAVE CONTRACT (v5): the caller's original binary file is NEVER deleted
+# by this function. On successful description, the ORIGINAL (not the resized
+# copy sent to Claude Vision) is uploaded via alma_upload_media() and its
+# public URL + MIME are written to the one-shot state file for the next
+# alma_ingest() call to consume.
 alma_describe_image() {
   local file="$1"
   if [ -z "$ANTHROPIC_API_KEY" ]; then
@@ -350,8 +469,20 @@ img.save('$tmpresized', 'JPEG', quality=75)
     local err
     err=$(echo "$resp" | jq -r '.error.message // empty' 2>/dev/null)
     echo "ERRO: Claude Vision falhou${err:+ — $err}" >&2
+    # Clear any stale dual-save state so a later ingest doesn't attach wrong media
+    _alma_write_media_state "" ""
     return 1
   fi
+
+  # v5 Dual-Save: upload the ORIGINAL "$file" (full resolution), NOT "$srcfile"
+  # which may be the downsampled $tmpresized variant sent to Claude Vision.
+  # We re-detect the true MIME of the original since $mime was normalized to
+  # a Claude-compatible subset above.
+  local _orig_mime
+  _orig_mime=$(file --mime-type -b "$file" 2>/dev/null || echo "$mime")
+  local _media_url=""
+  _media_url=$(alma_upload_media "$file" "$_orig_mime" 2>/dev/null) || _media_url=""
+  _alma_write_media_state "$_media_url" "$_orig_mime"
 
   echo "$text"
 }
